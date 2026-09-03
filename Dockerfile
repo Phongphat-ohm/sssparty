@@ -25,6 +25,8 @@ RUN bun run prisma generate
 # Build Next.js in Standalone Mode
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+ENV JWT_SECRET="placeholder-build-jwt-secret-at-least-32-chars-long"
 RUN bun run build
 
 # 4. Production Runner Stage

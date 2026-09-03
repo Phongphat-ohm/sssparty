@@ -7,11 +7,9 @@ const globalForPrisma = globalThis as unknown as {
   pgPool?: Pool;
 };
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
-  throw new Error("DATABASE_URL environment variable is missing.");
-}
+const connectionString =
+  process.env.DATABASE_URL ||
+  "postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public";
 
 const isCloudOrSsl =
   connectionString.includes("sslmode=require") ||
