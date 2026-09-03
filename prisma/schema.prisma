@@ -1,0 +1,274 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  STUDENT
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum AssignmentStatus {
+  DRAFT
+  PUBLISHED
+  CLOSED
+}
+
+enum SubmissionType {
+  FILE
+  LINK
+  QUESTIONS
+}
+
+enum SubmissionStatus {
+  DRAFT
+  SUBMITTED
+  LATE
+  GRADED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  LATE
+  LEAVE
+  ABSENT
+}
+
+model User {
+  id           String     @id @default(cuid())
+  username     String     @unique
+  passwordHash String?
+  role         Role       @default(STUDENT)
+  status       UserStatus @default(ACTIVE)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  student                    Student?
+  createdAssignments         Assignment[]        @relation("AssignmentCreator")
+  gradesGiven                Grade[]             @relation("TeacherGrader")
+  createdAttendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
+
+  @@map("users")
+}
+
+model Student {
+  id            String     @id @default(cuid())
+  userId        String     @unique
+  studentCode   String     @unique
+  firstName     String
+  lastName      String
+  className     String
+  studentNumber Int
+  status        UserStatus @default(ACTIVE)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  submissions       Submission[]
+  attendanceRecords AttendanceRecord[]
+
+  @@unique([className, studentNumber])
+  @@index([studentCode])
+  @@index([className])
+  @@map("students")
+}
+
+model Assignment {
+  id             String           @id @default(cuid())
+  title          String
+  description    String           @db.Text
+  maxScore       Float
+  dueDate        DateTime
+  status         AssignmentStatus @default(DRAFT)
+  submissionType SubmissionType   @default(FILE)
+  createdById    String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  creator     User                   @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  rubrics     AssignmentRubric[]
+  submissions Submission[]
+  attachments AssignmentAttachment[]
+  questions   AssignmentQuestion[]
+
+  @@index([status])
+  @@index([dueDate])
+  @@map("assignments")
+}
+
+model AssignmentAttachment {
+  id           String   @id @default(cuid())
+  assignmentId String
+  fileKey      String
+  fileName     String
+  fileSize     Int
+  mimeType     String
+  createdAt    DateTime @default(now())
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId])
+  @@map("assignment_attachments")
+}
+
+model AssignmentQuestion {
+  id           String   @id @default(cuid())
+  assignmentId String
+  questionText String   @db.Text
+  hint         String?  @db.Text
+  imageKey     String?
+  imageUrl     String?
+  isRequired   Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  assignment Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  answers    QuestionAnswer[]
+
+  @@index([assignmentId])
+  @@map("assignment_questions")
+}
+
+model AssignmentRubric {
+  id           String   @id @default(cuid())
+  assignmentId String
+  name         String
+  description  String?  @db.Text
+  maxScore     Float
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  assignment   Assignment    @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  rubricScores RubricScore[]
+
+  @@index([assignmentId])
+  @@map("assignment_rubrics")
+}
+
+model Submission {
+  id             String           @id @default(cuid())
+  assignmentId   String
+  studentId      String
+  submissionType SubmissionType   @default(FILE)
+  fileKey        String?
+  fileName       String?
+  fileSize       Int?
+  mimeType       String?
+  linkUrl        String?          @db.Text
+  comment        String?          @db.Text
+  submittedAt    DateTime         @default(now())
+  status         SubmissionStatus @default(SUBMITTED)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  assignment Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
+  student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  grade      Grade?
+  answers    QuestionAnswer[]
+
+  @@unique([assignmentId, studentId])
+  @@index([assignmentId])
+  @@index([studentId])
+  @@index([status])
+  @@map("submissions")
+}
+
+model QuestionAnswer {
+  id           String   @id @default(cuid())
+  submissionId String
+  questionId   String
+  answerText   String   @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission Submission         @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  question   AssignmentQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([submissionId, questionId])
+  @@index([submissionId])
+  @@index([questionId])
+  @@map("question_answers")
+}
+
+model Grade {
+  id           String   @id @default(cuid())
+  submissionId String   @unique
+  score        Float
+  feedback     String?  @db.Text
+  gradedById   String
+  gradedAt     DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  submission   Submission    @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+  gradedBy     User          @relation("TeacherGrader", fields: [gradedById], references: [id], onDelete: Restrict)
+  rubricScores RubricScore[]
+
+  @@index([gradedById])
+  @@map("grades")
+}
+
+model RubricScore {
+  id        String   @id @default(cuid())
+  gradeId   String
+  rubricId  String
+  score     Float
+  note      String?  @db.Text
+  createdAt DateTime @default(now())
+
+  grade  Grade            @relation(fields: [gradeId], references: [id], onDelete: Cascade)
+  rubric AssignmentRubric @relation(fields: [rubricId], references: [id], onDelete: Restrict)
+
+  @@unique([gradeId, rubricId])
+  @@index([gradeId])
+  @@index([rubricId])
+  @@map("rubric_scores")
+}
+
+model AttendanceSession {
+  id           String             @id @default(cuid())
+  title        String
+  date         DateTime
+  academicTerm String             @default("1/2569")
+  note         String?            @db.Text
+  createdById  String
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  creator User               @relation("AttendanceCreator", fields: [createdById], references: [id], onDelete: Restrict)
+  records AttendanceRecord[]
+
+  @@index([date])
+  @@index([academicTerm])
+  @@map("attendance_sessions")
+}
+
+model AttendanceRecord {
+  id        String           @id @default(cuid())
+  sessionId String
+  studentId String
+  status    AttendanceStatus @default(PRESENT)
+  note      String?          @db.Text
+  checkedAt DateTime         @default(now())
+
+  session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  student Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, studentId])
+  @@index([sessionId])
+  @@index([studentId])
+  @@index([status])
+  @@map("attendance_records")
+}
