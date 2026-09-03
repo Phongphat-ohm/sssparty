@@ -135,10 +135,10 @@ bun run dev
 # รันเซิร์ฟเวอร์สำหรับการพัฒนา (Development)
 bun run dev
 
-# คอมไพล์โปรเจกต์สำหรับ Production ในโหมด Standalone
+# คอมไพล์โปรเจกต์สำหรับ Production (รัน prisma generate ก่อน next build อัตโนมัติ)
 bun run build
 
-# สตาร์ต Production Server
+# สตาร์ต Production Server (รัน prisma migrate deploy ก่อน next start อัตโนมัติ)
 bun run start
 
 # นำการเปลี่ยนแปลง Database Migration ไปปรับใช้จริง
@@ -147,7 +147,7 @@ bun run db:deploy
 # สั่งสร้าง Prisma Client ใหม่
 bun run db:generate
 
-# นำเข้าข้อมูลเริ่มต้น (Seed Data)
+# นำเข้าบัญชีผู้ดูแลระบบ Admin เริ่มต้นสำหรับเข้าใช้งานครั้งแรก
 bun run db:seed
 ```
 
