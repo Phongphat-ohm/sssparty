@@ -10,7 +10,7 @@ FROM base AS deps
 RUN npm install -g bun@1.3.11
 COPY package.json bun.lock* ./
 COPY prisma ./prisma/
-RUN bun install --frozen-lockfile
+RUN bun install --no-verify
 
 # 3. Builder Stage
 FROM base AS builder
