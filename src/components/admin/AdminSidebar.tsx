@@ -16,6 +16,7 @@ import {
   Sparkles,
   Settings,
   Calendar,
+  UserCog,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 
@@ -57,6 +58,11 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
       name: "รายชื่อนักเรียนในชุมนุม",
       href: "/admin/students",
       icon: Users,
+    },
+    {
+      name: "จัดการบัญชีผู้ใช้ (Users)",
+      href: "/admin/users",
+      icon: UserCog,
     },
     {
       name: "ตั้งค่าระบบ & รหัสผ่าน",

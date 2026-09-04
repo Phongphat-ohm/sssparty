@@ -30,6 +30,7 @@ export function AdminNavbar({ adminName }: AdminNavbarProps) {
     if (path === "/admin/submissions") return "ห้องตรวจงาน (Grading Studio)";
     if (path.startsWith("/admin/submissions/")) return "ห้องตรวจงานรายบุคคล";
     if (path === "/admin/students") return "รายชื่อสมาชิกชุมนุม";
+    if (path === "/admin/users") return "จัดการบัญชีผู้ใช้ (User Management)";
     if (path === "/admin/attendance") return "ระบบเช็กชื่อกิจกรรม";
     if (path.startsWith("/admin/attendance/")) return "ห้องเช็กชื่อกิจกรรม";
     if (path === "/admin/settings") return "ตั้งค่าระบบ & รหัสผ่าน";

@@ -29,6 +29,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+errorlog.txt
+*.log
 
 # env files (keep credentials secret, allow template)
 .env*

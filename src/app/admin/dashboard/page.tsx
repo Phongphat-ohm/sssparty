@@ -13,6 +13,7 @@ import {
   AlertCircle,
   GraduationCap,
   BarChart3,
+  UserCog,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
 import Link from "next/link";
@@ -150,6 +151,14 @@ export default async function AdminDashboardPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/users"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#5A4D41] bg-white border border-[#D9CABB] hover:border-[#D9A441] hover:text-[#D9A441] transition-all shadow-2xs"
+          >
+            <UserCog className="w-4 h-4" />
+            <span>จัดการผู้ใช้</span>
+          </Link>
+
           <Link
             href="/admin/students"
             className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-[#5A4D41] bg-white border border-[#D9CABB] hover:border-[#D9A441] hover:text-[#D9A441] transition-all shadow-2xs"
