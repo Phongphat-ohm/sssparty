@@ -31,6 +31,7 @@ export default async function StudentAssignmentsPage() {
       title: a.title,
       description: a.description,
       maxScore: a.maxScore,
+      submissionType: a.submissionType as any,
       dueDate: a.dueDate.toISOString(),
       rubricCount: a.rubrics.length,
       submission: sub

@@ -11,11 +11,11 @@ export default async function HomePage() {
       <header className="bg-white/80 backdrop-blur-md border-b border-[#EADBCC] sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-2xl bg-[#D9A441] text-white flex items-center justify-center font-bold text-lg shadow-sm">
-              S
+            <div className="w-10 h-10 rounded-2xl bg-[#D9A441] text-white flex items-center justify-center font-bold text-sm shadow-sm">
+              3S
             </div>
             <div>
-              <span className="font-bold text-lg text-[#3F342B] tracking-tight">SSSParty</span>
+              <span className="font-bold text-lg text-[#3F342B] tracking-tight">3S Party</span>
               <span className="block text-[11px] text-[#7A6A5C] -mt-1 font-medium">ชุมนุมสื่อสร้างสรรค์</span>
             </div>
           </div>
@@ -132,7 +132,7 @@ export default async function HomePage() {
 
       {/* Footer */}
       <footer className="border-t border-[#EADBCC] py-6 text-center text-xs text-[#A8988B] bg-white">
-        ชุมนุมสื่อสร้างสรรค์ (SSSParty) • ระบบส่งงานแบบ Classroom ขนาดกะทัดรัด ปลอดภัยสูง
+        ชุมนุมสื่อสร้างสรรค์ (ระบบ 3S Party) • ระบบส่งงานแบบ Classroom ขนาดกะทัดรัด ปลอดภัยสูง
       </footer>
     </div>
   );

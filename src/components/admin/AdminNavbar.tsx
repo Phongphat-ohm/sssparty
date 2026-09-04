@@ -44,7 +44,7 @@ export function AdminNavbar({ adminName }: AdminNavbarProps) {
       {/* Left: Breadcrumb & Title */}
       <div className="flex items-center gap-2 overflow-hidden">
         <div className="flex items-center gap-1.5 text-xs text-[#7A6A5C]">
-          <span className="font-semibold hidden sm:inline">SSSParty</span>
+          <span className="font-semibold hidden sm:inline">3S Party</span>
           <ChevronRight className="w-3.5 h-3.5 text-[#D9CABB] hidden sm:inline" />
           <span className="font-bold text-[#3F342B] truncate">{pageTitle}</span>
         </div>

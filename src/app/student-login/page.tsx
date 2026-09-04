@@ -33,7 +33,7 @@ export default function StudentLoginPage() {
           </h1>
           <p className="text-sm text-[#7A6A5C] flex items-center justify-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[#D9A441]" />
-            ชุมนุมสื่อสร้างสรรค์ (SSSParty)
+            ชุมนุมสื่อสร้างสรรค์ (ระบบ 3S Party)
           </p>
         </div>
 
@@ -78,7 +78,7 @@ export default function StudentLoginPage() {
                   type="text"
                   required
                   autoComplete="off"
-                  placeholder="เช่น ม.4/1"
+                  placeholder="เช่น 4/1"
                   className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
                 />
               </div>
@@ -94,7 +94,7 @@ export default function StudentLoginPage() {
                 min="1"
                 required
                 autoComplete="off"
-                placeholder="เลขที่"
+                placeholder="กรอกรหัสนักเรียนอีกครั้ง"
                 className="w-full px-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
               />
             </div>

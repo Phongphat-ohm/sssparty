@@ -44,3 +44,9 @@ errorlog.txt
 next-env.d.ts
 
 /src/generated/prisma
+
+# agents & IDE
+.agents/
+.claude/
+.windsurf/
+skills-lock.json

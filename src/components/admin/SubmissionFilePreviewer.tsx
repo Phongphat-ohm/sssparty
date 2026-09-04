@@ -21,6 +21,8 @@ import {
   Link2,
   HelpCircle,
   Clock,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { getFileTypeCategory } from "@/lib/s3/file-validator";
 
@@ -62,6 +64,7 @@ export function SubmissionFilePreviewer({
   const [zoomLevel, setZoomLevel] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [hasPreviewError, setHasPreviewError] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const isDraft = status === "DRAFT";
 
@@ -208,8 +211,31 @@ export function SubmissionFilePreviewer({
               <ExternalLink className="w-3.5 h-3.5" />
             </a>
           )}
+
+          {/* Collapse/Expand Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white border border-[#D9CABB] text-xs font-semibold text-[#5A4D41] hover:border-[#D9A441] hover:text-[#D9A441] transition-all shadow-2xs cursor-pointer"
+            title={isCollapsed ? "แสดงตัวอย่างผลงาน" : "ย่อเก็บตัวอย่างผลงาน"}
+          >
+            {isCollapsed ? (
+              <>
+                <ChevronDown className="w-3.5 h-3.5 text-[#D9A441]" />
+                <span>แสดงตัวอย่าง</span>
+              </>
+            ) : (
+              <>
+                <ChevronUp className="w-3.5 h-3.5 text-[#7A6A5C]" />
+                <span className="hidden sm:inline">ย่อเก็บ</span>
+              </>
+            )}
+          </button>
         </div>
       </div>
+
+      {!isCollapsed && (
+        <>
 
       {/* Draft Notification in Previewer */}
       {isDraft && (
@@ -596,6 +622,8 @@ export function SubmissionFilePreviewer({
           {comment ? `"${comment}"` : "(ไม่ได้แนบข้อความเพิ่มเติม)"}
         </p>
       </div>
+      </>
+      )}
     </div>
   );
 }

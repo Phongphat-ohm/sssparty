@@ -9,8 +9,8 @@ const kanit = Kanit({
 });
 
 export const metadata: Metadata = {
-  title: "SSSParty — ชุมนุมสื่อสร้างสรรค์",
-  description: "ระบบส่งงานและตรวจงานสำหรับชุมนุมสื่อสร้างสรรค์",
+  title: "ระบบ 3S Party — ชุมนุมสื่อสร้างสรรค์",
+  description: "ระบบ 3S Party — ส่งงานและตรวจงานสำหรับชุมนุมสื่อสร้างสรรค์",
 };
 
 export default function RootLayout({

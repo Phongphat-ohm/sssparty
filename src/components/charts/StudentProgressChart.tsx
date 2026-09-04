@@ -1,6 +1,7 @@
 "use client";
 
-import { Award, CheckCircle2, Clock } from "lucide-react";
+import { useState } from "react";
+import { Award, CheckCircle2, Clock, ChevronDown, ChevronUp, TrendingUp } from "lucide-react";
 
 interface StudentAssignmentScore {
   id: string;
@@ -14,13 +15,18 @@ interface StudentProgressChartProps {
   title: string;
   subtitle?: string;
   scores: StudentAssignmentScore[];
+  collapsible?: boolean;
+  defaultExpanded?: boolean;
 }
 
 export function StudentProgressChart({
   title,
   subtitle,
   scores,
+  collapsible = false,
+  defaultExpanded = false,
 }: StudentProgressChartProps) {
+  const [isExpanded, setIsExpanded] = useState(!collapsible || defaultExpanded);
   if (!scores || scores.length === 0) {
     return (
       <div className="bg-white rounded-3xl p-6 border border-[#EADBCC] shadow-xs text-center text-[#7A6A5C] text-xs">
@@ -37,26 +43,59 @@ export function StudentProgressChart({
   return (
     <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCC] shadow-xs space-y-4">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#F2E8DC] pb-3">
-        <div>
-          <h3 className="font-bold text-[#3F342B] text-sm sm:text-base flex items-center gap-2">
-            <Award className="w-4 h-4 text-[#D9A441]" />
-            {title}
-          </h3>
-          {subtitle && <p className="text-[11px] text-[#7A6A5C]">{subtitle}</p>}
+      <div
+        className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 ${
+          isExpanded ? "border-b border-[#F2E8DC] pb-3" : ""
+        } ${collapsible ? "cursor-pointer select-none" : ""}`}
+        onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}
+      >
+        <div className="flex items-center justify-between sm:justify-start gap-3 w-full sm:w-auto">
+          <div>
+            <h3 className="font-bold text-[#3F342B] text-sm sm:text-base flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#D9A441]" />
+              {title}
+            </h3>
+            {subtitle && <p className="text-[11px] text-[#7A6A5C]">{subtitle}</p>}
+          </div>
+
+          {collapsible && (
+            <button
+              type="button"
+              className="sm:hidden p-1.5 rounded-lg hover:bg-[#FAF0E1] text-[#7A6A5C]"
+              aria-label="Toggle Chart"
+            >
+              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+          )}
         </div>
 
-        {totalMax > 0 && (
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
+          {totalMax > 0 && (
             <span className="text-xs font-bold px-3 py-1 rounded-full bg-[#FAF0E1] text-[#8C5D23] border border-[#EADBCC]">
               ผลสัมฤทธิ์รวม: {totalEarned}/{totalMax} ({overallPercent}%)
             </span>
-          </div>
-        )}
+          )}
+
+          {collapsible && (
+            <span className="hidden sm:inline-flex items-center gap-1 text-xs text-[#8C5D23] font-semibold hover:underline">
+              {isExpanded ? (
+                <>
+                  <span>ย่อเก็บ</span>
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </>
+              ) : (
+                <>
+                  <span>แสดงสถิติ</span>
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </>
+              )}
+            </span>
+          )}
+        </div>
       </div>
 
-      {/* Progress Bars for each assignment */}
-      <div className="space-y-4">
+      {isExpanded && (
+        <div className="space-y-4">
         {scores.map((item) => {
           const isGraded = item.status === "GRADED" && item.earnedScore !== null && item.earnedScore !== undefined;
           const isSubmitted = item.status === "SUBMITTED";
@@ -109,6 +148,7 @@ export function StudentProgressChart({
           );
         })}
       </div>
+      )}
     </div>
   );
 }

@@ -27,7 +27,7 @@ export default async function StudentLayout({
           className={className}
           studentNumber={studentNumber}
         />
-        <main className="max-w-4xl mx-auto px-4 py-6 sm:py-8 pb-24 md:pb-12">
+        <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 md:pb-12">
           {children}
         </main>
       </div>

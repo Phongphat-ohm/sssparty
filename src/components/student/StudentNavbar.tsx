@@ -45,7 +45,7 @@ export function StudentNavbar({
 
   return (
     <header className="bg-white/90 backdrop-blur-md border-b border-[#EADBCC] sticky top-0 z-30 shadow-xs">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between gap-2">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-2">
         {/* Brand */}
         <Link href="/student/dashboard" className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-xl bg-[#D9A441] text-white flex items-center justify-center font-bold text-sm shadow-xs">
@@ -54,7 +54,7 @@ export function StudentNavbar({
           <div>
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-sm sm:text-base text-[#3F342B] tracking-tight">
-                SSSParty
+                3S Party
               </span>
               <span className="hidden sm:inline-block text-[10px] font-semibold bg-[#FAF0E1] text-[#8C5D23] px-2 py-0.5 rounded-full border border-[#EADBCC]">
                 นักเรียน

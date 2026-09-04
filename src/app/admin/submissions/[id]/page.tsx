@@ -139,7 +139,7 @@ export default async function TeacherGradingStudioPage({
       {/* Split-Screen Layout */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         {/* จอฝั่งซ้าย (55%): Live Previewer (รองรับ File, Link, Questions) */}
-        <div className="lg:col-span-7 h-full sticky top-4">
+        <div className="lg:col-span-7 h-full">
           <SubmissionFilePreviewer
             submissionType={submission.submissionType}
             status={submission.status}

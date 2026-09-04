@@ -14,6 +14,11 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Send,
+  Link2,
+  HelpCircle,
+  X,
+  Edit3,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
@@ -24,10 +29,11 @@ export interface StudentAssignmentItem {
   description: string;
   maxScore: number;
   dueDate: string;
+  submissionType?: "FILE" | "LINK" | "QUESTIONS";
   rubricCount: number;
   submission?: {
     id: string;
-    status: "SUBMITTED" | "LATE" | "GRADED";
+    status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED";
     score?: number | null;
   } | null;
 }
@@ -39,7 +45,7 @@ interface StudentAssignmentsClientProps {
 export function StudentAssignmentsClient({
   assignments,
 }: StudentAssignmentsClientProps) {
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [statusFilter, setStatusFilter] = useState<string>("TODO");
   const [searchQuery, setSearchQuery] = useState("");
 
   // Sort & Pagination
@@ -62,20 +68,27 @@ export function StudentAssignmentsClient({
     setCurrentPage(1);
   };
 
-  const pendingCount = assignments.filter((a) => !a.submission).length;
-  const submittedCount = assignments.filter(
-    (a) => a.submission?.status === "SUBMITTED"
+  // Counts
+  const todoCount = assignments.filter(
+    (a) => !a.submission || a.submission.status === "DRAFT"
   ).length;
-  const gradedCount = assignments.filter((a) => a.submission?.status === "GRADED").length;
-  const lateCount = assignments.filter((a) => a.submission?.status === "LATE").length;
+  const inReviewCount = assignments.filter(
+    (a) => a.submission?.status === "SUBMITTED" || a.submission?.status === "LATE"
+  ).length;
+  const gradedCount = assignments.filter(
+    (a) => a.submission?.status === "GRADED"
+  ).length;
 
   const filtered = assignments.filter((a) => {
     const sub = a.submission;
     let matchStatus = true;
-    if (statusFilter === "PENDING") matchStatus = !sub;
-    else if (statusFilter === "SUBMITTED") matchStatus = sub?.status === "SUBMITTED";
-    else if (statusFilter === "GRADED") matchStatus = sub?.status === "GRADED";
-    else if (statusFilter === "LATE") matchStatus = sub?.status === "LATE";
+    if (statusFilter === "TODO") {
+      matchStatus = !sub || sub.status === "DRAFT";
+    } else if (statusFilter === "IN_REVIEW") {
+      matchStatus = sub?.status === "SUBMITTED" || sub?.status === "LATE";
+    } else if (statusFilter === "GRADED") {
+      matchStatus = sub?.status === "GRADED";
+    }
 
     const q = searchQuery.toLowerCase().trim();
     const matchSearch =
@@ -106,39 +119,50 @@ export function StudentAssignmentsClient({
 
   return (
     <div className="space-y-5">
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-[#EADBCC] shadow-2xs space-y-3">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          {/* Status Tabs */}
-          <div className="flex flex-wrap items-center gap-1.5">
+      {/* 1. Filter and Search Bar */}
+      <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCC] shadow-xs space-y-3.5">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          {/* Action-Oriented Status Tabs */}
+          <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC]">
             {[
-              { key: "ALL", label: `ทั้งหมด (${assignments.length})` },
-              { key: "PENDING", label: `ยังไม่ส่ง (${pendingCount})` },
-              { key: "SUBMITTED", label: `รอตรวจ (${submittedCount})` },
-              { key: "GRADED", label: `ตรวจแล้ว (${gradedCount})` },
-              { key: "LATE", label: `ส่งช้า (${lateCount})` },
-            ].map((st) => (
-              <button
-                key={st.key}
-                type="button"
-                onClick={() => {
-                  setStatusFilter(st.key);
-                  setCurrentPage(1);
-                }}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  statusFilter === st.key
-                    ? "bg-[#D9A441] text-white shadow-2xs"
-                    : "bg-[#FAF6F0] text-[#7A6A5C] hover:bg-[#FAF0E1]"
-                }`}
-              >
-                {st.label}
-              </button>
-            ))}
+              { key: "TODO", label: "งานที่ต้องทำ (To-Do)", count: todoCount },
+              { key: "IN_REVIEW", label: "รอตรวจ", count: inReviewCount },
+              { key: "GRADED", label: "ตรวจแล้ว", count: gradedCount },
+              { key: "ALL", label: "ทั้งหมด", count: assignments.length },
+            ].map((tab) => {
+              const isActive = statusFilter === tab.key;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setStatusFilter(tab.key);
+                    setCurrentPage(1);
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                    isActive
+                      ? "bg-[#D9A441] text-white shadow-xs"
+                      : "text-[#7A6A5C] hover:text-[#3F342B] hover:bg-white/80"
+                  }`}
+                >
+                  <span>{tab.label}</span>
+                  <span
+                    className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
+                      isActive
+                        ? "bg-white/25 text-white"
+                        : "bg-[#EADBCC] text-[#7A6A5C]"
+                    }`}
+                  >
+                    {tab.count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Search */}
-          <div className="relative w-full sm:w-60">
-            <Search className="w-4 h-4 text-[#A8988B] absolute left-3 top-1/2 -translate-y-1/2" />
+          {/* Search Input */}
+          <div className="relative w-full md:w-64">
+            <Search className="w-4 h-4 text-[#A8988B] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
@@ -147,13 +171,22 @@ export function StudentAssignmentsClient({
                 setCurrentPage(1);
               }}
               placeholder="ค้นหาภาระงาน..."
-              className="w-full pl-9 pr-3.5 py-1.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+              className="w-full pl-9.5 pr-8 py-2 rounded-2xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] placeholder-[#A8988B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A8988B] hover:text-[#3F342B] p-0.5 rounded-md"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
         </div>
 
         {/* Sorting Pills */}
-        <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F2E8DC] text-xs">
+        <div className="flex flex-wrap items-center gap-2 pt-2.5 border-t border-[#F2E8DC] text-xs">
           <span className="text-[#7A6A5C] font-semibold text-[11px]">เรียงลำดับตาม:</span>
           {[
             { field: "dueDate", label: "กำหนดส่ง" },
@@ -166,7 +199,7 @@ export function StudentAssignmentsClient({
                 key={item.field}
                 type="button"
                 onClick={() => handleSort(item.field)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   isCurrent
                     ? "bg-[#FAF0E1] text-[#8C5D23] border border-[#D9CABB]"
                     : "text-[#7A6A5C] hover:bg-[#FAF6F0]"
@@ -188,23 +221,26 @@ export function StudentAssignmentsClient({
         </div>
       </div>
 
-      {/* List */}
+      {/* 2. Assignment List */}
       {sorted.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-[#EADBCC] space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#FAF0E1] text-[#D9A441] flex items-center justify-center mx-auto">
-            <BookOpen className="w-6 h-6" />
+        <div className="bg-white rounded-3xl p-12 text-center border border-[#EADBCC] space-y-3 shadow-xs">
+          <div className="w-14 h-14 rounded-2xl bg-[#FAF0E1] text-[#D9A441] flex items-center justify-center mx-auto shadow-2xs">
+            <BookOpen className="w-7 h-7" />
           </div>
-          <p className="font-bold text-[#3F342B] text-sm">ไม่พบภาระงานในหมวดนี้</p>
-          <p className="text-xs text-[#7A6A5C]">
-            คุณสามารถเลือกดูการบ้านในหมวดอื่นๆ ได้จากแท็บด้านบน
+          <p className="font-bold text-[#3F342B] text-base">ไม่พบภาระงานในหมวดนี้</p>
+          <p className="text-xs text-[#7A6A5C] max-w-sm mx-auto">
+            {searchQuery
+              ? `ไม่พบงานที่ตรงกับคำค้นหา "${searchQuery}" ลองค้นหาด้วยคำอื่น`
+              : "ยอดเยี่ยมมาก! ไม่มีงานที่ค้างส่งในหมวดหมู่นี้ คุณสามารถเลือกดูงานในแท็บอื่นๆ ได้"}
           </p>
         </div>
       ) : (
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 gap-4">
+        <div className="space-y-3.5">
+          <div className="grid grid-cols-1 gap-3.5">
             {paginated.map((assignment) => {
               const submission = assignment.submission;
               const isSubmitted = !!submission;
+              const isDraft = submission?.status === "DRAFT";
               const isGraded = submission?.status === "GRADED";
               const isLate = submission?.status === "LATE";
               const isPastDue = Date.now() > new Date(assignment.dueDate).getTime();
@@ -212,16 +248,58 @@ export function StudentAssignmentsClient({
               return (
                 <div
                   key={assignment.id}
-                  className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCC] shadow-xs hover:border-[#D9A441]/60 hover:shadow-md transition-all space-y-4"
+                  className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCC] shadow-2xs hover:border-[#D9A441] hover:shadow-md transition-all space-y-3.5 group"
                 >
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
-                    <div className="space-y-1">
-                      <h2 className="font-bold text-[#3F342B] text-base sm:text-lg">
-                        {assignment.title}
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      {/* Top Badges */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        {/* Submission Type Badge */}
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            assignment.submissionType === "FILE"
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : assignment.submissionType === "LINK"
+                              ? "bg-blue-50 text-blue-800 border-blue-200"
+                              : "bg-purple-50 text-purple-800 border-purple-200"
+                          }`}
+                        >
+                          {assignment.submissionType === "FILE" && (
+                            <>
+                              <FileText className="w-3 h-3" />
+                              <span>แนบไฟล์</span>
+                            </>
+                          )}
+                          {assignment.submissionType === "LINK" && (
+                            <>
+                              <Link2 className="w-3 h-3" />
+                              <span>ส่งลิงก์</span>
+                            </>
+                          )}
+                          {assignment.submissionType === "QUESTIONS" && (
+                            <>
+                              <HelpCircle className="w-3 h-3" />
+                              <span>ตอบคำถาม</span>
+                            </>
+                          )}
+                        </span>
+
+                        <span className="text-[11px] font-semibold px-2 py-0.5 rounded-md bg-[#FAF0E1] text-[#8C5D23] border border-[#EADBCC]">
+                          เต็ม {assignment.maxScore} คะแนน
+                        </span>
+                      </div>
+
+                      {/* Title */}
+                      <h2 className="font-bold text-[#3F342B] text-base sm:text-lg group-hover:text-[#8C5D23] transition-colors leading-snug">
+                        <Link href={`/student/assignments/${assignment.id}`}>
+                          {assignment.title}
+                        </Link>
                       </h2>
-                      <p className="text-xs text-[#7A6A5C] flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-[#C96B4B]" />
-                        กำหนดส่ง:{" "}
+
+                      {/* Due Date Indicator */}
+                      <p className="text-xs text-[#7A6A5C] flex flex-wrap items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#C96B4B] shrink-0" />
+                        <span>กำหนดส่ง:</span>
                         <strong className="text-[#3F342B]">
                           {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
                             year: "numeric",
@@ -239,15 +317,17 @@ export function StudentAssignmentsClient({
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-[#FAF0E1] text-[#8C5D23] border border-[#EADBCC]">
-                        เต็ม {assignment.maxScore} คะแนน
-                      </span>
-
+                    {/* Status Badges */}
+                    <div className="shrink-0 flex sm:flex-col items-end gap-1.5">
                       {isGraded ? (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                           <Award className="w-3.5 h-3.5 text-emerald-600" />
-                          ได้คะแนน: {submission.score} / {assignment.maxScore}
+                          ได้คะแนน: {submission?.score} / {assignment.maxScore}
+                        </span>
+                      ) : isDraft ? (
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                          <Edit3 className="w-3.5 h-3.5 text-amber-700" />
+                          แบบร่าง (ยังไม่ส่ง)
                         </span>
                       ) : isLate ? (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-200 flex items-center gap-1">
@@ -257,7 +337,7 @@ export function StudentAssignmentsClient({
                       ) : isSubmitted ? (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
-                          ส่งตรงเวลา (รอตรวจ)
+                          ส่งแล้ว (รอตรวจ)
                         </span>
                       ) : (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
@@ -268,25 +348,39 @@ export function StudentAssignmentsClient({
                     </div>
                   </div>
 
+                  {/* Description Preview */}
                   <p className="text-xs sm:text-sm text-[#5A4D41] leading-relaxed line-clamp-2">
                     {assignment.description}
                   </p>
 
-                  <div className="flex items-center justify-between gap-3 pt-2 border-t border-[#F2E8DC]">
+                  {/* Card Bottom Bar */}
+                  <div className="flex items-center justify-between gap-3 pt-3 border-t border-[#F2E8DC]">
                     <span className="text-xs text-[#7A6A5C] flex items-center gap-1">
                       <FileText className="w-3.5 h-3.5 text-[#D9A441]" />
-                      {assignment.rubricCount} เกณฑ์การประเมิน
+                      <span>{assignment.rubricCount} เกณฑ์ประเมิน</span>
                     </span>
 
                     <Link
                       href={`/student/assignments/${assignment.id}`}
-                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all ${
-                        isSubmitted
+                      className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
+                        isGraded
+                          ? "bg-white border border-[#D9CABB] text-[#3F342B] hover:border-[#D9A441]"
+                          : isDraft
+                          ? "bg-amber-500 hover:bg-amber-600 text-white"
+                          : isSubmitted
                           ? "bg-[#FAF6F0] border border-[#D9CABB] text-[#3F342B] hover:border-[#D9A441]"
-                          : "bg-[#D9A441] text-white hover:bg-[#C28F30] shadow-2xs"
+                          : "bg-[#D9A441] text-white hover:bg-[#C28F30]"
                       }`}
                     >
-                      <span>{isSubmitted ? "ดูข้อมูลการส่งงาน" : "เปิดดูและส่งงาน"}</span>
+                      <span>
+                        {isGraded
+                          ? "ดูผลคะแนนและคำติชม"
+                          : isDraft
+                          ? "แก้ไขและส่งงาน"
+                          : isSubmitted
+                          ? "ดูผลงานที่ส่ง"
+                          : "ส่งงานทันที"}
+                      </span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Link>
                   </div>

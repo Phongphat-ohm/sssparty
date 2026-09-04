@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
       bodySizeLimit: "50mb",
     },
   },
+  allowedDevOrigins: ["selfdev.ppkxb.space"]
 };
 
 export default nextConfig;

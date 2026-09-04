@@ -76,11 +76,11 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
       {/* Mobile Top Bar */}
       <div className="md:hidden sticky top-0 z-30 flex items-center justify-between bg-white px-4 py-3 border-b border-[#EADBCC] shadow-xs shrink-0">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#B94E48] text-white flex items-center justify-center font-bold text-sm shadow-xs">
-            S
+          <div className="w-8 h-8 rounded-xl bg-[#B94E48] text-white flex items-center justify-center font-bold text-xs shadow-xs">
+            3S
           </div>
           <div>
-            <span className="font-bold text-sm text-[#3F342B]">SSSParty</span>
+            <span className="font-bold text-sm text-[#3F342B]">3S Party</span>
             <span className="block text-[10px] text-[#7A6A5C] -mt-0.5">Admin Studio</span>
           </div>
         </div>
@@ -114,7 +114,7 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
           </div>
           <div className="overflow-hidden">
             <h2 className="font-extrabold text-[#3F342B] text-base leading-tight tracking-tight">
-              SSSParty
+              3S Party
             </h2>
             <p className="text-xs text-[#7A6A5C] flex items-center gap-1 font-medium">
               <Sparkles className="w-3 h-3 text-[#D9A441]" />
@@ -142,9 +142,16 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
           <nav className="space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive =
-                pathname === item.href ||
-                (item.href !== "/admin/dashboard" && pathname.startsWith(item.href));
+              let isActive = pathname === item.href;
+              if (!isActive && item.href !== "/admin/dashboard") {
+                if (item.href === "/admin/assignments") {
+                  isActive =
+                    pathname.startsWith("/admin/assignments/") &&
+                    pathname !== "/admin/assignments/new";
+                } else {
+                  isActive = pathname.startsWith(item.href + "/");
+                }
+              }
 
               return (
                 <Link

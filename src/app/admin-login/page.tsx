@@ -33,7 +33,7 @@ export default function AdminLoginPage() {
           </h1>
           <p className="text-sm text-[#7A6A5C] flex items-center justify-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[#D9A441]" />
-            ชุมนุมสื่อสร้างสรรค์ (SSSParty)
+            ชุมนุมสื่อสร้างสรรค์ (ระบบ 3S Party)
           </p>
         </div>
 
