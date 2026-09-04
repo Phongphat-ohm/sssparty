@@ -12,7 +12,7 @@
   <img src="https://img.shields.io/badge/Prisma-7-2D3748?style=flat-square&logo=prisma" alt="Prisma 7" />
   <img src="https://img.shields.io/badge/PostgreSQL-16-336791?style=flat-square&logo=postgresql" alt="PostgreSQL" />
   <img src="https://img.shields.io/badge/Runtime-Bun-f472b6?style=flat-square&logo=bun" alt="Bun" />
-  <img src="https://img.shields.io/badge/Docker-Ready-2496ED?style=flat-square&logo=docker" alt="Docker Ready" />
+  <img src="https://img.shields.io/badge/Deploy-Nixpacks-000000?style=flat-square&logo=nixos" alt="Nixpacks Deploy" />
 </p>
 
 ---
@@ -80,7 +80,7 @@
 | **Rich Text** | [react-markdown](https://github.com/remarkjs/react-markdown), [remark-gfm](https://github.com/remarkjs/remark-gfm) |
 | **Database & ORM** | [PostgreSQL 16](https://www.postgresql.org/), [Prisma ORM 7](https://www.prisma.io/) (via `@prisma/adapter-pg`) |
 | **Object Storage** | S3-Compatible (Cloudflare R2, AWS S3, MinIO) via `@aws-sdk/client-s3` |
-| **Container & Deploy** | Docker Multi-stage, Docker Compose, Next.js Standalone |
+| **Deployment** | Nixpacks (Railway / Coolify), Bun/Node.js Pure Next.js |
 
 ---
 
@@ -88,7 +88,7 @@
 
 ### ความต้องการของระบบ (Prerequisites)
 - [Bun](https://bun.sh/) (แนะนำ v1.3 ขึ้นไป) หรือ Node.js 20+
-- ฐานข้อมูล [PostgreSQL](https://www.postgresql.org/) (Local, Docker, หรือ Cloud เช่น Supabase/Neon)
+- ฐานข้อมูล [PostgreSQL](https://www.postgresql.org/) (Local หรือ Cloud เช่น Supabase/Neon)
 
 ### 1. ติดตั้ง Dependencies
 ```bash
@@ -153,17 +153,16 @@ bun run db:seed
 
 ---
 
-## 🐳 การ Deploy ด้วย Docker & Docker Compose
+## 📦 การ Deploy ด้วย Nixpacks (Railway / Coolify / PaaS)
 
-ระบบมีไฟล์ `Dockerfile` (Multi-stage) และ `docker-compose.yml` พร้อมใช้งาน:
+ระบบรองรับการ Build และ Deploy แบบ Pure Next.js ผ่าน **Nixpacks** อัตโนมัติ:
 
 ```bash
-# สั่งสร้างและรันระบบทั้งเว็บแอปพลิเคชันและ PostgreSQL
-docker compose up -d --build
+# ทดสอบ Build ด้วย Nixpacks CLI (หากติดตั้งไว้)
+nixpacks build .
 
-# นำโครงสร้างฐานข้อมูลไปปรับใช้
-docker compose exec app bun run db:deploy
-docker compose exec app bun run db:seed
+# หรือ Deploy ผ่าน Railway / Coolify โดยเชื่อมโยง Git Repository
+# ระบบจะรัน nixpacks.toml อัตโนมัติ (ติดตั้ง Bun + Node 20, รัน bun run build และ start)
 ```
 
 > 📖 อ่านคู่มือการนำขึ้นเซิร์ฟเวอร์จริงฉบับสมบูรณ์ (Nginx, SSL, Backup Cronjob, PM2) ได้ที่ [DEPLOYMENT.md](DEPLOYMENT.md)

@@ -1,0 +1,18 @@
+# Nixpacks configuration for pure Next.js with Bun & Prisma
+[variables]
+NIXPACKS_NODE_VERSION = "20"
+NODE_ENV = "production"
+PORT = "3000"
+HOSTNAME = "0.0.0.0"
+
+[phases.setup]
+nixPkgs = ["bun", "nodejs_20", "openssl"]
+
+[phases.install]
+cmds = ["bun install --no-verify"]
+
+[phases.build]
+cmds = ["bun run build"]
+
+[start]
+cmd = "bun run start"

@@ -5,7 +5,7 @@
 
 ## 📋 รายการตรวจสอบความพร้อมก่อนขึ้น Production (Pre-flight Checklist)
 
-- [ ] **ฐานข้อมูล PostgreSQL**: มีฐานข้อมูล PostgreSQL 15+ พร้อมใช้งาน (Local, Docker, หรือ Managed เช่น Supabase / Neon / AWS RDS)
+- [ ] **ฐานข้อมูล PostgreSQL**: มีฐานข้อมูล PostgreSQL 15+ พร้อมใช้งาน (Local หรือ Managed เช่น Supabase / Neon / AWS RDS)
 - [ ] **Object Storage**: มี S3-Compatible Bucket พร้อม Access Key / Secret Key (เช่น Cloudflare R2, AWS S3 หรือ MinIO)
 - [ ] **โดเมนและ SSL**: มีชื่อโดเมน (Domain Name) พร้อมชี้ DNS A-Record มายัง IP เซิร์ฟเวอร์ และเปิดพอร์ต 80, 443
 - [ ] **JWT Secret**: สร้างสตริงสุ่มความยาวไม่ต่ำกว่า 32 ตัวอักษร เช่น:
@@ -16,42 +16,27 @@
 
 ---
 
-## วิธีที่ 1: Deploy ด้วย Docker & Docker Compose (แนะนำ)
+## วิธีที่ 1: Deploy ด้วย Nixpacks (แนะนำสำหรับ Railway / Coolify / Nixpacks CLI)
 
-เหมาะสำหรับการ Deploy บน VPS (Ubuntu, Debian, Rocky Linux) หรือ Cloud Server
+ระบบรองรับการ Build และ Deploy แบบ Pure Next.js ผ่าน **Nixpacks** ได้ทันทีโดยไม่ต้องใช้ Dockerfile
 
-### ขั้นตอนที่ 1: ติดตั้ง Docker & Docker Compose บนเซิร์ฟเวอร์
-```bash
-# บน Ubuntu / Debian
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
-sudo usermod -aG docker $USER
-```
-
-### ขั้นตอนที่ 2: โคลนโค้ดและตั้งค่าไฟล์ Environment
-```bash
-git clone <your-repo-url> /opt/sssparty
-cd /opt/sssparty
-
-# คัดลอกและแก้ไขไฟล์ .env
-cp .env.example .env
-nano .env
-```
-กำหนดค่าที่จำเป็นใน `.env`:
-- `DATABASE_URL`: กำหนดการเชื่อมต่อฐานข้อมูล
+### ขั้นตอนที่ 1: ตั้งค่า Environment Variables บนแพลตฟอร์ม (Railway / Coolify)
+กำหนดค่าที่จำเป็นในโปรเจกต์:
+- `DATABASE_URL`: URL เชื่อมต่อฐานข้อมูล PostgreSQL
 - `JWT_SECRET`: สตริงสุ่ม 32+ ตัวอักษร
-- `NEXT_PUBLIC_APP_URL`: โดเมนของเว็บไซต์ เช่น `https://sssparty.school.ac.th`
-- ข้อมูลการเชื่อมต่อ S3 Storage
+- `NEXT_PUBLIC_APP_URL`: โดเมนของระบบ เช่น `https://sssparty.school.ac.th`
+- `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`
 
-### ขั้นตอนที่ 3: สั่ง Build และ Start Containers
-```bash
-docker compose up -d --build
-```
+### ขั้นตอนที่ 2: ระบบ Build & Run อัตโนมัติด้วย nixpacks.toml
+โครงการมีไฟล์ `nixpacks.toml` และ `railway.json` ที่ระบุ:
+- ใช้ Node.js 20 (`nodejs_20`) และ Bun
+- ขั้นตอน Build: `bun run build` (รัน `prisma generate` และ `next build`)
+- ขั้นตอน Start: `bun run start` (รัน `prisma migrate deploy` และ `next start -H 0.0.0.0`)
 
-### ขั้นตอนที่ 4: รัน Database Migration และเพิ่มข้อมูลเริ่มต้น
+### ขั้นตอนที่ 3: นำเข้าข้อมูลผู้ดูแลระบบตั้งต้น (Initial Admin)
+หลังจากการ Deploy สำเร็จ ให้เปิด Console/Terminal บนบริการโฮสติ้งและรัน:
 ```bash
-docker compose exec app bun run db:deploy
-docker compose exec app bun run db:seed
+bun run db:seed
 ```
 
 ---
@@ -84,7 +69,8 @@ module.exports = {
   apps: [
     {
       name: "sssparty",
-      script: ".next/standalone/server.js",
+      script: "node_modules/next/dist/bin/next",
+      args: "start -H 0.0.0.0",
       instances: "max",
       exec_mode: "cluster",
       env: {
@@ -214,5 +200,5 @@ crontab -e
 | `bun run db:deploy` | นำ Migration โครงสร้างฐานข้อมูลล่าสุดไปปรับใช้บน Production |
 | `bun run db:generate` | อัปเดต Prisma Client ตาม Schema ล่าสุด |
 | `bun run db:seed` | นำเข้าข้อมูลผู้ดูแลระบบและข้อมูลตั้งต้น |
-| `bun run build` | คอมไพล์โปรเจกต์ Next.js ในโหมด Standalone |
-| `docker compose restart app` | สั่งรีสตาร์ตระบบเมื่อมีการแก้ไข Config |
+| `bun run build` | คอมไพล์โปรเจกต์ Next.js (รัน `prisma generate` และ `next build`) |
+| `pm2 restart sssparty` | สั่งรีสตาร์ตระบบเมื่อมีการแก้ไข Config หรือ Deploy ใหม่บน VPS |

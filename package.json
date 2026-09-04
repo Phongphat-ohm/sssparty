@@ -2,10 +2,14 @@
   "name": "sssparty",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0",
+    "bun": ">=1.0.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "prisma generate && next build",
-    "start": "prisma migrate deploy && next start",
+    "start": "prisma migrate deploy && next start -H 0.0.0.0",
     "db:deploy": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:seed": "bun run prisma/seed.ts"
