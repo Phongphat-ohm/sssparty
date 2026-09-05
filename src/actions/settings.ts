@@ -110,26 +110,60 @@ export async function updateSystemSettingsAction(
       },
     ];
 
-    await prisma.$transaction(
-      settingsToUpdate.map((s) =>
-        prisma.systemSetting.upsert({
-          where: { key: s.key },
-          update: {
-            value: s.value,
-            description: s.description,
-            category: s.category,
-            updatedBy: currentUser.username,
-          },
-          create: {
-            key: s.key,
-            value: s.value,
-            description: s.description,
-            category: s.category,
-            updatedBy: currentUser.username,
-          },
-        })
-      )
-    );
+    const executeUpserts = async () => {
+      return prisma.$transaction(
+        settingsToUpdate.map((s) =>
+          prisma.systemSetting.upsert({
+            where: { key: s.key },
+            update: {
+              value: s.value,
+              description: s.description,
+              category: s.category,
+              updatedBy: currentUser.username,
+            },
+            create: {
+              key: s.key,
+              value: s.value,
+              description: s.description,
+              category: s.category,
+              updatedBy: currentUser.username,
+            },
+          })
+        )
+      );
+    };
+
+    try {
+      await executeUpserts();
+    } catch (upsertErr: any) {
+      if (upsertErr?.code === "P2021" || upsertErr?.message?.includes("does not exist")) {
+        console.warn("[Settings] Table system_settings not found during update, creating now...");
+        await prisma.$executeRawUnsafe(`
+          ALTER TYPE "AdminPermission" ADD VALUE IF NOT EXISTS 'MANAGE_SETTINGS';
+        `).catch(() => {});
+
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "system_settings" (
+            "key" TEXT NOT NULL,
+            "value" TEXT NOT NULL,
+            "description" TEXT,
+            "category" TEXT NOT NULL DEFAULT 'GENERAL',
+            "updatedBy" TEXT,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "system_settings_pkey" PRIMARY KEY ("key")
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "system_settings_category_idx" ON "system_settings"("category");
+        `).catch(() => {});
+
+        await executeUpserts();
+      } else {
+        throw upsertErr;
+      }
+    }
 
     invalidateSettingsCache();
 

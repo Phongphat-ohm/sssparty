@@ -35,7 +35,40 @@ export async function getSystemSettings(): Promise<SystemSettingsMap> {
   }
 
   try {
-    const rows = await prisma.systemSetting.findMany();
+    let rows: any[] = [];
+    try {
+      rows = await prisma.systemSetting.findMany();
+    } catch (dbErr: any) {
+      // Self-Healing: ถ้าตาราง system_settings ยังไม่มีใน Database ของ Deploy จริง ให้สร้างอัตโนมัติทันที
+      if (dbErr?.code === "P2021" || dbErr?.message?.includes("does not exist")) {
+        console.warn("[Settings] Table system_settings not found, auto-creating schema...");
+        await prisma.$executeRawUnsafe(`
+          ALTER TYPE "AdminPermission" ADD VALUE IF NOT EXISTS 'MANAGE_SETTINGS';
+        `).catch(() => {});
+
+        await prisma.$executeRawUnsafe(`
+          CREATE TABLE IF NOT EXISTS "system_settings" (
+            "key" TEXT NOT NULL,
+            "value" TEXT NOT NULL,
+            "description" TEXT,
+            "category" TEXT NOT NULL DEFAULT 'GENERAL',
+            "updatedBy" TEXT,
+            "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            CONSTRAINT "system_settings_pkey" PRIMARY KEY ("key")
+          );
+        `);
+
+        await prisma.$executeRawUnsafe(`
+          CREATE INDEX IF NOT EXISTS "system_settings_category_idx" ON "system_settings"("category");
+        `).catch(() => {});
+
+        rows = await prisma.systemSetting.findMany().catch(() => []);
+      } else {
+        throw dbErr;
+      }
+    }
+
     const map: Record<string, string> = {};
     for (const r of rows) {
       map[r.key] = r.value;
@@ -64,7 +97,7 @@ export async function getSystemSettings(): Promise<SystemSettingsMap> {
     cache = { data: result, timestamp: now };
     return result;
   } catch (error) {
-    console.error("[Settings] Failed to fetch settings from DB, using defaults:", error);
+    console.warn("[Settings] Notice: Using fallback settings (DB not ready or connecting):", error);
     return DEFAULT_SETTINGS;
   }
 }
