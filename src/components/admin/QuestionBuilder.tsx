@@ -11,9 +11,7 @@ import {
   Loader2,
   X,
   ExternalLink,
-  Sparkles,
 } from "lucide-react";
-import { uploadTeacherMaterialAction } from "@/actions/upload";
 
 export interface AssignmentQuestionItem {
   id?: string;
@@ -86,8 +84,13 @@ export function QuestionBuilder({ questions, onChange }: QuestionBuilderProps) {
       formData.set("file", file);
       formData.set("folder", "question-images");
 
-      const res = await uploadTeacherMaterialAction(formData);
-      if (res.success && res.fileKey && res.publicUrl) {
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      const res = await response.json();
+      if (response.ok && res.success && res.fileKey && res.publicUrl) {
         handleUpdate(currentImageIndex, {
           imageKey: res.fileKey,
           imageUrl: res.publicUrl,

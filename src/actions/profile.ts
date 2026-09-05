@@ -5,6 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hashPassword, comparePassword } from "@/lib/auth/password";
+import { createAuditLog } from "@/lib/audit/logger";
+import { getSystemSetting } from "@/lib/settings/system-settings";
 
 const studentProfileSchema = z.object({
   firstName: z.string().min(1, "กรุณากรอกชื่อจริง"),
@@ -39,6 +41,14 @@ export async function updateStudentProfileSelfAction(
       return { success: false, message: "ไม่มีสิทธิ์ในการแก้ไขข้อมูลนี้" };
     }
 
+    const allowEdit = await getSystemSetting("allow_student_name_edit");
+    if (!allowEdit) {
+      return {
+        success: false,
+        message: "ระบบถูกตั้งค่าไม่อนุญาตให้นักเรียนแก้ไขข้อมูลชื่อ-นามสกุลด้วยตนเอง กรุณาติดต่อคุณครู",
+      };
+    }
+
     const firstName = (formData.get("firstName") as string)?.trim();
     const lastName = (formData.get("lastName") as string)?.trim();
 
@@ -56,6 +66,15 @@ export async function updateStudentProfileSelfAction(
         firstName: parsed.data.firstName,
         lastName: parsed.data.lastName,
       },
+    });
+
+    await createAuditLog({
+      username: session.username,
+      role: "STUDENT",
+      action: "UPDATE_STUDENT_PROFILE",
+      targetType: "STUDENT",
+      targetId: session.studentId,
+      details: `นักเรียนแก้ไขข้อมูลชื่อ-นามสกุลตนเองเป็น "${parsed.data.firstName} ${parsed.data.lastName}"`,
     });
 
     revalidatePath("/student/dashboard");
@@ -187,6 +206,16 @@ export async function changeAdminPasswordAction(
     await prisma.user.update({
       where: { id: session.userId },
       data: { passwordHash: newHash },
+    });
+
+    await createAuditLog({
+      userId: session.userId,
+      username: session.username,
+      role: "ADMIN",
+      action: "RESET_PASSWORD",
+      targetType: "USER",
+      targetId: session.userId,
+      details: `ผู้ดูแลระบบ "${session.username}" เปลี่ยนรหัสผ่านของตนเอง`,
     });
 
     revalidatePath("/admin/settings");

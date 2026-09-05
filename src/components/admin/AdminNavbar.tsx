@@ -13,9 +13,10 @@ import { logoutAction } from "@/actions/auth";
 
 interface AdminNavbarProps {
   adminName: string;
+  academicTerm?: string;
 }
 
-export function AdminNavbar({ adminName }: AdminNavbarProps) {
+export function AdminNavbar({ adminName, academicTerm = "1/2569" }: AdminNavbarProps) {
   const pathname = usePathname();
 
   // Dynamic breadcrumb mapping
@@ -31,6 +32,7 @@ export function AdminNavbar({ adminName }: AdminNavbarProps) {
     if (path.startsWith("/admin/submissions/")) return "ห้องตรวจงานรายบุคคล";
     if (path === "/admin/students") return "รายชื่อสมาชิกชุมนุม";
     if (path === "/admin/users") return "จัดการบัญชีผู้ใช้ (User Management)";
+    if (path === "/admin/logs") return "บันทึกประวัติการใช้งาน (Audit Logs)";
     if (path === "/admin/attendance") return "ระบบเช็กชื่อกิจกรรม";
     if (path.startsWith("/admin/attendance/")) return "ห้องเช็กชื่อกิจกรรม";
     if (path === "/admin/settings") return "ตั้งค่าระบบ & รหัสผ่าน";
@@ -69,7 +71,7 @@ export function AdminNavbar({ adminName }: AdminNavbarProps) {
         {/* Semester Badge */}
         <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FAF6F0] border border-[#EADBCC] text-xs text-[#5A4D41]">
           <Calendar className="w-3.5 h-3.5 text-[#D9A441]" />
-          <span className="font-semibold text-[11px]">ภาคเรียน 1/2569</span>
+          <span className="font-semibold text-[11px]">ภาคเรียน {academicTerm}</span>
         </div>
 
         {/* User Info Pill */}

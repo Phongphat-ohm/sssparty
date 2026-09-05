@@ -15,6 +15,23 @@ enum Role {
   STUDENT
 }
 
+enum AdminRole {
+  SUPER_ADMIN
+  TEACHER
+  ASSISTANT
+  CUSTOM
+}
+
+enum AdminPermission {
+  MANAGE_ASSIGNMENTS
+  GRADE_SUBMISSIONS
+  MANAGE_ATTENDANCE
+  MANAGE_STUDENTS
+  MANAGE_USERS
+  VIEW_AUDIT_LOGS
+  MANAGE_SETTINGS
+}
+
 enum UserStatus {
   ACTIVE
   INACTIVE
@@ -47,25 +64,26 @@ enum AttendanceStatus {
 }
 
 model User {
-  id           String     @id @default(cuid())
-  username     String     @unique
+  id           String            @id @default(cuid())
+  username     String            @unique
   passwordHash String?
-  role         Role       @default(STUDENT)
-  status       UserStatus @default(ACTIVE)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  role         Role              @default(ADMIN)
+  adminRole    AdminRole?        @default(TEACHER)
+  permissions  AdminPermission[] @default([])
+  status       UserStatus        @default(ACTIVE)
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
 
-  student                    Student?
   createdAssignments         Assignment[]        @relation("AssignmentCreator")
   gradesGiven                Grade[]             @relation("TeacherGrader")
   createdAttendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
+  auditLogs                  AuditLog[]
 
   @@map("users")
 }
 
 model Student {
   id            String     @id @default(cuid())
-  userId        String     @unique
   studentCode   String     @unique
   firstName     String
   lastName      String
@@ -75,7 +93,6 @@ model Student {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
-  user              User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   submissions       Submission[]
   attendanceRecords AttendanceRecord[]
 
@@ -272,3 +289,39 @@ model AttendanceRecord {
   @@index([status])
   @@map("attendance_records")
 }
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  username   String?
+  role       Role?
+  action     String
+  targetType String?
+  targetId   String?
+  details    String?  @db.Text
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SystemSetting {
+  key         String   @id
+  value       String   @db.Text
+  description String?
+  category    String   @default("GENERAL")
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([category])
+  @@map("system_settings")
+}
+

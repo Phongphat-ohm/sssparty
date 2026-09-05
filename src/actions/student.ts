@@ -3,7 +3,8 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
-import { getAuthSession } from "@/lib/auth/session";
+import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { createAuditLog } from "@/lib/audit/logger";
 
 const studentSchema = z.object({
   studentCode: z
@@ -30,10 +31,11 @@ export async function createStudentAction(
   formData: FormData
 ): Promise<StudentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_STUDENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const studentCode = (formData.get("studentCode") as string)?.trim();
     const firstName = (formData.get("firstName") as string)?.trim();
@@ -58,19 +60,12 @@ export async function createStudentAction(
       };
     }
 
-    // 1. ตรวจสอบรหัสนักเรียนซ้ำ (ทั้งในตาราง student และ user)
+    // 1. ตรวจสอบรหัสนักเรียนซ้ำในตาราง student
     const existingCode = await prisma.student.findUnique({
       where: { studentCode },
     });
     if (existingCode) {
       return { success: false, message: `รหัสนักเรียน "${studentCode}" มีอยู่ในระบบแล้ว` };
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: { username: studentCode },
-    });
-    if (existingUser) {
-      return { success: false, message: `ชื่อผู้ใช้ "${studentCode}" มีอยู่ในระบบแล้ว` };
     }
 
     // 2. ตรวจสอบเลขที่ซ้ำในห้องเดียวกันตาม Constraint @@unique([className, studentNumber])
@@ -89,7 +84,7 @@ export async function createStudentAction(
       };
     }
 
-    // 3. สร้าง User และ Student พร้อมกันใน 1 คำสั่ง
+    // 3. สร้าง Student ในตาราง students
     const newStudent = await prisma.student.create({
       data: {
         studentCode: parsed.data.studentCode,
@@ -98,14 +93,17 @@ export async function createStudentAction(
         className: parsed.data.className,
         studentNumber: parsed.data.studentNumber,
         status: parsed.data.status,
-        user: {
-          create: {
-            username: parsed.data.studentCode,
-            role: "STUDENT",
-            status: parsed.data.status,
-          },
-        },
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "CREATE_STUDENT",
+      targetType: "STUDENT",
+      targetId: newStudent.id,
+      details: `เพิ่มนักเรียนใหม่: ${newStudent.firstName} ${newStudent.lastName} (รหัส: ${newStudent.studentCode}, ห้อง ${newStudent.className} เลขที่ ${newStudent.studentNumber})`,
     });
 
     revalidatePath("/admin/students");
@@ -130,10 +128,11 @@ export async function updateStudentAction(
   formData: FormData
 ): Promise<StudentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_STUDENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const studentCode = (formData.get("studentCode") as string)?.trim();
     const firstName = (formData.get("firstName") as string)?.trim();
@@ -181,7 +180,7 @@ export async function updateStudentAction(
       };
     }
 
-    await prisma.student.update({
+    const updated = await prisma.student.update({
       where: { id: studentId },
       data: {
         studentCode: parsed.data.studentCode,
@@ -190,13 +189,17 @@ export async function updateStudentAction(
         className: parsed.data.className,
         studentNumber: parsed.data.studentNumber,
         status: parsed.data.status,
-        user: {
-          update: {
-            username: parsed.data.studentCode,
-            status: parsed.data.status,
-          },
-        },
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_STUDENT",
+      targetType: "STUDENT",
+      targetId: studentId,
+      details: `แก้ไขข้อมูลนักเรียน: ${updated.firstName} ${updated.lastName} (รหัส: ${updated.studentCode}, ห้อง ${updated.className} เลขที่ ${updated.studentNumber}, สถานะ: ${updated.status})`,
     });
 
     revalidatePath("/admin/students");
@@ -221,21 +224,27 @@ export async function toggleStudentStatusAction(
   newStatus: "ACTIVE" | "INACTIVE"
 ): Promise<StudentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_STUDENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
-    await prisma.student.update({
+    const updated = await prisma.student.update({
       where: { id: studentId },
       data: {
         status: newStatus,
-        user: {
-          update: {
-            status: newStatus,
-          },
-        },
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_STUDENT",
+      targetType: "STUDENT",
+      targetId: studentId,
+      details: `เปลี่ยนสถานะนักเรียน ${updated.firstName} ${updated.lastName} (${updated.studentCode}) เป็น ${newStatus}`,
     });
 
     revalidatePath("/admin/students");
@@ -275,17 +284,18 @@ export async function importStudentsAction(
   students: BatchImportStudentItem[]
 ): Promise<BatchImportResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
+    const authCheck = await requireAdminPermission("MANAGE_STUDENTS");
+    if (!authCheck.ok) {
       return {
         success: false,
-        message: "ไม่มีสิทธิ์ในการดำเนินการนี้",
+        message: authCheck.error,
         importedCount: 0,
         updatedCount: 0,
         skippedCount: 0,
         errors: ["Unauthorized"],
       };
     }
+    const { user: currentUser } = authCheck;
 
     if (!students || students.length === 0) {
       return {
@@ -370,18 +380,7 @@ export async function importStudentsAction(
             continue;
           }
 
-          // ตรวจสอบ user username
-          const existingUser = await prisma.user.findUnique({
-            where: { username: studentCode },
-          });
-
-          if (existingUser) {
-            skippedCount++;
-            errors.push(`ชื่อผู้ใช้ ${studentCode} มีอยู่ในระบบแล้ว`);
-            continue;
-          }
-
-          // สร้างใหม่
+          // สร้างใหม่ในตาราง students
           await prisma.student.create({
             data: {
               studentCode,
@@ -390,13 +389,6 @@ export async function importStudentsAction(
               className,
               studentNumber,
               status: "ACTIVE",
-              user: {
-                create: {
-                  username: studentCode,
-                  role: "STUDENT",
-                  status: "ACTIVE",
-                },
-              },
             },
           });
           importedCount++;
@@ -407,6 +399,15 @@ export async function importStudentsAction(
         errors.push(`รหัส ${studentCode}: ${err.message || "เกิดข้อผิดพลาด"}`);
       }
     }
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "IMPORT_STUDENTS_CSV",
+      targetType: "STUDENT",
+      details: `นำเข้าข้อมูลนักเรียนผ่าน CSV: เพิ่มใหม่ ${importedCount} คน, อัปเดต ${updatedCount} คน, ข้าม ${skippedCount} คน`,
+    });
 
     revalidatePath("/admin/students");
     revalidatePath("/admin/dashboard");

@@ -13,7 +13,6 @@ import {
   Presentation,
   Archive,
 } from "lucide-react";
-import { uploadTeacherMaterialAction } from "@/actions/upload";
 import { getFileTypeCategory } from "@/lib/s3/file-validator";
 
 export interface TeacherAttachmentItem {
@@ -54,8 +53,13 @@ export function TeacherAttachmentUploader({
         formData.set("file", file);
         formData.set("folder", "materials");
 
-        const res = await uploadTeacherMaterialAction(formData);
-        if (!res.success || !res.fileKey) {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const res = await response.json();
+        if (!response.ok || !res.success || !res.fileKey) {
           throw new Error(res.error || `อัปโหลดไฟล์ ${file.name} ไม่สำเร็จ`);
         }
 

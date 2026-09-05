@@ -25,7 +25,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { validateFileMeta, getFileTypeCategory } from "@/lib/s3/file-validator";
-import { uploadFileToS3Action, requestDownloadUrlAction } from "@/actions/upload";
+import { requestDownloadUrlAction } from "@/actions/upload";
 import { submitAssignmentAction } from "@/actions/submission";
 
 export interface QuestionData {
@@ -242,14 +242,20 @@ export function StudentSubmissionForm({
       let fileSize = initialSubmission?.fileSize || undefined;
       let mimeType = initialSubmission?.mimeType || undefined;
 
-      // 1. If FILE submission and a new file was chosen: upload to S3 first
+      // 1. If FILE submission and a new file was chosen: upload to S3 via REST API (/api/upload)
+      // Note: Using REST API instead of Next.js Server Action prevents Cloudflare WAF CVE-2025-55183 block
       if (submissionType === "FILE" && selectedFile) {
         const formData = new FormData();
         formData.set("file", selectedFile);
         formData.set("assignmentId", assignmentId);
 
-        const uploadRes = await uploadFileToS3Action(formData);
-        if (!uploadRes.success || !uploadRes.fileKey) {
+        const response = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        const uploadRes = await response.json();
+        if (!response.ok || !uploadRes.success || !uploadRes.fileKey) {
           throw new Error(uploadRes.error || "เกิดข้อผิดพลาดในการอัปโหลดไฟล์");
         }
 

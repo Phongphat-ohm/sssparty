@@ -213,23 +213,25 @@ export function validateFileMeta(params: {
   fileName: string;
   fileSize: number;
   mimeType: string;
+  maxSize?: number;
 }): FileValidationResult {
-  const { fileName, fileSize, mimeType } = params;
+  const { fileName, fileSize, mimeType, maxSize = MAX_UPLOAD_SIZE } = params;
 
   if (!fileName || fileName.trim().length === 0) {
     return { isValid: false, error: "กรุณาระบุชื่อไฟล์" };
   }
 
-  // 1. ตรวจสอบขนาดไฟล์ (ไม่เกิน 50MB)
+  // 1. ตรวจสอบขนาดไฟล์
   if (fileSize <= 0) {
     return { isValid: false, error: "ไฟล์ว่างเปล่า (0 Bytes)" };
   }
 
-  if (fileSize > MAX_UPLOAD_SIZE) {
+  if (fileSize > maxSize) {
     const sizeInMB = (fileSize / (1024 * 1024)).toFixed(1);
+    const maxInMB = (maxSize / (1024 * 1024)).toFixed(0);
     return {
       isValid: false,
-      error: `ไฟล์มีขนาดใหญ่เกินกำหนด (${sizeInMB}MB) จำกัดขนาดสูงสุดไม่เกิน 50MB`,
+      error: `ไฟล์มีขนาดใหญ่เกินกำหนด (${sizeInMB}MB) จำกัดขนาดสูงสุดไม่เกิน ${maxInMB}MB`,
     };
   }
 

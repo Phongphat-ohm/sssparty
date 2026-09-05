@@ -2,12 +2,18 @@ import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { StudentNavbar } from "@/components/student/StudentNavbar";
 import { StudentBottomNav } from "@/components/student/StudentBottomNav";
+import { getSystemSetting } from "@/lib/settings/system-settings";
 
 export default async function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const isMaintenance = await getSystemSetting("maintenance_mode");
+  if (isMaintenance) {
+    redirect("/maintenance");
+  }
+
   const session = await getAuthSession();
   if (!session || session.role !== "STUDENT") {
     redirect("/student-login");

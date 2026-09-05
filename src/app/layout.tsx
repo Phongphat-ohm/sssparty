@@ -13,6 +13,8 @@ export const metadata: Metadata = {
   description: "ระบบ 3S Party — ส่งงานและตรวจงานสำหรับชุมนุมสื่อสร้างสรรค์",
 };
 
+import { RouteProgressBar } from "@/components/common/RouteProgressBar";
+
 export default function RootLayout({
   children,
 }: {
@@ -20,7 +22,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" className={`${kanit.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <RouteProgressBar />
+        {children}
+      </body>
     </html>
   );
 }

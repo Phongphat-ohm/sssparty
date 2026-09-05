@@ -3,8 +3,10 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
-import { getAuthSession } from "@/lib/auth/session";
 import { hashPassword } from "@/lib/auth/password";
+import { AdminRoleType, AdminPermissionType, ROLE_DEFAULT_PERMISSIONS } from "@/lib/auth/permissions";
+import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { createAuditLog } from "@/lib/audit/logger";
 
 const createUserSchema = z.object({
   username: z
@@ -19,6 +21,8 @@ const createUserSchema = z.object({
     .string()
     .min(6, "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"),
   role: z.enum(["ADMIN", "STUDENT"]).default("ADMIN"),
+  adminRole: z.enum(["SUPER_ADMIN", "TEACHER", "ASSISTANT", "CUSTOM"]).default("TEACHER"),
+  permissions: z.array(z.string()).default([]),
   status: z.enum(["ACTIVE", "INACTIVE"]).default("ACTIVE"),
 });
 
@@ -32,6 +36,8 @@ const updateUserSchema = z.object({
       "ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรภาษาอังกฤษ ตัวเลข, '.', '_' หรือ '-' เท่านั้น"
     ),
   role: z.enum(["ADMIN", "STUDENT"]),
+  adminRole: z.enum(["SUPER_ADMIN", "TEACHER", "ASSISTANT", "CUSTOM"]).optional(),
+  permissions: z.array(z.string()).optional(),
   status: z.enum(["ACTIVE", "INACTIVE"]),
 });
 
@@ -60,20 +66,44 @@ export async function createUserAction(
   formData: FormData
 ): Promise<UserActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_USERS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+
+    const { user: currentUser } = authCheck;
 
     const username = (formData.get("username") as string)?.trim();
     const password = (formData.get("password") as string) || "";
     const role = (formData.get("role") as "ADMIN" | "STUDENT") || "ADMIN";
+    const adminRole = (formData.get("adminRole") as AdminRoleType) || "TEACHER";
+    const permissionsRaw = formData.getAll("permissions") as string[];
     const status = (formData.get("status") as "ACTIVE" | "INACTIVE") || "ACTIVE";
+
+    // ป้องกันไม่ให้แอดมินธรรมดาสร้าง Super Admin ได้
+    if (adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "เฉพาะผู้ดูแลระบบสูงสุด (Super Admin) เท่านั้นที่สามารถสร้างบัญชี Super Admin ได้",
+      };
+    }
+
+    // หากเป็น Role สำเร็จรูป ให้ใช้ชุด Permissions เริ่มต้น
+    let finalPermissions: AdminPermissionType[] = [];
+    if (role === "ADMIN") {
+      if (adminRole === "CUSTOM") {
+        finalPermissions = permissionsRaw as AdminPermissionType[];
+      } else {
+        finalPermissions = ROLE_DEFAULT_PERMISSIONS[adminRole] || [];
+      }
+    }
 
     const parsed = createUserSchema.safeParse({
       username,
       password,
       role,
+      adminRole,
+      permissions: finalPermissions,
       status,
     });
 
@@ -103,7 +133,24 @@ export async function createUserAction(
         username: parsed.data.username,
         passwordHash,
         role: parsed.data.role,
+        adminRole: parsed.data.role === "ADMIN" ? (parsed.data.adminRole as any) : null,
+        permissions: parsed.data.role === "ADMIN" ? (finalPermissions as any) : [],
         status: parsed.data.status,
+      },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "CREATE_USER",
+      targetType: "USER",
+      targetId: newUser.id,
+      details: {
+        newUsername: newUser.username,
+        role: newUser.role,
+        adminRole: newUser.adminRole,
+        permissions: finalPermissions,
       },
     });
 
@@ -112,7 +159,7 @@ export async function createUserAction(
 
     return {
       success: true,
-      message: `สร้างบัญชีผู้ใช้งาน "${newUser.username}" เรียบร้อยแล้ว`,
+      message: `สร้างบัญชีผู้ใช้งาน "${newUser.username}" (${parsed.data.adminRole}) เรียบร้อยแล้ว`,
       userId: newUser.id,
     };
   } catch (error) {
@@ -122,48 +169,59 @@ export async function createUserAction(
 }
 
 /**
- * แก้ไขข้อมูลผู้ใช้งาน (username, role, status)
+ * แก้ไขข้อมูลผู้ใช้งาน (username, role, adminRole, permissions, status)
  */
 export async function updateUserAction(
   userId: string,
   formData: FormData
 ): Promise<UserActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_USERS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+
+    const { user: currentUser, session } = authCheck;
 
     const username = (formData.get("username") as string)?.trim();
     const role = formData.get("role") as "ADMIN" | "STUDENT";
+    const adminRole = formData.get("adminRole") as AdminRoleType | null;
+    const permissionsRaw = formData.getAll("permissions") as string[];
     const status = formData.get("status") as "ACTIVE" | "INACTIVE";
-
-    const parsed = updateUserSchema.safeParse({ username, role, status });
-    if (!parsed.success) {
-      return {
-        success: false,
-        message: parsed.error.issues[0]?.message || "ข้อมูลไม่ถูกต้อง",
-      };
-    }
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      include: { student: true },
     });
 
     if (!targetUser) {
       return { success: false, message: "ไม่พบผู้ใช้งานนี้ในระบบ" };
     }
 
+    // หากผู้ใช้ปัจจุบันไม่ใช่ SUPER_ADMIN ห้ามแก้ไขข้อมูลของ SUPER_ADMIN คนอื่น
+    if (targetUser.adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "คุณไม่มีสิทธิ์แก้ไขข้อมูลของผู้ดูแลระบบสูงสุด (Super Admin)",
+      };
+    }
+
+    // หากผู้ใช้ปัจจุบันไม่ใช่ SUPER_ADMIN ห้ามเลื่อนระดับใครเป็น SUPER_ADMIN
+    if (adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "เฉพาะ Super Admin เท่านั้นที่สามารถมอบสิทธิ์ Super Admin ให้ผู้อื่นได้",
+      };
+    }
+
     // ห้ามแอดมินปลดสิทธิ์หรือระงับบัญชีของตนเอง
     if (session.userId === userId) {
-      if (parsed.data.role !== "ADMIN") {
+      if (role !== "ADMIN") {
         return {
           success: false,
           message: "ไม่สามารถลดระดับสิทธิ์ของบัญชีที่คุณกำลังใช้งานอยู่ได้",
         };
       }
-      if (parsed.data.status !== "ACTIVE") {
+      if (status !== "ACTIVE") {
         return {
           success: false,
           message: "ไม่สามารถระงับการใช้งานบัญชีที่คุณกำลังใช้งานอยู่ได้",
@@ -171,22 +229,48 @@ export async function updateUserAction(
       }
     }
 
-    // หากจะเปลี่ยนจาก ADMIN เป็น STUDENT ต้องมี ADMIN อื่นที่ ACTIVE เหลืออยู่อย่างน้อย 1 คน
-    if (targetUser.role === "ADMIN" && parsed.data.role === "STUDENT") {
-      const activeAdminsCount = await prisma.user.count({
+    // ตรวจสอบจำนวน Super Admin คนสุดท้าย
+    if (targetUser.adminRole === "SUPER_ADMIN" && (role !== "ADMIN" || adminRole !== "SUPER_ADMIN" || status === "INACTIVE")) {
+      const superAdminCount = await prisma.user.count({
         where: {
           role: "ADMIN",
+          adminRole: "SUPER_ADMIN",
           status: "ACTIVE",
           id: { not: userId },
         },
       });
 
-      if (activeAdminsCount === 0) {
+      if (superAdminCount === 0) {
         return {
           success: false,
-          message: "ไม่สามารถเปลี่ยนสิทธิ์ได้ เนื่องจากต้องมีผู้ดูแลระบบที่ใช้งานได้อย่างน้อย 1 บัญชี",
+          message: "ไม่สามารถเปลี่ยนแปลงหรือระงับสิทธิ์ Super Admin คนสุดท้ายของระบบได้",
         };
       }
+    }
+
+    // คำนวณ Permissions ตาม Admin Role
+    let finalPermissions: AdminPermissionType[] = [];
+    if (role === "ADMIN" && adminRole) {
+      if (adminRole === "CUSTOM") {
+        finalPermissions = permissionsRaw as AdminPermissionType[];
+      } else {
+        finalPermissions = ROLE_DEFAULT_PERMISSIONS[adminRole] || [];
+      }
+    }
+
+    const parsed = updateUserSchema.safeParse({
+      username,
+      role,
+      adminRole: adminRole || undefined,
+      permissions: finalPermissions,
+      status,
+    });
+
+    if (!parsed.success) {
+      return {
+        success: false,
+        message: parsed.error.issues[0]?.message || "ข้อมูลไม่ถูกต้อง",
+      };
     }
 
     // ตรวจสอบ username ซ้ำกับคนอื่น
@@ -209,18 +293,27 @@ export async function updateUserAction(
         data: {
           username: parsed.data.username,
           role: parsed.data.role,
+          adminRole: parsed.data.role === "ADMIN" ? (parsed.data.adminRole as any) : null,
+          permissions: parsed.data.role === "ADMIN" ? (finalPermissions as any) : [],
           status: parsed.data.status,
         },
       });
+    });
 
-      if (targetUser.student) {
-        await tx.student.update({
-          where: { id: targetUser.student.id },
-          data: {
-            status: parsed.data.status,
-          },
-        });
-      }
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_USER_PERMISSIONS",
+      targetType: "USER",
+      targetId: userId,
+      details: {
+        targetUsername: parsed.data.username,
+        oldRole: targetUser.adminRole,
+        newRole: parsed.data.adminRole,
+        permissions: finalPermissions,
+        status: parsed.data.status,
+      },
     });
 
     revalidatePath("/admin/users");
@@ -229,7 +322,7 @@ export async function updateUserAction(
 
     return {
       success: true,
-      message: `อัปเดตข้อมูลผู้ใช้ "${parsed.data.username}" สำเร็จ`,
+      message: `อัปเดตข้อมูลและสิทธิ์ผู้ใช้ "${parsed.data.username}" สำเร็จ`,
       userId,
     };
   } catch (error) {
@@ -246,10 +339,12 @@ export async function resetUserPasswordAction(
   formData: FormData
 ): Promise<UserActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_USERS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+
+    const { user: currentUser } = authCheck;
 
     const newPassword = (formData.get("newPassword") as string) || "";
     const confirmPassword = (formData.get("confirmPassword") as string) || "";
@@ -274,11 +369,29 @@ export async function resetUserPasswordAction(
       return { success: false, message: "ไม่พบผู้ใช้งานนี้ในระบบ" };
     }
 
+    // แอดมินธรรมดาห้ามรีเซ็ตรหัสผ่านของ Super Admin
+    if (targetUser.adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "เฉพาะ Super Admin เท่านั้นที่สามารถรีเซ็ตรหัสผ่านของ Super Admin ได้",
+      };
+    }
+
     const passwordHash = await hashPassword(parsed.data.newPassword);
 
     await prisma.user.update({
       where: { id: userId },
       data: { passwordHash },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "RESET_PASSWORD",
+      targetType: "USER",
+      targetId: userId,
+      details: `รีเซ็ตรหัสผ่านสำหรับบัญชี "${targetUser.username}"`,
     });
 
     revalidatePath("/admin/users");
@@ -302,10 +415,12 @@ export async function toggleUserStatusAction(
   newStatus: "ACTIVE" | "INACTIVE"
 ): Promise<UserActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_USERS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+
+    const { user: currentUser, session } = authCheck;
 
     if (session.userId === userId) {
       return {
@@ -316,11 +431,17 @@ export async function toggleUserStatusAction(
 
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
-      include: { student: true },
     });
 
     if (!targetUser) {
       return { success: false, message: "ไม่พบผู้ใช้งานนี้ในระบบ" };
+    }
+
+    if (targetUser.adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "คุณไม่มีสิทธิ์ระงับการใช้งานบัญชี Super Admin",
+      };
     }
 
     // ถ้ากำลังจะระงับการใช้งาน ADMIN ตรวจสอบว่ายังมี active admin เหลืออยู่อีกไหม
@@ -341,22 +462,22 @@ export async function toggleUserStatusAction(
       }
     }
 
-    await prisma.$transaction(async (tx) => {
-      await tx.user.update({
-        where: { id: userId },
-        data: { status: newStatus },
-      });
+    await prisma.user.update({
+      where: { id: userId },
+      data: { status: newStatus },
+    });
 
-      if (targetUser.student) {
-        await tx.student.update({
-          where: { id: targetUser.student.id },
-          data: { status: newStatus },
-        });
-      }
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "TOGGLE_USER_STATUS",
+      targetType: "USER",
+      targetId: userId,
+      details: `${newStatus === "ACTIVE" ? "เปิดใช้งาน" : "ระงับการใช้งาน"} บัญชี "${targetUser.username}"`,
     });
 
     revalidatePath("/admin/users");
-    revalidatePath("/admin/students");
     revalidatePath("/admin/dashboard");
 
     return {
@@ -377,10 +498,12 @@ export async function deleteUserAction(
   userId: string
 ): Promise<UserActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_USERS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+
+    const { user: currentUser, session } = authCheck;
 
     if (session.userId === userId) {
       return {
@@ -392,7 +515,6 @@ export async function deleteUserAction(
     const targetUser = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        student: true,
         _count: {
           select: {
             createdAssignments: true,
@@ -405,6 +527,13 @@ export async function deleteUserAction(
 
     if (!targetUser) {
       return { success: false, message: "ไม่พบผู้ใช้งานนี้ในระบบ" };
+    }
+
+    if (targetUser.adminRole === "SUPER_ADMIN" && currentUser.adminRole !== "SUPER_ADMIN") {
+      return {
+        success: false,
+        message: "คุณไม่มีสิทธิ์ลบบัญชี Super Admin",
+      };
     }
 
     // หากเป็น ADMIN ต้องมี ADMIN อื่นเหลืออยู่
@@ -447,6 +576,16 @@ export async function deleteUserAction(
 
     await prisma.user.delete({
       where: { id: userId },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "DELETE_USER",
+      targetType: "USER",
+      targetId: userId,
+      details: `ลบบัญชีผู้ใช้ "${targetUser.username}" (${targetUser.role})`,
     });
 
     revalidatePath("/admin/users");

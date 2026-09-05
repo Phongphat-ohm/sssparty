@@ -51,6 +51,7 @@ export function StudentBottomNav({
             <Link
               key={tab.href}
               href={tab.href}
+              prefetch={false}
               className={`flex flex-col items-center justify-center gap-1 py-1 rounded-xl transition-all cursor-pointer ${
                 isActive
                   ? "text-[#D9A441] font-bold"

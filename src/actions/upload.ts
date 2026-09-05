@@ -4,6 +4,7 @@ import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, S3_BUCKET, getS3PublicUrl } from "@/lib/s3/client";
 import { validateFileMeta, sanitizeFileName } from "@/lib/s3/file-validator";
 import { getAuthSession } from "@/lib/auth/session";
+import { createAuditLog } from "@/lib/audit/logger";
 
 export interface DirectUploadResult {
   success: boolean;
@@ -66,6 +67,15 @@ export async function uploadFileToS3Action(
     );
 
     const publicUrl = getS3PublicUrl(fileKey);
+
+    await createAuditLog({
+      username: session.username,
+      role: "STUDENT",
+      action: "FILE_UPLOAD",
+      targetType: "FILE",
+      targetId: fileKey,
+      details: `นักเรียนอัปโหลดไฟล์ส่งงาน "${file.name}" (${(file.size / 1024 / 1024).toFixed(2)} MB)`,
+    });
 
     return {
       success: true,
@@ -132,6 +142,16 @@ export async function uploadTeacherMaterialAction(
     );
 
     const publicUrl = getS3PublicUrl(fileKey);
+
+    await createAuditLog({
+      userId: session.userId,
+      username: session.username,
+      role: "ADMIN",
+      action: "FILE_UPLOAD",
+      targetType: "FILE",
+      targetId: fileKey,
+      details: `อัปโหลดสื่อการสอน/รูปภาพ "${file.name}" (${(file.size / 1024 / 1024).toFixed(2)} MB)`,
+    });
 
     return {
       success: true,

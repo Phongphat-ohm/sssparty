@@ -10,6 +10,7 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { StudentProfileForm } from "@/components/student/StudentProfileForm";
+import { getSystemSetting } from "@/lib/settings/system-settings";
 
 export default async function StudentProfilePage() {
   const session = await getAuthSession();
@@ -17,17 +18,19 @@ export default async function StudentProfilePage() {
     redirect("/student-login");
   }
 
-  const student = await prisma.student.findUnique({
-    where: { id: session.studentId },
-    include: {
-      user: { select: { passwordHash: true, createdAt: true } },
-      submissions: {
-        include: {
-          grade: { select: { score: true } },
+  const [student, allowStudentNameEdit] = await Promise.all([
+    prisma.student.findUnique({
+      where: { id: session.studentId },
+      include: {
+        submissions: {
+          include: {
+            grade: { select: { score: true } },
+          },
         },
       },
-    },
-  });
+    }),
+    getSystemSetting("allow_student_name_edit"),
+  ]);
 
   if (!student) {
     redirect("/student-login");
@@ -91,6 +94,7 @@ export default async function StudentProfilePage() {
         studentCode={student.studentCode}
         className={student.className}
         studentNumber={student.studentNumber}
+        allowEdit={allowStudentNameEdit}
       />
     </div>
   );

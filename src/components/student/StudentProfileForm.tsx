@@ -12,6 +12,7 @@ interface StudentProfileFormProps {
   studentCode: string;
   className: string;
   studentNumber: number;
+  allowEdit?: boolean;
 }
 
 export function StudentProfileForm({
@@ -20,6 +21,7 @@ export function StudentProfileForm({
   studentCode,
   className,
   studentNumber,
+  allowEdit = true,
 }: StudentProfileFormProps) {
   const router = useRouter();
 
@@ -78,36 +80,45 @@ export function StudentProfileForm({
       <form onSubmit={handleUpdateProfile} className="p-5 sm:p-7 space-y-6">
         {/* Editable Fields */}
         <div className="space-y-4">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A6A5C]">
-            ข้อมูลชื่อ-นามสกุลที่สามารถแก้ไขได้
-          </h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-[#7A6A5C]">
+              ข้อมูลชื่อ-นามสกุล {allowEdit ? "ที่สามารถแก้ไขได้" : "(ล็อคโดยผู้ดูแลระบบ)"}
+            </h3>
+            {!allowEdit && (
+              <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                ระบบปิดรับการแก้ไขชื่อชั่วคราว
+              </span>
+            )}
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#5A4D41]">
-                ชื่อจริง <span className="text-red-500">*</span>
+                ชื่อจริง {allowEdit && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="text"
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
-                required
+                required={allowEdit}
+                disabled={!allowEdit}
                 placeholder="กรอกชื่อจริง"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
 
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#5A4D41]">
-                นามสกุล <span className="text-red-500">*</span>
+                นามสกุล {allowEdit && <span className="text-red-500">*</span>}
               </label>
               <input
                 type="text"
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
-                required
+                required={allowEdit}
+                disabled={!allowEdit}
                 placeholder="กรอกนามสกุล"
-                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] disabled:opacity-60 disabled:cursor-not-allowed"
               />
             </div>
           </div>
@@ -168,25 +179,27 @@ export function StudentProfileForm({
         </div>
 
         {/* Submit Button */}
-        <div className="flex justify-end pt-3 border-t border-[#F2E8DC]">
-          <button
-            type="submit"
-            disabled={isUpdatingProfile}
-            className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#D9A441] hover:bg-[#C28F30] active:scale-95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
-          >
-            {isUpdatingProfile ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>กำลังบันทึก...</span>
-              </>
-            ) : (
-              <>
-                <Save className="w-4 h-4" />
-                <span>บันทึกการเปลี่ยนแปลง</span>
-              </>
-            )}
-          </button>
-        </div>
+        {allowEdit && (
+          <div className="flex justify-end pt-3 border-t border-[#F2E8DC]">
+            <button
+              type="submit"
+              disabled={isUpdatingProfile}
+              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#D9A441] hover:bg-[#C28F30] active:scale-95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
+            >
+              {isUpdatingProfile ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>กำลังบันทึก...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  <span>บันทึกการเปลี่ยนแปลง</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
       </form>
     </div>
   );

@@ -4,6 +4,8 @@ import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
+import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { createAuditLog } from "@/lib/audit/logger";
 
 const rubricItemSchema = z.object({
   id: z.string().optional(),
@@ -41,10 +43,11 @@ export async function createAssignmentAction(
   formData: FormData
 ): Promise<AssignmentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้ (Unauthorized)" };
+    const authCheck = await requireAdminPermission("MANAGE_ASSIGNMENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
@@ -135,7 +138,7 @@ export async function createAssignmentAction(
           dueDate: validData.dueDate,
           status: validData.status,
           submissionType: validData.submissionType,
-          createdById: session.userId,
+          createdById: currentUser.id,
           rubrics: {
             create: validData.rubrics.map((r, idx) => ({
               name: r.name,
@@ -170,6 +173,16 @@ export async function createAssignmentAction(
     revalidatePath("/admin/dashboard");
     revalidatePath("/student/dashboard");
 
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "CREATE_ASSIGNMENT",
+      targetType: "ASSIGNMENT",
+      targetId: assignment.id,
+      details: `สร้างการบ้านใหม่ "${validData.title}" (คะแนนเต็ม ${validData.maxScore})`,
+    });
+
     return {
       success: true,
       message: "สร้างการบ้านและเกณฑ์ Rubric สำเร็จเรียบร้อย",
@@ -189,10 +202,11 @@ export async function updateAssignmentAction(
   formData: FormData
 ): Promise<AssignmentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ASSIGNMENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const existing = await prisma.assignment.findUnique({
       where: { id: assignmentId },
@@ -392,6 +406,16 @@ export async function updateAssignmentAction(
     revalidatePath(`/admin/assignments/${assignmentId}`);
     revalidatePath("/student/dashboard");
 
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_ASSIGNMENT",
+      targetType: "ASSIGNMENT",
+      targetId: assignmentId,
+      details: `แก้ไขข้อมูลการบ้าน "${title}" (สถานะ: ${status})`,
+    });
+
     return {
       success: true,
       message: "อัปเดตข้อมูลการบ้านและเกณฑ์ Rubrics เรียบร้อยแล้ว",
@@ -411,14 +435,26 @@ export async function toggleAssignmentStatusAction(
   newStatus: "DRAFT" | "PUBLISHED" | "CLOSED"
 ): Promise<AssignmentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ASSIGNMENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
-    await prisma.assignment.update({
+    const updated = await prisma.assignment.update({
       where: { id: assignmentId },
       data: { status: newStatus },
+      select: { id: true, title: true },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: newStatus === "PUBLISHED" ? "PUBLISH_ASSIGNMENT" : "UPDATE_ASSIGNMENT",
+      targetType: "ASSIGNMENT",
+      targetId: assignmentId,
+      details: `เปลี่ยนสถานะการบ้าน "${updated.title}" เป็น ${newStatus}`,
     });
 
     revalidatePath("/admin/assignments");
@@ -438,10 +474,11 @@ export async function deleteAssignmentAction(
   assignmentId: string
 ): Promise<AssignmentActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ASSIGNMENTS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const assignment = await prisma.assignment.findUnique({
       where: { id: assignmentId },
@@ -461,6 +498,16 @@ export async function deleteAssignmentAction(
 
     await prisma.assignment.delete({
       where: { id: assignmentId },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "DELETE_ASSIGNMENT",
+      targetType: "ASSIGNMENT",
+      targetId: assignmentId,
+      details: `ลบการบ้าน "${assignment.title}"`,
     });
 
     revalidatePath("/admin/assignments");

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
+import { createAuditLog } from "@/lib/audit/logger";
 
 export interface QuestionAnswerInput {
   questionId: string;
@@ -157,6 +158,15 @@ export async function submitAssignmentAction(
       revalidatePath("/admin/submissions");
       revalidatePath("/admin/dashboard");
 
+      await createAuditLog({
+        username: session.username,
+        role: "STUDENT",
+        action: "SUBMIT_ASSIGNMENT",
+        targetType: "SUBMISSION",
+        targetId: submission.id,
+        details: `บันทึกแบบร่างการบ้าน "${assignment.title}" (${submissionType})`,
+      });
+
       return {
         success: true,
         message: "บันทึกแบบร่างเรียบร้อยแล้ว (คุณสามารถกลับมาแก้ไขต่อหรือกดยืนยันส่งงานได้ตลอดเวลา)",
@@ -264,6 +274,15 @@ export async function submitAssignmentAction(
     revalidatePath(`/admin/assignments/${assignmentId}/submissions`);
     revalidatePath("/admin/submissions");
     revalidatePath("/admin/dashboard");
+
+    await createAuditLog({
+      username: session.username,
+      role: "STUDENT",
+      action: "SUBMIT_ASSIGNMENT",
+      targetType: "SUBMISSION",
+      targetId: submission.id,
+      details: `${isLate ? "ส่งงานล่าช้า" : "ส่งงานเรียบร้อย"}: การบ้าน "${assignment.title}" (${assignment.submissionType})`,
+    });
 
     return {
       success: true,

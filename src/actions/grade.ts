@@ -2,7 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
-import { getAuthSession } from "@/lib/auth/session";
+import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { createAuditLog } from "@/lib/audit/logger";
 
 export interface RubricScoreInput {
   rubricId: string;
@@ -30,10 +31,11 @@ export async function saveGradeAction(
   params: SaveGradeParams
 ): Promise<SaveGradeResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการให้คะแนน (ต้องเป็นครูผู้สอนเท่านั้น)" };
+    const authCheck = await requireAdminPermission("GRADE_SUBMISSIONS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser, session } = authCheck;
 
     const { submissionId, rubricScores, feedback } = params;
 
@@ -42,6 +44,9 @@ export async function saveGradeAction(
       include: {
         assignment: {
           include: { rubrics: true },
+        },
+        student: {
+          select: { firstName: true, lastName: true, className: true, studentNumber: true },
         },
       },
     });
@@ -123,6 +128,16 @@ export async function saveGradeAction(
         where: { id: submissionId },
         data: { status: "GRADED" },
       });
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "GRADE_SUBMISSION",
+      targetType: "SUBMISSION",
+      targetId: submissionId,
+      details: `ตรวจงานการบ้าน "${submission.assignment.title}" ของ ${submission.student.firstName} ${submission.student.lastName} (${submission.student.className} เลขที่ ${submission.student.studentNumber}) ได้คะแนน ${totalScore}/${submission.assignment.maxScore}`,
     });
 
     revalidatePath(`/admin/submissions/${submissionId}`);

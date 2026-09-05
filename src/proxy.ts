@@ -15,7 +15,7 @@ export const config = {
 function attachSecurityHeaders(response: NextResponse): NextResponse {
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; font-src 'self' data:; frame-src 'self' blob: https:; connect-src 'self' https:; frame-ancestors 'self';"
+    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: https:; media-src 'self' blob: https:; font-src 'self' data:; frame-src 'self' blob: https:; connect-src 'self' https: https://cloudflareinsights.com; frame-ancestors 'self';"
   );
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");

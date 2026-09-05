@@ -15,8 +15,16 @@ async function main() {
   });
 
   if (existingAdmin) {
-    console.log(`ℹ️ Admin user already exists: "${existingAdmin.username}" (ID: ${existingAdmin.id})`);
-    console.log("✅ Admin account is ready. No changes made.");
+    if (existingAdmin.role === "ADMIN" && (!existingAdmin.adminRole || existingAdmin.adminRole !== "SUPER_ADMIN")) {
+      await prisma.user.update({
+        where: { id: existingAdmin.id },
+        data: { adminRole: "SUPER_ADMIN" },
+      });
+      console.log(`ℹ️ Updated admin user "${existingAdmin.username}" to SUPER_ADMIN.`);
+    } else {
+      console.log(`ℹ️ Admin user already exists: "${existingAdmin.username}" (ID: ${existingAdmin.id})`);
+    }
+    console.log("✅ Admin account is ready.");
   } else {
     const adminPasswordHash = await bcrypt.hash(adminPassword, 10);
     const admin = await prisma.user.create({
@@ -24,13 +32,14 @@ async function main() {
         username: adminUsername,
         passwordHash: adminPasswordHash,
         role: "ADMIN",
+        adminRole: "SUPER_ADMIN",
         status: "ACTIVE",
       },
     });
 
     console.log(`✅ Admin account created successfully!`);
     console.log(`   - Username: ${admin.username}`);
-    console.log(`   - Role: ${admin.role}`);
+    console.log(`   - Role: ${admin.role} (${admin.adminRole})`);
     console.log(`   - ID: ${admin.id}`);
   }
 

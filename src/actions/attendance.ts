@@ -3,7 +3,9 @@
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
-import { getAuthSession } from "@/lib/auth/session";
+import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { createAuditLog } from "@/lib/audit/logger";
+import { getSystemSetting } from "@/lib/settings/system-settings";
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "LEAVE" | "ABSENT";
 
@@ -42,14 +44,16 @@ export async function createAttendanceSessionAction(
   formData: FormData
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const rawTitle = (formData.get("title") as string)?.trim();
     const dateStr = formData.get("date") as string;
-    const academicTerm = (formData.get("academicTerm") as string)?.trim() || "1/2569";
+    const defaultTerm = await getSystemSetting("academic_term");
+    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
     const note = (formData.get("note") as string)?.trim() || undefined;
 
     const parsed = createSessionSchema.safeParse({
@@ -62,28 +66,24 @@ export async function createAttendanceSessionAction(
     if (!parsed.success) {
       return {
         success: false,
-        message: parsed.error.issues[0]?.message || "ข้อมูลรอบการเช็กชื่อไม่ถูกต้อง",
+        message: parsed.error.issues[0]?.message || "ข้อมูลรอบเช็กชื่อไม่ถูกต้อง",
       };
     }
 
-    const finalTitle =
-      parsed.data.title ||
-      (await generateAutoSessionTitle(parsed.data.date, parsed.data.academicTerm));
+    const finalTitle = parsed.data.title || (await generateAutoSessionTitle(parsed.data.date, academicTerm));
 
-    // ดึงนักเรียนที่กำลังใช้งานทั้งหมดในระบบ
     const activeStudents = await prisma.student.findMany({
       where: { status: "ACTIVE" },
       select: { id: true },
     });
 
-    // สร้าง Session พร้อมสร้าง Records เริ่มต้นเป็น "PRESENT" (มาเรียน) ให้ทุกคน
     const attendanceSession = await prisma.attendanceSession.create({
       data: {
         title: finalTitle,
         date: parsed.data.date,
         academicTerm: parsed.data.academicTerm,
         note: parsed.data.note,
-        createdById: session.userId,
+        createdById: currentUser.id,
         records: {
           create: activeStudents.map((s) => ({
             studentId: s.id,
@@ -93,13 +93,23 @@ export async function createAttendanceSessionAction(
       },
     });
 
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "CREATE_ATTENDANCE_SESSION",
+      targetType: "ATTENDANCE",
+      targetId: attendanceSession.id,
+      details: `สร้างรอบเช็กชื่อ: "${attendanceSession.title}"`,
+    });
+
     revalidatePath("/admin/attendance");
     revalidatePath(`/admin/attendance/${attendanceSession.id}`);
     revalidatePath("/student/attendance");
 
     return {
       success: true,
-      message: `สร้างรอบเช็กชื่อ "${attendanceSession.title}" สำเร็จ`,
+      message: `สร้างรอบเช็กชื่อ "${attendanceSession.title}" เรียบร้อยแล้ว`,
       sessionId: attendanceSession.id,
     };
   } catch (error) {
@@ -116,10 +126,11 @@ export async function createAttendanceSessionForDateAction(
   academicTerm: string = "1/2569"
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const targetDate = new Date(dateStr);
     if (isNaN(targetDate.getTime())) {
@@ -138,7 +149,7 @@ export async function createAttendanceSessionForDateAction(
         title: finalTitle,
         date: targetDate,
         academicTerm,
-        createdById: session.userId,
+        createdById: currentUser.id,
         records: {
           create: activeStudents.map((s) => ({
             studentId: s.id,
@@ -146,6 +157,16 @@ export async function createAttendanceSessionForDateAction(
           })),
         },
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "CREATE_ATTENDANCE_SESSION",
+      targetType: "ATTENDANCE",
+      targetId: attendanceSession.id,
+      details: `สร้างรอบเช็กชื่อผ่านปฏิทิน: "${attendanceSession.title}"`,
     });
 
     revalidatePath("/admin/attendance");
@@ -171,14 +192,16 @@ export async function updateAttendanceSessionInfoAction(
   formData: FormData
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     const title = (formData.get("title") as string)?.trim();
     const dateStr = formData.get("date") as string;
-    const academicTerm = (formData.get("academicTerm") as string)?.trim() || "1/2569";
+    const defaultTerm = await getSystemSetting("academic_term");
+    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
     const note = (formData.get("note") as string)?.trim() || undefined;
 
     await prisma.attendanceSession.update({
@@ -189,6 +212,16 @@ export async function updateAttendanceSessionInfoAction(
         academicTerm,
         note,
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_ATTENDANCE_SESSION",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `แก้ไขข้อมูลรอบเช็กชื่อ "${title}"`,
     });
 
     revalidatePath("/admin/attendance");
@@ -214,10 +247,11 @@ export async function updateAttendanceBatchAction(
   records: { studentId: string; status: AttendanceStatusType; note?: string }[]
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     // ประมวลผลการบันทึกข้อมูลแบบ Concurrent Chunks เพื่อความรวดเร็วและป้องกัน Transaction Timeout
     const chunkSize = 25;
@@ -249,6 +283,16 @@ export async function updateAttendanceBatchAction(
       );
     }
 
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "SAVE_ATTENDANCE_RECORD",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `บันทึกการเช็กชื่อนักเรียนจำนวน ${records.length} คน`,
+    });
+
     revalidatePath(`/admin/attendance/${sessionId}`);
     revalidatePath("/admin/attendance");
     revalidatePath("/student/attendance");
@@ -271,10 +315,11 @@ export async function markAllAttendanceStatusAction(
   status: AttendanceStatusType
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
 
     await prisma.attendanceRecord.updateMany({
       where: { sessionId },
@@ -282,6 +327,16 @@ export async function markAllAttendanceStatusAction(
         status,
         checkedAt: new Date(),
       },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "SAVE_ATTENDANCE_RECORD",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `ปรับสถานะเช็กชื่อทุกคนในรอบนี้เป็น "${status}"`,
     });
 
     revalidatePath(`/admin/attendance/${sessionId}`);
@@ -305,13 +360,29 @@ export async function deleteAttendanceSessionAction(
   sessionId: string
 ): Promise<AttendanceActionResult> {
   try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการดำเนินการนี้" };
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
     }
+    const { user: currentUser } = authCheck;
+
+    const sessionToDelete = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { title: true },
+    });
 
     await prisma.attendanceSession.delete({
       where: { id: sessionId },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "DELETE_ATTENDANCE_SESSION",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `ลบรอบเช็กชื่อ "${sessionToDelete?.title || sessionId}"`,
     });
 
     revalidatePath("/admin/attendance");

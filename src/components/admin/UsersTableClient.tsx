@@ -28,10 +28,12 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
 import { toggleUserStatusAction, deleteUserAction } from "@/actions/user";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import { AdminRoleType } from "@/lib/auth/permissions";
 
 interface UsersTableClientProps {
   initialUsers: UserItem[];
   currentUserId: string;
+  currentUserRole?: AdminRoleType | null;
   stats: {
     totalUsers: number;
     adminCount: number;
@@ -44,6 +46,7 @@ interface UsersTableClientProps {
 export function UsersTableClient({
   initialUsers,
   currentUserId,
+  currentUserRole = "SUPER_ADMIN",
   stats,
 }: UsersTableClientProps) {
   const [users, setUsers] = useState<UserItem[]>(initialUsers);
@@ -183,6 +186,56 @@ export function UsersTableClient({
     }
   };
 
+  const renderRoleBadge = (user: UserItem, isSmall: boolean = false) => {
+    const role = user.adminRole || "TEACHER";
+    if (role === "SUPER_ADMIN") {
+      return (
+        <span
+          className={`inline-flex items-center gap-1 font-bold rounded-full bg-red-50 text-red-700 border border-red-200 ${
+            isSmall ? "text-[10px] px-2 py-0.5" : "text-[11px] px-2.5 py-1"
+          }`}
+        >
+          <Shield className={isSmall ? "w-2.5 h-2.5 text-red-600" : "w-3 h-3 text-red-600"} />
+          <span>Super Admin</span>
+        </span>
+      );
+    }
+    if (role === "TEACHER") {
+      return (
+        <span
+          className={`inline-flex items-center gap-1 font-bold rounded-full bg-amber-50 text-amber-700 border border-amber-200 ${
+            isSmall ? "text-[10px] px-2 py-0.5" : "text-[11px] px-2.5 py-1"
+          }`}
+        >
+          <Shield className={isSmall ? "w-2.5 h-2.5 text-amber-600" : "w-3 h-3 text-amber-600"} />
+          <span>อาจารย์ผู้สอน</span>
+        </span>
+      );
+    }
+    if (role === "ASSISTANT") {
+      return (
+        <span
+          className={`inline-flex items-center gap-1 font-bold rounded-full bg-blue-50 text-blue-700 border border-blue-200 ${
+            isSmall ? "text-[10px] px-2 py-0.5" : "text-[11px] px-2.5 py-1"
+          }`}
+        >
+          <Shield className={isSmall ? "w-2.5 h-2.5 text-blue-600" : "w-3 h-3 text-blue-600"} />
+          <span>ผู้ช่วยสอน</span>
+        </span>
+      );
+    }
+    return (
+      <span
+        className={`inline-flex items-center gap-1 font-bold rounded-full bg-purple-50 text-purple-700 border border-purple-200 ${
+          isSmall ? "text-[10px] px-2 py-0.5" : "text-[11px] px-2.5 py-1"
+        }`}
+      >
+        <Shield className={isSmall ? "w-2.5 h-2.5 text-purple-600" : "w-3 h-3 text-purple-600"} />
+        <span>กำหนดสิทธิ์ ({user.permissions?.length || 0})</span>
+      </span>
+    );
+  };
+
   return (
     <div className="space-y-6">
       {/* 1. Header & Quick Action */}
@@ -212,39 +265,41 @@ export function UsersTableClient({
         {/* Total Users */}
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7A6A5C]">ผู้ใช้งานทั้งหมด</span>
-            <div className="w-8 h-8 rounded-xl bg-[#FAF0E1] text-[#D9A441] flex items-center justify-center">
-              <Users className="w-4 h-4" />
-            </div>
-          </div>
-          <p className="text-2xl sm:text-3xl font-extrabold text-[#3F342B]">
-            {stats.totalUsers} <span className="text-xs font-medium text-[#7A6A5C]">บัญชี</span>
-          </p>
-        </div>
-
-        {/* Admins */}
-        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs space-y-2">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7A6A5C]">ผู้ดูแลระบบ / ครู</span>
+            <span className="text-xs font-semibold text-[#7A6A5C]">ผู้ดูแลระบบทั้งหมด</span>
             <div className="w-8 h-8 rounded-xl bg-red-50 text-[#B94E48] flex items-center justify-center">
               <Shield className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-[#B94E48]">
-            {stats.adminCount} <span className="text-xs font-medium text-[#7A6A5C]">คน</span>
+            {stats.totalUsers} <span className="text-xs font-medium text-[#7A6A5C]">คน</span>
           </p>
         </div>
 
-        {/* Students */}
+        {/* Super Admins */}
         <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold text-[#7A6A5C]">นักเรียนในระบบ</span>
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-[#8C5D23] flex items-center justify-center">
-              <GraduationCap className="w-4 h-4" />
+            <span className="text-xs font-semibold text-[#7A6A5C]">Super Admin</span>
+            <div className="w-8 h-8 rounded-xl bg-red-100 text-red-700 flex items-center justify-center">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <p className="text-2xl sm:text-3xl font-extrabold text-[#3F342B]">
+            {users.filter((u) => u.adminRole === "SUPER_ADMIN").length}{" "}
+            <span className="text-xs font-medium text-[#7A6A5C]">คน</span>
+          </p>
+        </div>
+
+        {/* Teachers */}
+        <div className="bg-white rounded-3xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-[#7A6A5C]">อาจารย์ผู้สอน</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
+              <BookOpen className="w-4 h-4" />
             </div>
           </div>
           <p className="text-2xl sm:text-3xl font-extrabold text-[#8C5D23]">
-            {stats.studentCount} <span className="text-xs font-medium text-[#7A6A5C]">คน</span>
+            {users.filter((u) => u.adminRole === "TEACHER").length}{" "}
+            <span className="text-xs font-medium text-[#7A6A5C]">คน</span>
           </p>
         </div>
 
@@ -279,7 +334,7 @@ export function UsersTableClient({
                   : "bg-[#FAF6F0] text-[#7A6A5C] border border-[#EADBCC] hover:bg-[#F2E8DC]"
               }`}
             >
-              สิทธิ์ทั้งหมด ({users.length})
+              ทั้งหมด ({users.length})
             </button>
 
             <button
@@ -295,23 +350,7 @@ export function UsersTableClient({
               }`}
             >
               <Shield className="w-3.5 h-3.5" />
-              <span>แอดมิน ({users.filter((u) => u.role === "ADMIN").length})</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setRoleFilter("STUDENT");
-                setCurrentPage(1);
-              }}
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
-                roleFilter === "STUDENT"
-                  ? "bg-[#D9A441] text-white shadow-xs"
-                  : "bg-[#FAF6F0] text-[#7A6A5C] border border-[#EADBCC] hover:bg-[#F2E8DC]"
-              }`}
-            >
-              <GraduationCap className="w-3.5 h-3.5" />
-              <span>นักเรียน ({users.filter((u) => u.role === "STUDENT").length})</span>
+              <span>ผู้ดูแลระบบ ({users.length})</span>
             </button>
           </div>
 
@@ -483,45 +522,19 @@ export function UsersTableClient({
 
                         {/* 2. Role */}
                         <td className="py-4 px-4">
-                          {user.role === "ADMIN" ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-red-50 text-[#B94E48] border border-red-200">
-                              <Shield className="w-3 h-3" />
-                              <span>แอดมิน / ครู</span>
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-[#8C5D23] border border-amber-200">
-                              <GraduationCap className="w-3 h-3" />
-                              <span>นักเรียน</span>
-                            </span>
-                          )}
+                          {renderRoleBadge(user)}
                         </td>
 
                         {/* 3. Details / Activities */}
                         <td className="py-4 px-4 text-[#5A4D41]">
-                          {user.role === "ADMIN" ? (
-                            <div className="space-y-0.5 text-[11px]">
-                              <span className="text-[#7A6A5C] block">
-                                สร้างงาน {user.counts.createdAssignments} ชิ้น • ตรวจ {user.counts.gradesGiven} ชิ้น
-                              </span>
-                              <span className="text-[10px] text-[#A8988B]">
-                                เช็กชื่อ {user.counts.createdAttendanceSessions} ครั้ง
-                              </span>
-                            </div>
-                          ) : user.studentInfo ? (
-                            <div className="text-[11px]">
-                              <span className="font-semibold text-[#3F342B]">
-                                ห้อง {user.studentInfo.className}
-                              </span>{" "}
-                              <span className="text-[#7A6A5C]">
-                                เลขที่ #{user.studentInfo.studentNumber}
-                              </span>
-                              <p className="text-[10px] text-[#A8988B]">
-                                รหัส: {user.studentInfo.studentCode}
-                              </p>
-                            </div>
-                          ) : (
-                            <span className="text-[#A8988B] text-[11px] italic">ไม่มีข้อมูลนักเรียน</span>
-                          )}
+                          <div className="space-y-0.5 text-[11px]">
+                            <span className="text-[#7A6A5C] block">
+                              สร้างงาน {user.counts.createdAssignments} ชิ้น • ตรวจ {user.counts.gradesGiven} ชิ้น
+                            </span>
+                            <span className="text-[10px] text-[#A8988B]">
+                              เช็กชื่อ {user.counts.createdAttendanceSessions} ครั้ง
+                            </span>
+                          </div>
                         </td>
 
                         {/* 4. Status */}
@@ -663,17 +676,7 @@ export function UsersTableClient({
                       </div>
 
                       <div className="flex flex-col items-end gap-1">
-                        {user.role === "ADMIN" ? (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-[#B94E48] border border-red-200">
-                            <Shield className="w-3 h-3" />
-                            <span>แอดมิน</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-[#8C5D23] border border-amber-200">
-                            <GraduationCap className="w-3 h-3" />
-                            <span>นักเรียน</span>
-                          </span>
-                        )}
+                        {renderRoleBadge(user, true)}
 
                         <span
                           className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${
@@ -696,68 +699,65 @@ export function UsersTableClient({
                     <div className="text-xs text-[#7A6A5C] bg-[#FAF6F0] p-2.5 rounded-xl border border-[#EADBCC] flex items-center justify-between">
                       {user.role === "ADMIN" ? (
                         <span>
-                          สร้างงาน {user.counts.createdAssignments} • ตรวจ {user.counts.gradesGiven}
+                          งาน: {user.counts.createdAssignments} | ตรวจ: {user.counts.gradesGiven} | เช็ก: {user.counts.createdAttendanceSessions}
                         </span>
                       ) : user.studentInfo ? (
                         <span>
-                          ห้อง {user.studentInfo.className} เลขที่ #{user.studentInfo.studentNumber}
+                          ม.{user.studentInfo.className} เลขที่ {user.studentInfo.studentNumber} (รหัส {user.studentInfo.studentCode})
                         </span>
                       ) : (
-                        <span className="italic text-[#A8988B]">ไม่มีข้อมูลเพิ่มเติม</span>
+                        <span className="italic">ไม่มีข้อมูล</span>
                       )}
-                      <span className="text-[10px] text-[#A8988B]">
-                        {formatDateThai(user.createdAt)}
-                      </span>
+                      <span>{formatDateThai(user.createdAt)}</span>
                     </div>
 
-                    {/* Mobile Action Buttons */}
-                    <div className="flex items-center justify-end gap-2 pt-1">
+                    {/* Action buttons on mobile */}
+                    <div className="flex items-center justify-end gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(user)}
+                        disabled={isSelf}
+                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
+                          isSelf
+                            ? "opacity-30 cursor-not-allowed bg-stone-100 text-stone-400"
+                            : isActive
+                            ? "bg-stone-50 text-stone-600 border-stone-200"
+                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                        }`}
+                      >
+                        <Power className="w-3.5 h-3.5" />
+                        <span>{isActive ? "ระงับ" : "เปิดใช้"}</span>
+                      </button>
+
                       <button
                         type="button"
                         onClick={() => setResetPasswordUser(user)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-[#D9CABB] bg-white text-xs font-semibold text-[#5A4D41] hover:text-[#D9A441]"
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-stone-50 text-stone-600 border-stone-200 flex items-center gap-1"
                       >
                         <KeyRound className="w-3.5 h-3.5" />
-                        <span>รหัสผ่าน</span>
+                        <span>รหัส</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => setEditingUser(user)}
-                        className="p-1.5 rounded-xl border border-[#D9CABB] bg-white text-[#5A4D41] hover:text-[#D9A441]"
-                        title="แก้ไข"
+                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-amber-50 text-[#8C5D23] border-amber-200 flex items-center gap-1"
                       >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(user)}
-                        disabled={isSelf}
-                        className={`p-1.5 rounded-xl border ${
-                          isSelf
-                            ? "opacity-30 cursor-not-allowed bg-stone-100 text-stone-400"
-                            : isActive
-                            ? "bg-white text-stone-600 hover:text-amber-700"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        }`}
-                        title={isActive ? "ระงับการใช้งาน" : "เปิดใช้งาน"}
-                      >
-                        <Power className="w-4 h-4" />
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>แก้ไข</span>
                       </button>
 
                       <button
                         type="button"
                         onClick={() => handleDeleteUser(user)}
                         disabled={isSelf}
-                        className={`p-1.5 rounded-xl border ${
+                        className={`p-1.5 rounded-lg border ${
                           isSelf
                             ? "opacity-30 cursor-not-allowed bg-stone-100 text-stone-400"
-                            : "bg-white text-stone-600 hover:text-red-600 hover:border-red-200"
+                            : "bg-red-50 text-[#B94E48] border-red-200"
                         }`}
-                        title="ลบผู้ใช้"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </div>
@@ -783,6 +783,7 @@ export function UsersTableClient({
       <CreateUserModal
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
+        currentUserRole={currentUserRole}
       />
 
       <EditUserModal
@@ -790,6 +791,7 @@ export function UsersTableClient({
         onClose={() => setEditingUser(null)}
         userToEdit={editingUser}
         currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
       />
 
       <ResetUserPasswordModal

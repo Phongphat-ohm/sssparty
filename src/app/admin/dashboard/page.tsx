@@ -37,7 +37,8 @@ export default async function AdminDashboardPage() {
     recentPendingSubmissions,
     studentsByClass,
     publishedAssignments,
-    allSubmissions,
+    recentSubmissions7Days,
+    gradedSubmissionsSample,
   ] = await Promise.all([
     prisma.student.count({ where: { status: "ACTIVE" } }),
     prisma.assignment.count(),
@@ -73,15 +74,29 @@ export default async function AdminDashboardPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // ชิ้นงานที่ส่งเข้ามาทั้งหมดเพื่อคำนวณแนวโน้มและช่วงคะแนน
+    // ชิ้นงานที่ส่งเข้ามาในช่วง 7 วันล่าสุดเพื่อคำนวณแนวโน้ม
     prisma.submission.findMany({
+      where: {
+        submittedAt: {
+          gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
+        },
+      },
       select: {
         submittedAt: true,
-        status: true,
+      },
+      orderBy: { submittedAt: "asc" },
+    }),
+    // สรุปคะแนนชิ้นงานที่ตรวจแล้วล่าสุด 100 ชิ้น
+    prisma.submission.findMany({
+      where: {
+        status: "GRADED",
+        grade: { isNot: null },
+      },
+      select: {
         grade: { select: { score: true } },
         assignment: { select: { maxScore: true } },
       },
-      orderBy: { submittedAt: "asc" },
+      take: 200,
     }),
   ]);
 
@@ -95,7 +110,7 @@ export default async function AdminDashboardPage() {
     last7Days.push({ label, dateStr, value: 0 });
   }
 
-  allSubmissions.forEach((sub) => {
+  recentSubmissions7Days.forEach((sub) => {
     const subDate = new Date(sub.submittedAt).toISOString().split("T")[0];
     const found = last7Days.find((day) => day.dateStr === subDate);
     if (found) {
@@ -104,13 +119,12 @@ export default async function AdminDashboardPage() {
   });
 
   // 2. คำนวณการกระจายตัวของคะแนน (Score Distribution)
-  const gradedList = allSubmissions.filter((s) => s.status === "GRADED" && s.grade);
   let excellent = 0; // 80-100%
   let veryGood = 0; // 70-79%
   let fair = 0; // 60-69%
   let needsWork = 0; // < 60%
 
-  gradedList.forEach((s) => {
+  gradedSubmissionsSample.forEach((s) => {
     const pct = ((s.grade?.score || 0) / (s.assignment.maxScore || 1)) * 100;
     if (pct >= 80) excellent++;
     else if (pct >= 70) veryGood++;

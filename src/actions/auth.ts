@@ -4,7 +4,9 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma/client";
 import { comparePassword } from "@/lib/auth/password";
 import { signAuthToken } from "@/lib/auth/jwt";
-import { setAuthSession, clearAuthSession } from "@/lib/auth/session";
+import { setAuthSession, getAuthSession, clearAuthSession } from "@/lib/auth/session";
+import { createAuditLog } from "@/lib/audit/logger";
+import { getSystemSettings } from "@/lib/settings/system-settings";
 
 // Zod Validation Schemas
 const adminLoginSchema = z.object({
@@ -59,6 +61,17 @@ export async function adminLoginAction(
     });
 
     if (!user || user.role !== "ADMIN" || user.status !== "ACTIVE" || !user.passwordHash) {
+      await createAuditLog({
+        username,
+        role: "ADMIN",
+        action: "LOGIN_FAILED",
+        targetType: "AUTH",
+        details: !user
+          ? "ไม่พบบัญชีผู้ดูแลนี้ในระบบ"
+          : user.status !== "ACTIVE"
+          ? "บัญชีถูกระงับการใช้งาน"
+          : "รหัสผ่านไม่ถูกต้อง หรือบัญชีไม่ใช่ระดับผู้ดูแล",
+      });
       return {
         success: false,
         message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
@@ -67,6 +80,14 @@ export async function adminLoginAction(
 
     const isMatch = await comparePassword(password, user.passwordHash);
     if (!isMatch) {
+      await createAuditLog({
+        userId: user.id,
+        username: user.username,
+        role: "ADMIN",
+        action: "LOGIN_FAILED",
+        targetType: "AUTH",
+        details: "รหัสผ่านไม่ถูกต้อง",
+      });
       return {
         success: false,
         message: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
@@ -80,6 +101,15 @@ export async function adminLoginAction(
     });
 
     await setAuthSession(token);
+
+    await createAuditLog({
+      userId: user.id,
+      username: user.username,
+      role: "ADMIN",
+      action: "LOGIN_SUCCESS",
+      targetType: "AUTH",
+      details: "เข้าสู่ระบบผู้ดูแลสำเร็จ",
+    });
 
     return {
       success: true,
@@ -108,6 +138,15 @@ export async function studentLoginAction(
       studentNumber: formData.get("studentNumber"),
     };
 
+    const settings = await getSystemSettings();
+    if (settings.maintenance_mode) {
+      return {
+        success: false,
+        message: "ระบบกำลังปิดปรับปรุงชั่วคราว จึงไม่สามารถเข้าสู่ระบบได้ในขณะนี้",
+        redirectUrl: "/maintenance",
+      };
+    }
+
     const parsed = studentLoginSchema.safeParse(rawData);
     if (!parsed.success) {
       return {
@@ -120,16 +159,21 @@ export async function studentLoginAction(
 
     const student = await prisma.student.findUnique({
       where: { studentCode },
-      include: { user: true },
     });
 
     if (
       !student ||
       student.status !== "ACTIVE" ||
-      student.user.status !== "ACTIVE" ||
       student.className.trim() !== className.trim() ||
       student.studentNumber !== studentNumber
     ) {
+      await createAuditLog({
+        username: studentCode,
+        role: "STUDENT",
+        action: "LOGIN_FAILED",
+        targetType: "AUTH",
+        details: `พยายามเข้าสู่ระบบนักเรียนรหัส ${studentCode} (ห้อง ${className}, เลขที่ ${studentNumber}) ไม่สำเร็จ`,
+      });
       return {
         success: false,
         message: "ไม่พบข้อมูลนักเรียน หรือข้อมูลชั้น/เลขที่ไม่ตรงกับในระบบ",
@@ -137,9 +181,9 @@ export async function studentLoginAction(
     }
 
     const token = await signAuthToken({
-      userId: student.userId,
+      userId: student.id,
       role: "STUDENT",
-      username: student.user.username,
+      username: student.studentCode,
       studentId: student.id,
       studentCode: student.studentCode,
       name: `${student.firstName} ${student.lastName}`,
@@ -148,6 +192,15 @@ export async function studentLoginAction(
     });
 
     await setAuthSession(token);
+
+    await createAuditLog({
+      username: student.studentCode,
+      role: "STUDENT",
+      action: "LOGIN_SUCCESS",
+      targetType: "AUTH",
+      targetId: student.id,
+      details: `นักเรียนเข้าสู่ระบบสำเร็จ: ${student.firstName} ${student.lastName} (ห้อง ${student.className} เลขที่ ${student.studentNumber})`,
+    });
 
     return {
       success: true,
@@ -166,5 +219,21 @@ export async function studentLoginAction(
  * Server Action สำหรับออกจากระบบ (Logout)
  */
 export async function logoutAction(): Promise<void> {
+  try {
+    const session = await getAuthSession();
+    if (session) {
+      await createAuditLog({
+        userId: session.role === "ADMIN" ? session.userId : null,
+        username: session.username,
+        role: session.role,
+        action: "LOGOUT",
+        targetType: "AUTH",
+        details: "ออกจากระบบ",
+      });
+    }
+  } catch (err) {
+    console.error("logoutAction log error:", err);
+  }
   await clearAuthSession();
 }
+

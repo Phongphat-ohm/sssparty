@@ -17,18 +17,42 @@ import {
   Settings,
   Calendar,
   UserCog,
+  History,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
+import {
+  AdminRoleType,
+  AdminPermissionType,
+  hasAdminPermission,
+  ROLE_LABELS,
+} from "@/lib/auth/permissions";
 
 interface AdminSidebarProps {
   adminName: string;
+  adminRole?: AdminRoleType | null;
+  permissions?: AdminPermissionType[];
 }
 
-export function AdminSidebar({ adminName }: AdminSidebarProps) {
+export function AdminSidebar({
+  adminName,
+  adminRole = "TEACHER",
+  permissions = [],
+}: AdminSidebarProps) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
 
-  const navItems = [
+  const userObj = {
+    role: "ADMIN",
+    adminRole,
+    permissions,
+  };
+
+  const navItems: Array<{
+    name: string;
+    href: string;
+    icon: any;
+    permission?: AdminPermissionType;
+  }> = [
     {
       name: "ภาพรวมระบบ (Dashboard)",
       href: "/admin/dashboard",
@@ -38,31 +62,43 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
       name: "การบ้านทั้งหมด",
       href: "/admin/assignments",
       icon: BookOpen,
+      permission: "MANAGE_ASSIGNMENTS",
     },
     {
       name: "สร้างการบ้านใหม่",
       href: "/admin/assignments/new",
       icon: PlusCircle,
+      permission: "MANAGE_ASSIGNMENTS",
     },
     {
       name: "ห้องตรวจงาน (Grading)",
       href: "/admin/submissions",
       icon: ClipboardCheck,
+      permission: "GRADE_SUBMISSIONS",
     },
     {
       name: "เช็กชื่อกิจกรรม",
       href: "/admin/attendance",
       icon: Calendar,
+      permission: "MANAGE_ATTENDANCE",
     },
     {
       name: "รายชื่อนักเรียนในชุมนุม",
       href: "/admin/students",
       icon: Users,
+      permission: "MANAGE_STUDENTS",
     },
     {
       name: "จัดการบัญชีผู้ใช้ (Users)",
       href: "/admin/users",
       icon: UserCog,
+      permission: "MANAGE_USERS",
+    },
+    {
+      name: "บันทึกประวัติ (Audit Logs)",
+      href: "/admin/logs",
+      icon: History,
+      permission: "VIEW_AUDIT_LOGS",
     },
     {
       name: "ตั้งค่าระบบ & รหัสผ่าน",
@@ -70,6 +106,14 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
       icon: Settings,
     },
   ];
+
+  // กรองเมนูตามสิทธิ์ที่ผู้ใช้ได้รับ
+  const allowedNavItems = navItems.filter((item) => {
+    if (!item.permission) return true;
+    return hasAdminPermission(userObj, item.permission);
+  });
+
+  const roleMeta = ROLE_LABELS[adminRole || "TEACHER"] || ROLE_LABELS.TEACHER;
 
   return (
     <>
@@ -132,15 +176,17 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
             </div>
             <div className="overflow-hidden">
               <p className="text-xs font-bold text-[#3F342B] truncate">{adminName}</p>
-              <span className="inline-block text-[10px] font-semibold text-[#B94E48] bg-red-50 px-1.5 py-0.5 rounded-md border border-red-100">
-                อาจารย์ผู้สอน
+              <span
+                className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded-md border mt-0.5 ${roleMeta.badgeColor}`}
+              >
+                {roleMeta.label.split(" (")[0]}
               </span>
             </div>
           </div>
 
           {/* Navigation Items */}
           <nav className="space-y-1">
-            {navItems.map((item) => {
+            {allowedNavItems.map((item) => {
               const Icon = item.icon;
               let isActive = pathname === item.href;
               if (!isActive && item.href !== "/admin/dashboard") {
@@ -157,6 +203,7 @@ export function AdminSidebar({ adminName }: AdminSidebarProps) {
                 <Link
                   key={item.href}
                   href={item.href}
+                  prefetch={false}
                   onClick={() => setIsOpen(false)}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                     isActive
