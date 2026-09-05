@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Wrench, Clock, Shield, ArrowRight } from "lucide-react";
 import { getSystemSettings } from "@/lib/settings/system-settings";
 
+export const dynamic = "force-dynamic";
+
 export default async function MaintenancePage() {
   const settings = await getSystemSettings();
 

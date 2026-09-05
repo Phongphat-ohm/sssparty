@@ -7,6 +7,8 @@ import { AdminNavbar } from "@/components/admin/AdminNavbar";
 import { getSystemSettings } from "@/lib/settings/system-settings";
 import { Wrench, ArrowRight } from "lucide-react";
 
+export const dynamic = "force-dynamic";
+
 export default async function AdminLayout({
   children,
 }: {

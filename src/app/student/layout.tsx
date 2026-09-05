@@ -4,19 +4,21 @@ import { StudentNavbar } from "@/components/student/StudentNavbar";
 import { StudentBottomNav } from "@/components/student/StudentBottomNav";
 import { getSystemSetting } from "@/lib/settings/system-settings";
 
+export const dynamic = "force-dynamic";
+
 export default async function StudentLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const isMaintenance = await getSystemSetting("maintenance_mode");
-  if (isMaintenance) {
-    redirect("/maintenance");
-  }
-
   const session = await getAuthSession();
   if (!session || session.role !== "STUDENT") {
     redirect("/student-login");
+  }
+
+  const isMaintenance = await getSystemSetting("maintenance_mode");
+  if (isMaintenance) {
+    redirect("/maintenance");
   }
 
   const studentName = session.name || session.username;
