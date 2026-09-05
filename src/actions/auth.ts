@@ -140,9 +140,12 @@ export async function studentLoginAction(
 
     const settings = await getSystemSettings();
     if (settings.maintenance_mode) {
+      const timeInfo = settings.maintenance_expected_end
+        ? ` (คาดว่าจะเปิดให้บริการเวลา: ${settings.maintenance_expected_end})`
+        : "";
       return {
         success: false,
-        message: "ระบบกำลังปิดปรับปรุงชั่วคราว จึงไม่สามารถเข้าสู่ระบบได้ในขณะนี้",
+        message: `ระบบไม่พร้อมใช้งานในขณะนี้: ${settings.maintenance_message}${timeInfo}`,
         redirectUrl: "/maintenance",
       };
     }
