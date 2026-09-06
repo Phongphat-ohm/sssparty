@@ -418,12 +418,21 @@ export async function batchMarkUncheckedAbsentAction(sessionId: string) {
     }
     const { user: currentUser } = authCheck;
 
-    // ค้นหานักเรียนที่ยังไม่ได้เช็กชื่อผ่าน Dynamic Key หรือ QR
+    // ค้นหานักเรียนที่ยังไม่ได้เช็กชื่อผ่าน Dynamic Key หรือ QR (รวมถึงคนที่มี checkInMethod เป็น null)
+    // โดยยกเว้นนักเรียนที่มีใบลา (status: "LEAVE")
     const unchecked = await prisma.attendanceRecord.findMany({
       where: {
         sessionId,
-        checkInMethod: {
-          notIn: ["DYNAMIC_KEY", "DYNAMIC_QR"],
+        OR: [
+          { checkInMethod: null },
+          {
+            checkInMethod: {
+              notIn: ["DYNAMIC_KEY", "DYNAMIC_QR"],
+            },
+          },
+        ],
+        status: {
+          not: "LEAVE",
         },
       },
       select: { id: true },
@@ -444,6 +453,12 @@ export async function batchMarkUncheckedAbsentAction(sessionId: string) {
         status: "ABSENT",
         note: "ไม่ได้เข้าเช็กชื่อในระบบตามเวลาที่กำหนด",
       },
+    });
+
+    // แจ้งเตือน Event Stream ไปยังหน้าจอโปรเจกเตอร์
+    attendanceEventBus.emit("session_batch_update", {
+      sessionId,
+      action: "BATCH_ABSENT",
     });
 
     await createAuditLog({

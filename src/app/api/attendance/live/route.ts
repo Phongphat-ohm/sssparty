@@ -165,10 +165,29 @@ export async function GET(req: NextRequest) {
         }
       };
 
+      // 4. Listener รับ Event เมื่อมีการปรับสถานะแบบกลุ่ม (เช่น รีเซ็ตเป็นขาด, ปรับคนค้างเป็นขาด)
+      const onBatchUpdate = (payload: { sessionId: string; action: string }) => {
+        if (payload.sessionId === sessionId) {
+          try {
+            controller.enqueue(
+              encoder.encode(
+                `data: ${JSON.stringify({
+                  type: "BATCH_UPDATE",
+                  ...payload,
+                })}\n\n`
+              )
+            );
+          } catch {
+            // controller closed
+          }
+        }
+      };
+
       attendanceEventBus.on("checkin", onCheckIn);
       attendanceEventBus.on("session_state", onSessionState);
+      attendanceEventBus.on("session_batch_update", onBatchUpdate);
 
-      // 4. Heartbeat ทุก 15 วินาที เพื่อป้องกัน Timeout
+      // 5. Heartbeat ทุก 15 วินาที เพื่อป้องกัน Timeout
       const heartbeatInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(`: ping\n\n`));
@@ -177,11 +196,12 @@ export async function GET(req: NextRequest) {
         }
       }, 15000);
 
-      // 5. Cleanup เมื่อปิดการเชื่อมต่อ
+      // 6. Cleanup เมื่อปิดการเชื่อมต่อ
       req.signal.addEventListener("abort", () => {
         clearInterval(heartbeatInterval);
         attendanceEventBus.off("checkin", onCheckIn);
         attendanceEventBus.off("session_state", onSessionState);
+        attendanceEventBus.off("session_batch_update", onBatchUpdate);
         try {
           controller.close();
         } catch {

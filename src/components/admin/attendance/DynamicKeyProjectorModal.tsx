@@ -241,6 +241,12 @@ export function DynamicKeyProjectorModal({
             }
           } else if (data.type === "SESSION_STATE_CHANGED") {
             setIsActive(data.isKeyActive);
+          } else if (data.type === "BATCH_UPDATE") {
+            // ซิงก์ข้อมูลยอดเช็กชื่อใหม่ทันทีเมื่อมีการกดรีเซ็ตหรือปรับสถานะแบบกลุ่ม
+            syncStatus();
+            if (onCheckInEvent) {
+              onCheckInEvent();
+            }
           }
         } catch {
           // ignore parse errors

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSetting } from "@/lib/settings/system-settings";
+import { attendanceEventBus } from "@/lib/attendance/attendance-events";
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "LEAVE" | "ABSENT";
 
@@ -242,6 +243,9 @@ export async function updateAttendanceSessionInfoAction(
 /**
  * Server Action สำหรับบันทึกการเช็กชื่อแบบกลุ่ม (Batch Update Records)
  */
+/**
+ * Server Action สำหรับบันทึกการเช็กชื่อแบบกลุ่ม (Batch Update Records)
+ */
 export async function updateAttendanceBatchAction(
   sessionId: string,
   records: { studentId: string; status: AttendanceStatusType; note?: string }[]
@@ -253,13 +257,56 @@ export async function updateAttendanceBatchAction(
     }
     const { user: currentUser } = authCheck;
 
-    // ประมวลผลการบันทึกข้อมูลแบบ Concurrent Chunks เพื่อความรวดเร็วและป้องกัน Transaction Timeout
+    // 1. ดึงข้อมูลเดิมทั้งหมดเพื่อตรวจสอบความเปลี่ยนแปลง และรักษา Timestamp สแกนเดิมไว้
+    const existingRecords = await prisma.attendanceRecord.findMany({
+      where: { sessionId },
+      select: {
+        id: true,
+        studentId: true,
+        status: true,
+        note: true,
+        checkInMethod: true,
+        checkedAt: true,
+      },
+    });
+    const existingMap = new Map(existingRecords.map((e) => [e.studentId, e]));
+
+    const now = new Date();
+
+    // 2. คัดกรองเฉพาะ Record ที่มีการเปลี่ยนแปลงจริง ๆ เพื่อลด Database writes และป้องกันข้อมูลทับซ้อน
+    const toUpdate = records.filter((r) => {
+      const ex = existingMap.get(r.studentId);
+      if (!ex) return true;
+      const cleanNote = r.note?.trim() || null;
+      return ex.status !== r.status || (ex.note || null) !== cleanNote;
+    });
+
+    if (toUpdate.length === 0) {
+      return {
+        success: true,
+        message: "บันทึกผลการเช็กชื่อเรียบร้อยแล้ว (ไม่มีข้อมูลเปลี่ยนแปลง)",
+      };
+    }
+
+    // 3. ประมวลผลการบันทึกข้อมูลแบบ Concurrent Chunks
     const chunkSize = 25;
-    for (let i = 0; i < records.length; i += chunkSize) {
-      const chunk = records.slice(i, i + chunkSize);
+    for (let i = 0; i < toUpdate.length; i += chunkSize) {
+      const chunk = toUpdate.slice(i, i + chunkSize);
       await Promise.all(
-        chunk.map((r) =>
-          prisma.attendanceRecord.upsert({
+        chunk.map((r) => {
+          const ex = existingMap.get(r.studentId);
+          // ถ้าสถานะเปลี่ยนเป็น PRESENT โดยคุณครูแบบ Manual ให้ใช้เวลาปัจจุบันและ method: "MANUAL"
+          // ถ้าสถานะไม่ได้เปลี่ยน หรือเป็นการเช็ก QR มาก่อน ให้คงเวลา checkedAt และ checkInMethod เดิมไว้
+          const isManualStatusChange = !ex || ex.status !== r.status;
+          const checkedAt = isManualStatusChange ? now : ex.checkedAt;
+          const checkInMethod =
+            r.status === "PRESENT"
+              ? ex?.checkInMethod || "MANUAL"
+              : r.status === "ABSENT"
+              ? null
+              : ex?.checkInMethod;
+
+          return prisma.attendanceRecord.upsert({
             where: {
               sessionId_studentId: {
                 sessionId,
@@ -269,19 +316,27 @@ export async function updateAttendanceBatchAction(
             update: {
               status: r.status,
               note: r.note?.trim() || null,
-              checkedAt: new Date(),
+              checkedAt,
+              checkInMethod,
             },
             create: {
               sessionId,
               studentId: r.studentId,
               status: r.status,
               note: r.note?.trim() || null,
-              checkedAt: new Date(),
+              checkedAt,
+              checkInMethod,
             },
-          })
-        )
+          });
+        })
       );
     }
+
+    // แจ้งเตือน Event Stream ไปยังหน้าจอโปรเจกเตอร์
+    attendanceEventBus.emit("session_batch_update", {
+      sessionId,
+      action: "SAVED",
+    });
 
     await createAuditLog({
       userId: currentUser.id,
@@ -290,7 +345,7 @@ export async function updateAttendanceBatchAction(
       action: "SAVE_ATTENDANCE_RECORD",
       targetType: "ATTENDANCE",
       targetId: sessionId,
-      details: `บันทึกการเช็กชื่อนักเรียนจำนวน ${records.length} คน`,
+      details: `บันทึกการเช็กชื่อนักเรียน (ปรับปรุง ${toUpdate.length} จากทั้งหมด ${records.length} คน)`,
     });
 
     revalidatePath(`/admin/attendance/${sessionId}`);
@@ -299,7 +354,7 @@ export async function updateAttendanceBatchAction(
 
     return {
       success: true,
-      message: "บันทึกผลการเช็กชื่อเรียบร้อยแล้ว",
+      message: `บันทึกผลการเช็กชื่อเรียบร้อยแล้ว (อัปเดต ${toUpdate.length} รายการ)`,
     };
   } catch (error) {
     console.error("updateAttendanceBatchAction error:", error);
@@ -308,7 +363,7 @@ export async function updateAttendanceBatchAction(
 }
 
 /**
- * Server Action สำหรับปุ่มลัดเปลี่ยนสถานะทุกคนพร้อมกัน เช่น "เช็กมาครบทุกคน"
+ * Server Action สำหรับปุ่มลัดเปลี่ยนสถานะทุกคนพร้อมกัน เช่น "เช็กมาครบทุกคน" หรือ "รีเซ็ตเป็นขาดเรียน"
  */
 export async function markAllAttendanceStatusAction(
   sessionId: string,
@@ -321,12 +376,48 @@ export async function markAllAttendanceStatusAction(
     }
     const { user: currentUser } = authCheck;
 
-    await prisma.attendanceRecord.updateMany({
-      where: { sessionId },
-      data: {
-        status,
-        checkedAt: new Date(),
-      },
+    const now = new Date();
+
+    if (status === "ABSENT") {
+      // กรณีรีเซ็ตทุกคนเป็น ขาดเรียน เพื่อเริ่มนับการเช็กชื่อใหม่ ให้เคลียร์ข้อมูลสแกนและพิกัดเดิมทิ้งทั้งหมด
+      await prisma.attendanceRecord.updateMany({
+        where: { sessionId },
+        data: {
+          status: "ABSENT",
+          checkedAt: now,
+          checkInMethod: null,
+          latitude: null,
+          longitude: null,
+          locationAccuracy: null,
+          distanceFromSession: null,
+          hasLocation: false,
+          note: null,
+        },
+      });
+    } else if (status === "PRESENT") {
+      // กรณีเช็กมาครบทุกคน ให้ระบุ checkInMethod เป็น MANUAL
+      await prisma.attendanceRecord.updateMany({
+        where: { sessionId },
+        data: {
+          status: "PRESENT",
+          checkedAt: now,
+          checkInMethod: "MANUAL",
+        },
+      });
+    } else {
+      await prisma.attendanceRecord.updateMany({
+        where: { sessionId },
+        data: {
+          status,
+          checkedAt: now,
+        },
+      });
+    }
+
+    // กระจาย Event แจ้งเตือนไปยังหน้าจอโปรเจกเตอร์และหน้าอื่นๆ ให้รีเฟรชทันที
+    attendanceEventBus.emit("session_batch_update", {
+      sessionId,
+      action: status === "ABSENT" ? "RESET_ALL_ABSENT" : "MARK_ALL_PRESENT",
     });
 
     await createAuditLog({

@@ -20,6 +20,11 @@ export interface SessionStatePayload {
   isKeyActive: boolean;
 }
 
+export interface SessionBatchUpdatePayload {
+  sessionId: string;
+  action: "RESET_ALL_ABSENT" | "MARK_ALL_PRESENT" | "BATCH_ABSENT" | "SAVED";
+}
+
 // Global Singleton EventEmitter สำหรับ Next.js Dev & Prod
 declare global {
   // eslint-disable-next-line no-var
@@ -30,8 +35,7 @@ export const attendanceEventBus: EventEmitter =
   global.__attendanceEventEmitter || new EventEmitter();
 
 // ปรับ max listeners ป้องกัน warning เมื่อมีหลายหน้าต่างเปิดพร้อมกัน
-attendanceEventBus.setMaxListeners(100);
+attendanceEventBus.setMaxListeners(200);
 
-if (process.env.NODE_ENV !== "production") {
-  global.__attendanceEventEmitter = attendanceEventBus;
-}
+// บันทึกใส่ global เสมอทั้งใน dev และ prod เพื่อรักษา singleton instance ข้าม chunks/modules
+global.__attendanceEventEmitter = attendanceEventBus;
