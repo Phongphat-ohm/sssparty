@@ -39,6 +39,7 @@ export async function showCozyConfirm(
       showCancelButton: true,
       confirmButtonText: "ยืนยัน",
       cancelButtonText: "ยกเลิก",
+      allowOutsideClick: false,
       ...cozySwalConfig,
     };
   } else {
@@ -52,6 +53,7 @@ export async function showCozyConfirm(
       cancelButtonText: titleOrOptions.cancelText || "ยกเลิก",
       focusConfirm: titleOrOptions.focusConfirm,
       preConfirm: titleOrOptions.preConfirm,
+      allowOutsideClick: false,
       ...cozySwalConfig,
     };
   }

@@ -63,6 +63,7 @@ export async function startDynamicKeySessionAction(
     attendanceEventBus.emit("session_state", {
       sessionId,
       isKeyActive: true,
+      keySecret,
     });
 
     await createAuditLog({
@@ -127,6 +128,7 @@ export async function stopDynamicKeySessionAction(sessionId: string) {
     attendanceEventBus.emit("session_state", {
       sessionId,
       isKeyActive: false,
+      keySecret: null,
     });
 
     await createAuditLog({

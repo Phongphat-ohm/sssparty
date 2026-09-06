@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const session = await getAuthSession();
-  if (!session) {
+  if (!session || session.role !== "ADMIN") {
     return new Response("Unauthorized", { status: 401 });
   }
 
@@ -51,6 +51,7 @@ export async function GET(req: NextRequest) {
       success: true,
       sessionId: attendanceSession.id,
       isKeyActive: attendanceSession.isKeyActive,
+      keySecret: attendanceSession.isKeyActive ? attendanceSession.keySecret : null,
       totalStudents,
       presentCount,
       lateCount,
@@ -104,6 +105,7 @@ export async function GET(req: NextRequest) {
         type: "INITIAL_STATE",
         sessionId: attendanceSession.id,
         isKeyActive: attendanceSession.isKeyActive,
+        keySecret: attendanceSession.isKeyActive ? attendanceSession.keySecret : null,
         totalStudents,
         presentCount,
         lateCount,

@@ -112,27 +112,17 @@ export function DynamicKeyProjectorModal({
   const [centerCoords, setCenterCoords] = useState(initialCenterCoords);
   const [isPinningLocation, setIsPinningLocation] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
-  const hasAutoStartedRef = useRef(false);
 
-  // เมื่อเปิด Modal ขึ้นมา ซิงก์ค่าและ auto-start เพียง 1 ครั้งถ้ายังไม่เคยเริ่ม
+  // ซิงก์สถานะตาม props เมื่อเปิด Modal หรือเมื่อ Server มีการเปลี่ยนแปลง
   useEffect(() => {
     if (isOpen) {
-      // ถ้าเปิด modal และยังไม่เคย active มาก่อน ให้ auto-start เพียงครั้งแรก
-      if (!initialIsActive && !hasAutoStartedRef.current) {
-        hasAutoStartedRef.current = true;
-        startDynamicKeySessionAction(sessionId, centerCoords).then((res) => {
-          if (res.success) {
-            setIsActive(true);
-            setKeySecret(res.keySecret || null);
-            if (onCheckInEvent) onCheckInEvent();
-          }
-        });
+      setIsActive(initialIsActive);
+      setKeySecret(initialKeySecret);
+      if (initialCenterCoords) {
+        setCenterCoords(initialCenterCoords);
       }
-    } else {
-      // เมื่อปิด Modal ให้รีเซ็ต flag สำหรับครั้งถัดไป
-      hasAutoStartedRef.current = false;
     }
-  }, [isOpen, sessionId, initialIsActive, centerCoords, onCheckInEvent]);
+  }, [isOpen, initialIsActive, initialKeySecret, initialCenterCoords]);
 
   const lastGeneratedKeyRef = useRef<string>("");
 
@@ -194,6 +184,13 @@ export function DynamicKeyProjectorModal({
             }
             if (data.isKeyActive !== undefined) {
               setIsActive(data.isKeyActive);
+              if (!data.isKeyActive) {
+                setKeySecret(null);
+                setCurrentKey("------");
+                setQrDataUrl("");
+              } else if (data.keySecret) {
+                setKeySecret(data.keySecret);
+              }
             }
           }
         }
@@ -221,6 +218,13 @@ export function DynamicKeyProjectorModal({
             }
             if (data.isKeyActive !== undefined) {
               setIsActive(data.isKeyActive);
+              if (!data.isKeyActive) {
+                setKeySecret(null);
+                setCurrentKey("------");
+                setQrDataUrl("");
+              } else if (data.keySecret) {
+                setKeySecret(data.keySecret);
+              }
             }
           } else if (data.type === "NEW_CHECKIN") {
             // ป้องกันการนับซ้ำถ้ามี studentId นี้อยู่แล้ว
@@ -241,6 +245,13 @@ export function DynamicKeyProjectorModal({
             }
           } else if (data.type === "SESSION_STATE_CHANGED") {
             setIsActive(data.isKeyActive);
+            if (!data.isKeyActive) {
+              setKeySecret(null);
+              setCurrentKey("------");
+              setQrDataUrl("");
+            } else if (data.keySecret) {
+              setKeySecret(data.keySecret);
+            }
           } else if (data.type === "BATCH_UPDATE") {
             // ซิงก์ข้อมูลยอดเช็กชื่อใหม่ทันทีเมื่อมีการกดรีเซ็ตหรือปรับสถานะแบบกลุ่ม
             syncStatus();
@@ -295,6 +306,9 @@ export function DynamicKeyProjectorModal({
         const res = await stopDynamicKeySessionAction(sessionId);
         if (res.success) {
           setIsActive(false);
+          setKeySecret(null);
+          setCurrentKey("------");
+          setQrDataUrl("");
           await showCozySuccess("ปิดระบบเรียบร้อย", res.message);
           if (onCheckInEvent) onCheckInEvent();
         } else {

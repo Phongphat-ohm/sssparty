@@ -18,6 +18,7 @@ export interface CheckInEventPayload {
 export interface SessionStatePayload {
   sessionId: string;
   isKeyActive: boolean;
+  keySecret?: string | null;
 }
 
 export interface SessionBatchUpdatePayload {

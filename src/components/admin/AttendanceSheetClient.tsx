@@ -89,6 +89,14 @@ export function AttendanceSheetClient({
   // Dynamic Key Projector & Audit Tab
   const [isProjectorOpen, setIsProjectorOpen] = useState(false);
   const [activeMainTab, setActiveMainTab] = useState<"SHEET" | "AUDIT">("SHEET");
+  const [currentIsKeyActive, setCurrentIsKeyActive] = useState<boolean>(isKeyActive);
+  const [currentKeySecret, setCurrentKeySecret] = useState<string | null>(keySecret);
+
+  // ซิงก์สถานะ Key เมื่อ Server Component refresh
+  useEffect(() => {
+    setCurrentIsKeyActive(isKeyActive);
+    setCurrentKeySecret(keySecret);
+  }, [isKeyActive, keySecret]);
 
   // ซิงก์ข้อมูล records เมื่อ initialRecords เปลี่ยนแปลง
   useEffect(() => {
@@ -129,6 +137,14 @@ export function AttendanceSheetClient({
         const res = await fetch(`/api/attendance/live?sessionId=${sessionId}&format=json`);
         if (res.ok) {
           const data = await res.json();
+          if (data.isKeyActive !== undefined) {
+            setCurrentIsKeyActive(data.isKeyActive);
+            if (!data.isKeyActive) {
+              setCurrentKeySecret(null);
+            } else if (data.keySecret) {
+              setCurrentKeySecret(data.keySecret);
+            }
+          }
           if (data.allRecords && data.allRecords.length > 0) {
             const recordMap = new Map(data.allRecords.map((ar: any) => [ar.studentId, ar]));
             setRecords((prev) => {
@@ -341,10 +357,19 @@ export function AttendanceSheetClient({
           <button
             type="button"
             onClick={() => setIsProjectorOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 active:scale-95 transition-all shadow-2xs cursor-pointer"
+            className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border active:scale-95 transition-all shadow-2xs cursor-pointer ${
+              currentIsKeyActive
+                ? "text-emerald-900 bg-emerald-100 hover:bg-emerald-200 border-emerald-300 ring-2 ring-emerald-400/40"
+                : "text-amber-900 bg-amber-100 hover:bg-amber-200 border-amber-300"
+            }`}
           >
-            <KeyRound className="w-4 h-4 text-amber-700" />
+            <KeyRound className={`w-4 h-4 ${currentIsKeyActive ? "text-emerald-700" : "text-amber-700"}`} />
             <span>เปิดจอ Dynamic Key (30s)</span>
+            {currentIsKeyActive && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded-full ml-0.5 animate-pulse">
+                กำลังเปิดรับ
+              </span>
+            )}
           </button>
 
           <a
@@ -893,8 +918,8 @@ export function AttendanceSheetClient({
         sessionTitle={sessionTitle}
         academicTerm={academicTerm}
         totalStudents={records.length}
-        initialIsActive={isKeyActive}
-        initialKeySecret={keySecret}
+        initialIsActive={currentIsKeyActive}
+        initialKeySecret={currentKeySecret}
         initialCenterCoords={centerCoords}
         onCheckInEvent={handleRealTimeCheckIn}
       />
