@@ -54,6 +54,8 @@ export async function updateSystemSettingsAction(
       "ระบบกำลังปิดปรับปรุงชั่วคราว เพื่อพัฒนาระบบให้ดียิ่งขึ้น ขออภัยในความไม่สะดวกครับ";
     const maintenanceExpectedEnd =
       (formData.get("maintenance_expected_end") as string)?.trim() || "";
+    const maintenanceAutoDeactivate =
+      formData.get("maintenance_auto_deactivate") === "true";
     const siteName =
       (formData.get("site_name") as string)?.trim() || "3S Party - ชุมนุมสื่อสร้างสรรค์";
     const academicTerm =
@@ -82,6 +84,12 @@ export async function updateSystemSettingsAction(
         key: "maintenance_expected_end",
         value: maintenanceExpectedEnd,
         description: "เวลาที่คาดว่าจะเปิดระบบตามปกติ",
+        category: "MAINTENANCE",
+      },
+      {
+        key: "maintenance_auto_deactivate",
+        value: String(maintenanceAutoDeactivate),
+        description: "เปิดระบบอัตโนมัติเมื่อครบกำหนดเวลาปรับปรุงระบบ",
         category: "MAINTENANCE",
       },
       {

@@ -19,6 +19,10 @@ import {
   Users,
   ExternalLink,
   Flag,
+  FileSpreadsheet,
+  FileText,
+  Printer,
+  Loader2,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
@@ -26,8 +30,15 @@ import {
   createAttendanceSessionForDateAction,
   deleteAttendanceSessionAction,
 } from "@/actions/attendance";
+import {
+  getAttendanceSummaryReportDataAction,
+  AttendanceSummaryReportData,
+} from "@/actions/reports";
+import { PdfReportModal } from "@/components/admin/PdfReportModal";
+import { generateAttendanceSummaryReportHtml } from "@/lib/export/report-html-templates";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { getThaiHolidaysMap, ThaiHolidayInfo } from "@/lib/utils/holidays";
+import { getNextReportCodeAction } from "@/actions/reports-history";
 
 export interface SessionItem {
   id: string;
@@ -94,6 +105,73 @@ export function AttendanceSessionsListClient({
   // View mode: 'calendar' (default) or 'list'
   const [viewMode, setViewMode] = useState<"calendar" | "list">("calendar");
   const [isCreating, setIsCreating] = useState(false);
+
+  // PDF Report State
+  const [attendanceReportData, setAttendanceReportData] = useState<AttendanceSummaryReportData | null>(null);
+  const [isLoadingAttendanceReport, setIsLoadingAttendanceReport] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  const handleOpenAttendanceSummaryPdf = async () => {
+    setIsLoadingAttendanceReport(true);
+    let defaultDocCode = "DOC-3S-2569-0001";
+    try {
+      const codeRes = await getNextReportCodeAction();
+      if (codeRes.success && codeRes.code) {
+        defaultDocCode = codeRes.code;
+      }
+    } catch {
+      // fallback
+    } finally {
+      setIsLoadingAttendanceReport(false);
+    }
+
+    const result = await showCozyConfirm({
+      title: "ยืนยันการสร้างรายงานสรุปเวลาเรียน",
+      html: `
+        <div class="text-left text-sm space-y-3 mt-2 text-[#5C4D3C]">
+          <div>
+            <span class="text-xs text-[#7A6A5C]">หัวข้อรายงาน:</span>
+            <p class="font-bold text-[#3F342B]">แบบรายงานสรุปเวลาเรียนกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)</p>
+          </div>
+          <div>
+            <span class="text-xs text-[#7A6A5C]">กลุ่มเป้าหมาย:</span>
+            <p class="font-bold text-[#3F342B]">นักเรียนทั้งหมดทุกห้อง</p>
+          </div>
+          <div class="pt-1">
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-[#3F342B] flex items-center gap-1">
+                🔒 รหัสเอกสาร (Doc Code):
+              </span>
+              <span class="text-[10px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-300">
+                ระบบสร้างอัตโนมัติ (ห้ามแก้ไข)
+              </span>
+            </div>
+            <div class="w-full px-3.5 py-2.5 text-xs font-mono font-black bg-[#FAF0E1]/80 border border-[#D9CABB] rounded-xl text-[#3F342B] tracking-wider select-all flex items-center justify-between shadow-2xs">
+              <span>${defaultDocCode}</span>
+              <span class="text-[10px] font-sans font-semibold text-[#7A6A5C] bg-white px-2 py-0.5 rounded-md border border-[#EADBCC]">
+                Official
+              </span>
+            </div>
+            <p class="text-[11px] text-[#A8988B] mt-1.5">
+              * รหัสเอกสารสร้างโดยระบบอัตโนมัติตามลำดับปีการศึกษา เพื่อความถูกต้องของเอกสารราชการและ QR Code (ไม่สามารถแก้ไขได้)
+            </p>
+          </div>
+          <div class="p-3 bg-[#FAF0E1] border border-[#EADBCC] rounded-xl text-xs text-[#8C5D23] leading-relaxed">
+            ℹ️ ระบบจะส่งข้อมูลไปยัง Qorstack Template API (Report 2), จัดเก็บสำเนาบน S3 และบันทึกประวัติการพิมพ์ในนามของคุณ
+          </div>
+        </div>
+      `,
+      confirmText: "ยืนยันและสร้างรายงาน",
+      cancelText: "ยกเลิก",
+      icon: "info",
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    setIsPdfModalOpen(true);
+  };
 
   // List view search & sort & pagination
   const [searchQuery, setSearchQuery] = useState("");
@@ -327,33 +405,60 @@ export function AttendanceSessionsListClient({
           </p>
         </div>
 
-        {/* View Toggle */}
-        <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-[#EADBCC] shadow-2xs self-start sm:self-auto">
-          <button
-            type="button"
-            onClick={() => setViewMode("calendar")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              viewMode === "calendar"
-                ? "bg-[#D9A441] text-white shadow-2xs"
-                : "text-[#7A6A5C] hover:text-[#3F342B]"
-            }`}
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <a
+            href="/api/export/attendance"
+            download
+            title="ส่งออกสรุปเวลาเรียนกิจกรรมชุมนุมเป็นไฟล์ Excel/CSV"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl font-semibold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition-all shadow-2xs"
           >
-            <CalendarIcon className="w-4 h-4" />
-            <span>ปฏิทิน (Calendar)</span>
-          </button>
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Export สรุปเวลาเรียน (.csv)</span>
+          </a>
 
           <button
             type="button"
-            onClick={() => setViewMode("list")}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-              viewMode === "list"
-                ? "bg-[#D9A441] text-white shadow-2xs"
-                : "text-[#7A6A5C] hover:text-[#3F342B]"
-            }`}
+            onClick={handleOpenAttendanceSummaryPdf}
+            disabled={isLoadingAttendanceReport}
+            title="พรีวิวและพิมพ์รายงานสรุปเวลาเรียน / บันทึกเป็น PDF"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl font-semibold text-xs text-[#3F342B] bg-[#FAF0E1] hover:bg-[#3F342B] hover:text-white border border-[#D9CABB] active:scale-95 disabled:opacity-60 transition-all shadow-2xs cursor-pointer"
           >
-            <List className="w-4 h-4" />
-            <span>ตารางทั้งหมด ({sessions.length})</span>
+            {isLoadingAttendanceReport ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            <span>พิมพ์สรุปเวลาเรียน (Print / PDF)</span>
           </button>
+
+          {/* View Toggle */}
+          <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-[#EADBCC] shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode("calendar")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === "calendar"
+                  ? "bg-[#D9A441] text-white shadow-2xs"
+                  : "text-[#7A6A5C] hover:text-[#3F342B]"
+              }`}
+            >
+              <CalendarIcon className="w-4 h-4" />
+              <span>ปฏิทิน (Calendar)</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setViewMode("list")}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                viewMode === "list"
+                  ? "bg-[#D9A441] text-white shadow-2xs"
+                  : "text-[#7A6A5C] hover:text-[#3F342B]"
+              }`}
+            >
+              <List className="w-4 h-4" />
+              <span>ตารางทั้งหมด ({sessions.length})</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -821,6 +926,15 @@ export function AttendanceSessionsListClient({
                               <span>เช็กชื่อ / แก้ไข</span>
                             </Link>
 
+                            <a
+                              href={`/api/export/attendance?sessionId=${s.id}`}
+                              download
+                              title="ส่งออกผลการเช็กชื่อรอบนี้เป็น CSV"
+                              className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors"
+                            >
+                              <FileSpreadsheet className="w-3.5 h-3.5" />
+                            </a>
+
                             <button
                               type="button"
                               onClick={() => handleDelete(s.id, s.title)}
@@ -850,6 +964,16 @@ export function AttendanceSessionsListClient({
           </div>
         </div>
       )}
+
+      {/* Printable Attendance Summary Modal */}
+      <PdfReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        title="แบบรายงานสรุปเวลาเรียนกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
+        filename="แบบรายงานสรุปเวลาเรียนกิจกรรมชุมนุม_ทั้งหมด"
+        orientation="portrait"
+        pdfApiUrl="/api/export/attendance/render?className=ALL"
+      />
     </div>
   );
 }

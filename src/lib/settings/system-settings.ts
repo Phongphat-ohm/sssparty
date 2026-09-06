@@ -4,6 +4,7 @@ export interface SystemSettingsMap {
   maintenance_mode: boolean;
   maintenance_message: string;
   maintenance_expected_end: string;
+  maintenance_auto_deactivate: boolean;
   site_name: string;
   academic_term: string;
   max_upload_size_mb: number;
@@ -15,6 +16,7 @@ export const DEFAULT_SETTINGS: SystemSettingsMap = {
   maintenance_message:
     "ระบบกำลังปิดปรับปรุงชั่วคราว เพื่อพัฒนาระบบให้ดียิ่งขึ้น ขออภัยในความไม่สะดวกครับ",
   maintenance_expected_end: "",
+  maintenance_auto_deactivate: true,
   site_name: "3S Party - ชุมนุมสื่อสร้างสรรค์",
   academic_term: "1/2569",
   max_upload_size_mb: 50,
@@ -83,6 +85,10 @@ export async function getSystemSettings(): Promise<SystemSettingsMap> {
         map["maintenance_message"] || DEFAULT_SETTINGS.maintenance_message,
       maintenance_expected_end:
         map["maintenance_expected_end"] || DEFAULT_SETTINGS.maintenance_expected_end,
+      maintenance_auto_deactivate:
+        map["maintenance_auto_deactivate"] !== undefined
+          ? map["maintenance_auto_deactivate"] === "true"
+          : DEFAULT_SETTINGS.maintenance_auto_deactivate,
       site_name: map["site_name"] || DEFAULT_SETTINGS.site_name,
       academic_term: map["academic_term"] || DEFAULT_SETTINGS.academic_term,
       max_upload_size_mb: map["max_upload_size_mb"]
@@ -93,6 +99,26 @@ export async function getSystemSettings(): Promise<SystemSettingsMap> {
           ? map["allow_student_name_edit"] === "true"
           : DEFAULT_SETTINGS.allow_student_name_edit,
     };
+
+    // Auto-deactivate check: หากเปิด maintenance_auto_deactivate และเลยเวลา expected_end ให้ปลดล็อกระบบอัตโนมัติ
+    if (
+      result.maintenance_mode &&
+      result.maintenance_auto_deactivate &&
+      result.maintenance_expected_end
+    ) {
+      const endTime = new Date(result.maintenance_expected_end).getTime();
+      if (!isNaN(endTime) && endTime <= now) {
+        console.log("[Settings] Maintenance expected time passed, auto-deactivating maintenance mode...");
+        result.maintenance_mode = false;
+        prisma.systemSetting
+          .upsert({
+            where: { key: "maintenance_mode" },
+            update: { value: "false", updatedBy: "SYSTEM_AUTO_TIMER" },
+            create: { key: "maintenance_mode", value: "false", updatedBy: "SYSTEM_AUTO_TIMER" },
+          })
+          .catch((err) => console.warn("[Settings] Failed to auto-deactivate in DB:", err));
+      }
+    }
 
     cache = { data: result, timestamp: now };
     return result;

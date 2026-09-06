@@ -132,8 +132,15 @@ export default async function AssignmentSubmissionsPage({
         </div>
       </div>
 
-      {/* Client Table with Filter, Sort, Pagination */}
-      <AssignmentSubmissionsClient rows={rows} classList={classList} />
+      {/* Client Table with Filter, Sort, Pagination, Download ZIP, Export CSV, and Export PDF */}
+      <AssignmentSubmissionsClient
+        assignmentId={assignment.id}
+        assignmentTitle={assignment.title}
+        maxScore={assignment.maxScore}
+        dueDate={assignment.dueDate.toISOString()}
+        rows={rows}
+        classList={classList}
+      />
     </div>
   );
 }

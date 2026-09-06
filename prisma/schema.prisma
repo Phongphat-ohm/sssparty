@@ -30,6 +30,7 @@ enum AdminPermission {
   MANAGE_USERS
   VIEW_AUDIT_LOGS
   MANAGE_SETTINGS
+  VIEW_REPORTS
 }
 
 enum UserStatus {
@@ -78,6 +79,7 @@ model User {
   gradesGiven                Grade[]             @relation("TeacherGrader")
   createdAttendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
   auditLogs                  AuditLog[]
+  generatedReports           GeneratedReport[]
 
   @@map("users")
 }
@@ -323,5 +325,30 @@ model SystemSetting {
 
   @@index([category])
   @@map("system_settings")
+}
+
+model GeneratedReport {
+  id            String   @id @default(cuid())
+  reportCode    String   @unique
+  reportType    String   @default("ASSIGNMENT_REPORT")
+  title         String
+  academicTerm  String   @default("1/2569")
+  targetClass   String   @default("ALL")
+  assignmentId  String?
+  fileKey       String
+  fileUrl       String
+  fileSize      Int?
+  printedById   String
+  printedByName String
+  metadata      String?  @db.Text
+  createdAt     DateTime @default(now())
+
+  printedBy     User     @relation(fields: [printedById], references: [id], onDelete: Restrict)
+
+  @@index([reportCode])
+  @@index([assignmentId])
+  @@index([printedById])
+  @@index([createdAt])
+  @@map("generated_reports")
 }
 

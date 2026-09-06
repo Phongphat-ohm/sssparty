@@ -19,6 +19,7 @@ import {
   UserCog,
   History,
   UserCheck,
+  FileText,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import {
@@ -88,6 +89,12 @@ export function AdminSidebar({
       href: "/admin/students",
       icon: Users,
       permission: "MANAGE_STUDENTS",
+    },
+    {
+      name: "ประวัติการออกรายงาน",
+      href: "/admin/reports",
+      icon: FileText,
+      permission: "VIEW_REPORTS",
     },
     {
       name: "จัดการบัญชีผู้ใช้ (Users)",

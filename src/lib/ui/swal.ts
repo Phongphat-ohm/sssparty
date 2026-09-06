@@ -24,6 +24,8 @@ export async function showCozyConfirm(
         confirmText?: string;
         cancelText?: string;
         icon?: "question" | "warning" | "info";
+        focusConfirm?: boolean;
+        preConfirm?: () => any;
       },
   text?: string
 ) {
@@ -48,6 +50,8 @@ export async function showCozyConfirm(
       showCancelButton: true,
       confirmButtonText: titleOrOptions.confirmText || "ยืนยัน",
       cancelButtonText: titleOrOptions.cancelText || "ยกเลิก",
+      focusConfirm: titleOrOptions.focusConfirm,
+      preConfirm: titleOrOptions.preConfirm,
       ...cozySwalConfig,
     };
   }

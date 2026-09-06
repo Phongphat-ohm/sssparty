@@ -7,7 +7,8 @@ export type AdminPermissionType =
   | "MANAGE_STUDENTS"
   | "MANAGE_USERS"
   | "VIEW_AUDIT_LOGS"
-  | "MANAGE_SETTINGS";
+  | "MANAGE_SETTINGS"
+  | "VIEW_REPORTS";
 
 export interface PermissionDefinition {
   key: AdminPermissionType;
@@ -42,6 +43,12 @@ export const ADMIN_PERMISSIONS_LIST: PermissionDefinition[] = [
     category: "ข้อมูลสมาชิก",
   },
   {
+    key: "VIEW_REPORTS",
+    label: "ดูประวัติรายงาน (Report History)",
+    description: "เข้าดูประวัติ ดาวน์โหลดเอกสารรายงาน และตรวจสอบรหัสเอกสารที่เคยสร้าง",
+    category: "วิชาการ & กิจกรรม",
+  },
+  {
     key: "MANAGE_USERS",
     label: "จัดการผู้ดูแล & สิทธิ์ระบบ",
     description: "เพิ่ม/แก้ไขบัญชีครู กำหนดสิทธิ์ และรีเซ็ตรหัสผ่าน",
@@ -71,6 +78,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<AdminRoleType, AdminPermissionType
     "GRADE_SUBMISSIONS",
     "MANAGE_ATTENDANCE",
     "MANAGE_STUDENTS",
+    "VIEW_REPORTS",
     "MANAGE_USERS",
     "VIEW_AUDIT_LOGS",
     "MANAGE_SETTINGS",
@@ -80,6 +88,7 @@ export const ROLE_DEFAULT_PERMISSIONS: Record<AdminRoleType, AdminPermissionType
     "GRADE_SUBMISSIONS",
     "MANAGE_ATTENDANCE",
     "MANAGE_STUDENTS",
+    "VIEW_REPORTS",
   ],
   ASSISTANT: [
     "GRADE_SUBMISSIONS",

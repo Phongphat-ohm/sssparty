@@ -41,6 +41,9 @@ export function SystemSettingsForm({
   const [maintenanceExpectedEnd, setMaintenanceExpectedEnd] = useState(
     initialSettings.maintenance_expected_end
   );
+  const [maintenanceAutoDeactivate, setMaintenanceAutoDeactivate] = useState(
+    initialSettings.maintenance_auto_deactivate ?? true
+  );
   const [siteName, setSiteName] = useState(initialSettings.site_name);
   const [academicTerm, setAcademicTerm] = useState(
     initialSettings.academic_term
@@ -64,6 +67,7 @@ export function SystemSettingsForm({
     formData.set("maintenance_mode", String(maintenanceMode));
     formData.set("maintenance_message", maintenanceMessage);
     formData.set("maintenance_expected_end", maintenanceExpectedEnd);
+    formData.set("maintenance_auto_deactivate", String(maintenanceAutoDeactivate));
     formData.set("site_name", siteName);
     formData.set("academic_term", academicTerm);
     formData.set("max_upload_size_mb", String(maxUploadSizeMb));
@@ -228,6 +232,30 @@ export function SystemSettingsForm({
                   ตัวอย่างการแสดงเวลานับถอยหลังให้นักเรียน:
                 </span>
                 <MaintenanceCountdown targetTime={maintenanceExpectedEnd} />
+              </div>
+            )}
+
+            {/* ตัวเลือกเปิดระบบอัตโนมัติเมื่อครบกำหนดเวลา */}
+            {maintenanceExpectedEnd && (
+              <div className="flex items-center justify-between p-3.5 bg-white rounded-2xl border border-[#EADBCC] max-w-lg shadow-2xs">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-bold text-[#3F342B] block">
+                    ปลดล็อกเปิดระบบอัตโนมัติ (Auto-deactivate)
+                  </span>
+                  <span className="text-[11px] text-[#7A6A5C] block">
+                    เมื่อถึงเวลาที่กำหนด ระบบจะเปิดให้บริการนักเรียนอัตโนมัติโดยไม่ต้องเข้ามากดปิดเอง
+                  </span>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3">
+                  <input
+                    type="checkbox"
+                    disabled={!canManageSettings || isPending}
+                    checked={maintenanceAutoDeactivate}
+                    onChange={(e) => setMaintenanceAutoDeactivate(e.target.checked)}
+                    className="sr-only peer"
+                  />
+                  <div className="w-10 h-5.5 bg-neutral-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4.5 after:w-4.5 after:transition-all peer-checked:bg-emerald-500"></div>
+                </label>
               </div>
             )}
           </div>

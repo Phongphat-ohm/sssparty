@@ -8,14 +8,6 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   try {
-    const session = await getAuthSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: "กรุณาเข้าสู่ระบบก่อนเปิดดูไฟล์ (Unauthorized)" },
-        { status: 401 }
-      );
-    }
-
     const resolved = await params;
     const fileKey = resolved.path.join("/");
 
@@ -27,8 +19,18 @@ export async function GET(
       );
     }
 
+    const isPublicReport = fileKey.startsWith("reports/");
+
+    const session = await getAuthSession();
+    if (!session && !isPublicReport) {
+      return NextResponse.json(
+        { error: "กรุณาเข้าสู่ระบบก่อนเปิดดูไฟล์ (Unauthorized)" },
+        { status: 401 }
+      );
+    }
+
     // 2. ตรวจสอบสิทธิ์การเข้าถึง (Ownership Check / IDOR Protection)
-    if (session.role === "STUDENT") {
+    if (session?.role === "STUDENT") {
       const parts = fileKey.split("/");
       const isPublicMaterial =
         parts[0] === "assignments" &&

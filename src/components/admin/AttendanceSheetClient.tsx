@@ -18,6 +18,7 @@ import {
   FileText,
   Table,
   LayoutGrid,
+  FileSpreadsheet,
 } from "lucide-react";
 import {
   AttendanceStatusType,
@@ -238,7 +239,17 @@ export function AttendanceSheetClient({
         </div>
 
         {/* Top Actions */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <a
+            href={`/api/export/attendance?sessionId=${sessionId}&className=${selectedClass}`}
+            download
+            title="ส่งออกผลการเช็กชื่อของคาบนี้เป็นไฟล์ Excel/CSV"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white active:scale-95 transition-all shadow-2xs"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Export CSV</span>
+          </a>
+
           <button
             type="button"
             onClick={handleMarkAllPresent}

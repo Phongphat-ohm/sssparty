@@ -1,5 +1,11 @@
 @import "tailwindcss";
 
+@layer utilities {
+  .font-sarabun {
+    font-family: 'TH Sarabun New', 'THSarabunNew', 'TH Sarabun PSK', var(--font-sarabun), 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif !important;
+  }
+}
+
 :root {
   --background: #FFF9F0;
   --foreground: #3F342B;

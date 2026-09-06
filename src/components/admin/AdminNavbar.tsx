@@ -34,6 +34,7 @@ export function AdminNavbar({ adminName, academicTerm = "1/2569" }: AdminNavbarP
     if (path === "/admin/users") return "จัดการบัญชีผู้ใช้ (User Management)";
     if (path === "/admin/logs") return "บันทึกประวัติการใช้งาน (Audit Logs)";
     if (path === "/admin/attendance") return "ระบบเช็กชื่อกิจกรรม";
+    if (path === "/admin/reports") return "ประวัติการออกรายงาน (Report History)";
     if (path === "/admin/settings") return "ตั้งค่าระบบส่วนกลาง (System Settings)";
     if (path === "/admin/profile") return "ข้อมูลส่วนตัว & รหัสผ่าน (Personal Profile)";
     return "Admin Studio";

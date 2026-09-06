@@ -14,6 +14,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  FileSpreadsheet,
+  FileText,
+  Printer,
+  Loader2,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
@@ -21,6 +25,12 @@ import {
   toggleAssignmentStatusAction,
   deleteAssignmentAction,
 } from "@/actions/assignment";
+import {
+  getComprehensiveEvaluationReportDataAction,
+  ComprehensiveEvaluationReportData,
+} from "@/actions/reports";
+import { PdfReportModal } from "@/components/admin/PdfReportModal";
+import { generateComprehensiveEvaluationReportHtml } from "@/lib/export/report-html-templates";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 
 export interface AssignmentItem {
@@ -48,6 +58,28 @@ export function AdminAssignmentsClient({
   const [assignments, setAssignments] = useState<AssignmentItem[]>(initialAssignments);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // PDF Report State
+  const [evaluationReportData, setEvaluationReportData] = useState<ComprehensiveEvaluationReportData | null>(null);
+  const [isLoadingEvaluationReport, setIsLoadingEvaluationReport] = useState(false);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+
+  const handleOpenEvaluationPdf = async () => {
+    setIsLoadingEvaluationReport(true);
+    try {
+      const res = await getComprehensiveEvaluationReportDataAction("ALL");
+      if (res.success && res.data) {
+        setEvaluationReportData(res.data);
+        setIsPdfModalOpen(true);
+      } else {
+        await showCozyError("เกิดข้อผิดพลาด", res.message || "ไม่สามารถโหลดข้อมูลรายงานได้");
+      }
+    } catch (err: any) {
+      await showCozyError("ระบบขัดข้อง", err.message);
+    } finally {
+      setIsLoadingEvaluationReport(false);
+    }
+  };
 
   // Sort & Pagination
   const [sortField, setSortField] = useState<string>("createdAt");
@@ -146,13 +178,40 @@ export function AdminAssignmentsClient({
           </p>
         </div>
 
-        <Link
-          href="/admin/assignments/new"
-          className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] transition-all shadow-sm self-start sm:self-auto"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>สร้างการบ้านใหม่</span>
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <a
+            href="/api/export/gradebook"
+            download
+            title="ส่งออกสมุดคะแนนรวมทุกการบ้านเป็นไฟล์ Excel/CSV"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition-all shadow-2xs"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            <span>Export สมุดคะแนน (.csv)</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={handleOpenEvaluationPdf}
+            disabled={isLoadingEvaluationReport}
+            title="พรีวิวและพิมพ์รายงานสรุปผลการเรียนและเวลาเรียน / บันทึกเป็น PDF (A4 แนวนอน)"
+            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-[#3F342B] bg-[#FAF0E1] hover:bg-[#3F342B] hover:text-white border border-[#D9CABB] active:scale-95 disabled:opacity-60 transition-all shadow-2xs cursor-pointer"
+          >
+            {isLoadingEvaluationReport ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Printer className="w-4 h-4" />
+            )}
+            <span>พิมพ์รายงานผลการเรียน (Print / PDF)</span>
+          </button>
+
+          <Link
+            href="/admin/assignments/new"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] transition-all shadow-sm"
+          >
+            <PlusCircle className="w-4 h-4" />
+            <span>สร้างการบ้านใหม่</span>
+          </Link>
+        </div>
       </div>
 
       {/* Filter and Search Bar */}
@@ -427,6 +486,19 @@ export function AdminAssignmentsClient({
             />
           </div>
         </div>
+      )}
+
+      {/* Printable Evaluation Report Modal */}
+      {evaluationReportData && (
+        <PdfReportModal
+          isOpen={isPdfModalOpen}
+          onClose={() => setIsPdfModalOpen(false)}
+          title="แบบรายงานสรุปผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
+          orientation="landscape"
+          filename={`รายงานผลการเรียนรู้_${evaluationReportData.clubName.replace(/\s+/g, "_")}_${evaluationReportData.academicTerm.replace(/[\/\\]/g, "-")}`}
+          pdfApiUrl="/api/export/evaluation/render?className=ALL"
+          htmlContent={generateComprehensiveEvaluationReportHtml(evaluationReportData)}
+        />
       )}
     </div>
   );
