@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Wrench, Clock, Shield, ArrowRight } from "lucide-react";
 import { getSystemSettings } from "@/lib/settings/system-settings";
+import { MaintenanceCountdown } from "@/components/common/MaintenanceCountdown";
 
 export const dynamic = "force-dynamic";
 
@@ -32,17 +33,9 @@ export default async function MaintenancePage() {
           </p>
         </div>
 
-        {/* Expected End Time (if configured) */}
+        {/* Expected End Time & Live Countdown */}
         {settings.maintenance_expected_end && (
-          <div className="p-3.5 rounded-2xl bg-[#FAF6F0] border border-[#EADBCC] flex items-center justify-center gap-2.5 text-xs text-[#5A4D41] font-medium">
-            <Clock className="w-4 h-4 text-[#D9A441]" />
-            <span>
-              คาดว่าจะเปิดให้บริการตามปกติเวลา:{" "}
-              <strong className="text-[#3F342B] font-bold">
-                {settings.maintenance_expected_end}
-              </strong>
-            </span>
-          </div>
+          <MaintenanceCountdown targetTime={settings.maintenance_expected_end} />
         )}
 
         <div className="border-t border-[#F2E8DC] pt-5 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#7A6A5C]">

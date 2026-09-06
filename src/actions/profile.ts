@@ -219,6 +219,7 @@ export async function changeAdminPasswordAction(
     });
 
     revalidatePath("/admin/settings");
+    revalidatePath("/admin/profile");
 
     return {
       success: true,

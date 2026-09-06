@@ -18,6 +18,7 @@ import {
   Calendar,
   UserCog,
   History,
+  UserCheck,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import {
@@ -101,9 +102,15 @@ export function AdminSidebar({
       permission: "VIEW_AUDIT_LOGS",
     },
     {
-      name: "ตั้งค่าระบบ & รหัสผ่าน",
+      name: "ข้อมูลส่วนตัว (Profile)",
+      href: "/admin/profile",
+      icon: UserCheck,
+    },
+    {
+      name: "ตั้งค่าระบบ (Settings)",
       href: "/admin/settings",
       icon: Settings,
+      permission: "MANAGE_SETTINGS",
     },
   ];
 

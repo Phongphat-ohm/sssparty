@@ -1,11 +1,13 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
-import { Settings, Shield } from "lucide-react";
+import { Settings, Shield, UserCheck, ArrowRight, AlertTriangle } from "lucide-react";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { getSystemSettings } from "@/lib/settings/system-settings";
 import { SystemSettingsForm } from "@/components/admin/SystemSettingsForm";
-import { AdminPasswordForm } from "@/components/admin/AdminPasswordForm";
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminSettingsPage() {
   const session = await getAuthSession();
@@ -40,49 +42,41 @@ export default async function AdminSettingsPage() {
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-[#3F342B] tracking-tight flex items-center gap-2.5">
             <Settings className="w-7 h-7 text-[#8C5D23]" />
-            ตั้งค่าระบบ & บัญชีผู้ใช้
+            ตั้งค่าระบบส่วนกลาง
           </h1>
           <p className="text-xs sm:text-sm text-[#7A6A5C] pt-0.5">
-            ควบคุมโหมดบำรุงรักษา (Maintenance Mode) การตั้งค่ากลาง และความปลอดภัยส่วนบุคคล
+            ควบคุมโหมดปรับปรุงระบบ (Maintenance Mode) การตั้งค่ากลาง ภาคเรียน และขนาดไฟล์อัปโหลด
           </p>
         </div>
 
-        {/* Admin Badge */}
-        <div className="bg-white rounded-2xl p-3 px-4 border border-[#EADBCC] shadow-2xs flex items-center gap-3 shrink-0">
-          <div className="w-9 h-9 rounded-xl bg-[#B94E48] text-white flex items-center justify-center font-bold text-sm shadow-2xs">
-            {session.username.charAt(0).toUpperCase()}
-          </div>
-          <div className="text-left">
-            <span className="font-bold text-xs text-[#3F342B] block">
-              {session.username}
-            </span>
-            <span className="text-[10px] text-[#7A6A5C] flex items-center gap-1">
-              <Shield className="w-3 h-3 text-[#D9A441]" />
-              <span>{user.adminRole || "TEACHER"}</span>
-            </span>
-          </div>
-        </div>
+        {/* Quick Link to Personal Profile */}
+        <Link
+          href="/admin/profile"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-2xl bg-white border border-[#EADBCC] text-xs font-bold text-[#8C5D23] hover:bg-[#FAF0E1] hover:border-[#D9A441] transition-all shadow-2xs shrink-0 self-start sm:self-auto"
+        >
+          <UserCheck className="w-4 h-4 text-[#B94E48]" />
+          <span>ไปที่ข้อมูลส่วนตัว & รหัสผ่าน</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
       </div>
 
-      {/* 1. System-wide Dynamic Settings (Maintenance, Site Name, Academic Term, Upload Limit) */}
+      {/* Permission Notice (If user cannot manage settings) */}
+      {!canManageSettings && (
+        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <span className="font-bold block">โหมดดูอย่างเดียว (Read Only)</span>
+            บัญชีของคุณไม่มีสิทธิ์ <strong>MANAGE_SETTINGS</strong> คุณจึงสามารถดูค่าการตั้งค่าระบบได้ แต่ไม่สามารถแก้ไขหรือบันทึกค่าได้
+          </div>
+        </div>
+      )}
+
+      {/* System Settings Form (Maintenance, Site Name, Academic Term, Upload Limit) */}
       <div className="space-y-4">
         <SystemSettingsForm
           initialSettings={settings}
           canManageSettings={canManageSettings}
         />
-      </div>
-
-      {/* 2. Personal Password Change Form */}
-      <div className="space-y-3 pt-2">
-        <div className="border-b border-[#F2E8DC] pb-2">
-          <h2 className="font-bold text-base text-[#3F342B]">
-            ความปลอดภัยส่วนบุคคล (Personal Security)
-          </h2>
-          <p className="text-xs text-[#7A6A5C]">
-            เปลี่ยนรหัสผ่านสำหรับการเข้าสู่ระบบบัญชีนี้
-          </p>
-        </div>
-        <AdminPasswordForm />
       </div>
     </div>
   );

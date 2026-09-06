@@ -18,6 +18,7 @@ import {
 import { updateSystemSettingsAction } from "@/actions/settings";
 import { SystemSettingsMap } from "@/lib/settings/system-settings";
 import { showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import { MaintenanceCountdown } from "@/components/common/MaintenanceCountdown";
 
 interface SystemSettingsFormProps {
   initialSettings: SystemSettingsMap;
@@ -151,19 +152,84 @@ export function SystemSettingsForm({
             />
           </div>
 
-          <div className="space-y-1.5 max-w-sm">
-            <label className="text-xs font-semibold text-[#5A4D41] flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 text-[#D9A441]" />
-              <span>เวลาที่คาดว่าจะเปิดระบบตามปกติ (ระบุหรือไม่ก็ได้)</span>
-            </label>
-            <input
-              type="text"
-              disabled={!canManageSettings || isPending}
-              value={maintenanceExpectedEnd}
-              onChange={(e) => setMaintenanceExpectedEnd(e.target.value)}
-              placeholder="เช่น 18:00 น. หรือ 20 ก.ย. เวลา 12:00 น."
-              className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] disabled:opacity-60"
-            />
+          <div className="space-y-3 pt-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-[#5A4D41] flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-[#D9A441]" />
+                <span>กำหนดเวลาที่คาดว่าจะเปิดระบบตามปกติ (สำหรับแสดงเวลานับถอยหลัง)</span>
+              </label>
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 max-w-lg">
+                <input
+                  type="datetime-local"
+                  disabled={!canManageSettings || isPending}
+                  value={(() => {
+                    if (!maintenanceExpectedEnd) return "";
+                    const d = new Date(maintenanceExpectedEnd);
+                    if (isNaN(d.getTime())) return "";
+                    const pad = (n: number) => String(n).padStart(2, "0");
+                    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+                  })()}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) {
+                      setMaintenanceExpectedEnd("");
+                      return;
+                    }
+                    const d = new Date(val);
+                    if (!isNaN(d.getTime())) {
+                      setMaintenanceExpectedEnd(d.toISOString());
+                    }
+                  }}
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] disabled:opacity-60 font-mono"
+                />
+                {maintenanceExpectedEnd && (
+                  <button
+                    type="button"
+                    disabled={!canManageSettings || isPending}
+                    onClick={() => setMaintenanceExpectedEnd("")}
+                    className="px-3 py-2 rounded-xl text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition-colors cursor-pointer border border-red-200 shrink-0"
+                  >
+                    ล้างเวลา
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* ปุ่มตั้งเวลาด่วน (Quick Presets) */}
+            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+              <span className="text-[11px] text-[#8C5D23] font-medium mr-1">ตั้งเวลาด่วน:</span>
+              {[
+                { label: "+15 นาที", minutes: 15 },
+                { label: "+30 นาที", minutes: 30 },
+                { label: "+1 ชม.", minutes: 60 },
+                { label: "+2 ชม.", minutes: 120 },
+                { label: "+4 ชม.", minutes: 240 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  disabled={!canManageSettings || isPending}
+                  onClick={() => {
+                    const target = new Date(Date.now() + preset.minutes * 60 * 1000);
+                    target.setSeconds(0, 0);
+                    setMaintenanceExpectedEnd(target.toISOString());
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-[#D9CABB] text-[#5A4D41] hover:bg-[#FAF0E1] hover:border-[#D9A441] hover:text-[#8C5D23] transition-all font-medium active:scale-95 cursor-pointer disabled:opacity-60"
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* พรีวิวตัวนับถอยหลังสด */}
+            {maintenanceExpectedEnd && (
+              <div className="mt-3 p-3.5 bg-white rounded-2xl border border-amber-200/80 shadow-2xs max-w-lg">
+                <span className="text-[11px] font-bold text-amber-800 uppercase tracking-wider block mb-1">
+                  ตัวอย่างการแสดงเวลานับถอยหลังให้นักเรียน:
+                </span>
+                <MaintenanceCountdown targetTime={maintenanceExpectedEnd} />
+              </div>
+            )}
           </div>
         </div>
       </div>

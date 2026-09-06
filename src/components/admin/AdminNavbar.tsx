@@ -34,8 +34,8 @@ export function AdminNavbar({ adminName, academicTerm = "1/2569" }: AdminNavbarP
     if (path === "/admin/users") return "จัดการบัญชีผู้ใช้ (User Management)";
     if (path === "/admin/logs") return "บันทึกประวัติการใช้งาน (Audit Logs)";
     if (path === "/admin/attendance") return "ระบบเช็กชื่อกิจกรรม";
-    if (path.startsWith("/admin/attendance/")) return "ห้องเช็กชื่อกิจกรรม";
-    if (path === "/admin/settings") return "ตั้งค่าระบบ & รหัสผ่าน";
+    if (path === "/admin/settings") return "ตั้งค่าระบบส่วนกลาง (System Settings)";
+    if (path === "/admin/profile") return "ข้อมูลส่วนตัว & รหัสผ่าน (Personal Profile)";
     return "Admin Studio";
   };
 
@@ -74,9 +74,13 @@ export function AdminNavbar({ adminName, academicTerm = "1/2569" }: AdminNavbarP
           <span className="font-semibold text-[11px]">ภาคเรียน {academicTerm}</span>
         </div>
 
-        {/* User Info Pill */}
-        <div className="flex items-center gap-2 pl-2 border-l border-[#F2E8DC]">
-          <div className="w-8 h-8 rounded-xl bg-[#FAF0E1] text-[#D9A441] flex items-center justify-center font-bold text-xs border border-[#EADBCC]">
+        {/* User Info Pill (Links to Personal Profile) */}
+        <Link
+          href="/admin/profile"
+          title="ดูข้อมูลส่วนตัว & เปลี่ยนรหัสผ่าน"
+          className="flex items-center gap-2 pl-2 border-l border-[#F2E8DC] hover:opacity-85 transition-opacity"
+        >
+          <div className="w-8 h-8 rounded-xl bg-[#FAF0E1] text-[#D9A441] flex items-center justify-center font-bold text-xs border border-[#EADBCC] shadow-2xs">
             {adminName.charAt(0).toUpperCase()}
           </div>
           <div className="hidden sm:block text-left">
@@ -84,10 +88,10 @@ export function AdminNavbar({ adminName, academicTerm = "1/2569" }: AdminNavbarP
               {adminName}
             </p>
             <span className="text-[10px] text-[#B94E48] font-semibold">
-              อาจารย์ผู้สอน
+              ข้อมูลส่วนตัว
             </span>
           </div>
-        </div>
+        </Link>
 
         {/* Quick Logout Button */}
         <form action={logoutAction}>

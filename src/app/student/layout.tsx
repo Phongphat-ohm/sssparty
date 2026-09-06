@@ -4,6 +4,7 @@ import { StudentNavbar } from "@/components/student/StudentNavbar";
 import { StudentBottomNav } from "@/components/student/StudentBottomNav";
 import { getSystemSettings } from "@/lib/settings/system-settings";
 import { Wrench, Clock, AlertTriangle } from "lucide-react";
+import { MaintenanceCountdown } from "@/components/common/MaintenanceCountdown";
 
 export const dynamic = "force-dynamic";
 
@@ -57,15 +58,7 @@ export default async function StudentLayout({
               </div>
 
               {settings.maintenance_expected_end && (
-                <div className="p-4 rounded-2xl bg-[#FAF6F0] border border-[#EADBCC] flex items-center justify-center gap-2.5 text-xs sm:text-sm text-[#5A4D41] font-medium">
-                  <Clock className="w-4.5 h-4.5 text-[#D9A441] shrink-0" />
-                  <span>
-                    คาดว่าจะเปิดให้บริการตามปกติเวลา:{" "}
-                    <strong className="text-[#3F342B] font-bold">
-                      {settings.maintenance_expected_end}
-                    </strong>
-                  </span>
-                </div>
+                <MaintenanceCountdown targetTime={settings.maintenance_expected_end} />
               )}
 
               <p className="text-xs text-[#A8988B] pt-2 border-t border-[#F2E8DC]">

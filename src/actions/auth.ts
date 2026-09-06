@@ -140,9 +140,27 @@ export async function studentLoginAction(
 
     const settings = await getSystemSettings();
     if (settings.maintenance_mode) {
-      const timeInfo = settings.maintenance_expected_end
-        ? ` (คาดว่าจะเปิดให้บริการเวลา: ${settings.maintenance_expected_end})`
-        : "";
+      let timeInfo = "";
+      if (settings.maintenance_expected_end) {
+        const d = new Date(settings.maintenance_expected_end);
+        if (!isNaN(d.getTime())) {
+          const thaiDate =
+            d.toLocaleDateString("th-TH", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            }) +
+            " เวลา " +
+            d.toLocaleTimeString("th-TH", {
+              hour: "2-digit",
+              minute: "2-digit",
+            }) +
+            " น.";
+          timeInfo = ` (คาดว่าจะเปิดให้บริการ: ${thaiDate})`;
+        } else {
+          timeInfo = ` (คาดว่าจะเปิดให้บริการเวลา: ${settings.maintenance_expected_end})`;
+        }
+      }
       return {
         success: false,
         message: `ระบบไม่พร้อมใช้งานในขณะนี้: ${settings.maintenance_message}${timeInfo}`,
