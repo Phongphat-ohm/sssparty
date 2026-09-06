@@ -87,7 +87,7 @@ export async function createAttendanceSessionAction(
         records: {
           create: activeStudents.map((s) => ({
             studentId: s.id,
-            status: "PRESENT",
+            status: "ABSENT",
           })),
         },
       },
@@ -100,7 +100,7 @@ export async function createAttendanceSessionAction(
       action: "CREATE_ATTENDANCE_SESSION",
       targetType: "ATTENDANCE",
       targetId: attendanceSession.id,
-      details: `สร้างรอบเช็กชื่อ: "${attendanceSession.title}"`,
+      details: `สร้างรอบเช็กชื่อ: "${attendanceSession.title}" (ตั้งต้น ขาดเรียน ทุกคน)`,
     });
 
     revalidatePath("/admin/attendance");
@@ -109,7 +109,7 @@ export async function createAttendanceSessionAction(
 
     return {
       success: true,
-      message: `สร้างรอบเช็กชื่อ "${attendanceSession.title}" เรียบร้อยแล้ว`,
+      message: `สร้างรอบเช็กชื่อ "${attendanceSession.title}" เรียบร้อยแล้ว (ตั้งต้น ขาดเรียน ทุกคน เพื่อรอเช็กชื่อ)`,
       sessionId: attendanceSession.id,
     };
   } catch (error) {
@@ -153,7 +153,7 @@ export async function createAttendanceSessionForDateAction(
         records: {
           create: activeStudents.map((s) => ({
             studentId: s.id,
-            status: "PRESENT",
+            status: "ABSENT",
           })),
         },
       },

@@ -12,6 +12,7 @@ import {
   Send,
   HelpCircle,
   Link2,
+  KeyRound,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
 import Link from "next/link";
@@ -22,6 +23,11 @@ export default async function StudentDashboardPage() {
   if (!session || session.role !== "STUDENT" || !session.studentId) {
     redirect("/student-login");
   }
+
+  const activeAttendance = await prisma.attendanceSession.findFirst({
+    where: { isKeyActive: true },
+    select: { id: true, title: true, academicTerm: true },
+  });
 
   const assignments = await prisma.assignment.findMany({
     where: { status: "PUBLISHED" },
@@ -87,6 +93,35 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Live Active Attendance Banner */}
+      {activeAttendance && (
+        <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-top-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <KeyRound className="w-6 h-6 text-amber-100 animate-bounce" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-amber-100">
+                  กำลังเปิดรับเช็กชื่อ Real-Time!
+                </span>
+              </div>
+              <h3 className="font-bold text-base sm:text-lg tracking-tight">
+                {activeAttendance.title}
+              </h3>
+            </div>
+          </div>
+          <Link
+            href="/student/checkin"
+            className="self-start sm:self-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white text-[#5C4A3A] hover:bg-amber-50 font-bold text-xs shadow-xs active:scale-95 transition-all"
+          >
+            <span>กดเช็กชื่อทันที</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       {/* 1. Compact Hero Header */}
       <div className="bg-gradient-to-r from-[#D9A441] via-[#C96B4B] to-[#B94E48] rounded-3xl p-5 sm:p-7 text-white shadow-lg relative overflow-hidden">
         <div className="absolute top-0 right-0 -mr-10 -mt-10 w-44 h-44 bg-white/15 rounded-full blur-2xl pointer-events-none" />

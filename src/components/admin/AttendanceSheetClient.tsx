@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -19,6 +19,9 @@ import {
   Table,
   LayoutGrid,
   FileSpreadsheet,
+  KeyRound,
+  MapPin,
+  ShieldCheck,
 } from "lucide-react";
 import {
   AttendanceStatusType,
@@ -28,6 +31,8 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
+import { DynamicKeyProjectorModal } from "@/components/admin/attendance/DynamicKeyProjectorModal";
+import { AttendanceLocationAuditTab } from "@/components/admin/attendance/AttendanceLocationAuditTab";
 
 export interface StudentAttendanceRow {
   studentId: string;
@@ -38,6 +43,14 @@ export interface StudentAttendanceRow {
   studentNumber: number;
   status: AttendanceStatusType;
   note?: string | null;
+  checkInMethod?: string | null;
+  checkedAt?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  locationAccuracy?: number | null;
+  distanceFromSession?: number | null;
+  hasLocation?: boolean;
+  ipAddress?: string | null;
 }
 
 interface AttendanceSheetClientProps {
@@ -46,6 +59,9 @@ interface AttendanceSheetClientProps {
   sessionDate: string;
   academicTerm: string;
   sessionNote?: string | null;
+  isKeyActive?: boolean;
+  keySecret?: string | null;
+  centerCoords?: { latitude: number; longitude: number; expectedRadius?: number } | null;
   initialRecords: StudentAttendanceRow[];
   classList: string[];
 }
@@ -56,6 +72,9 @@ export function AttendanceSheetClient({
   sessionDate,
   academicTerm,
   sessionNote,
+  isKeyActive = false,
+  keySecret = null,
+  centerCoords = null,
   initialRecords,
   classList,
 }: AttendanceSheetClientProps) {
@@ -66,6 +85,85 @@ export function AttendanceSheetClient({
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
+
+  // Dynamic Key Projector & Audit Tab
+  const [isProjectorOpen, setIsProjectorOpen] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState<"SHEET" | "AUDIT">("SHEET");
+
+  // ซิงก์ข้อมูล records เมื่อ initialRecords เปลี่ยนแปลง
+  useEffect(() => {
+    if (!hasChanges) {
+      setRecords(initialRecords);
+    }
+  }, [initialRecords, hasChanges]);
+
+  // จัดการเมื่อมีนักเรียนเช็กชื่อเข้ามาแบบ Real-Time จากจอโปรเจกเตอร์
+  const handleRealTimeCheckIn = useCallback((event?: any) => {
+    if (event?.studentId) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.studentId === event.studentId
+            ? {
+                ...r,
+                status: "PRESENT",
+                checkInMethod: event.checkInMethod || "DYNAMIC_KEY",
+                checkedAt: event.checkedAt || new Date().toISOString(),
+                latitude: event.latitude ?? r.latitude,
+                longitude: event.longitude ?? r.longitude,
+                locationAccuracy: event.locationAccuracy ?? r.locationAccuracy,
+                distanceFromSession: event.distanceFromSession ?? r.distanceFromSession,
+                hasLocation: event.hasLocation !== undefined ? !!event.hasLocation : r.hasLocation,
+              }
+            : r
+        )
+      );
+    }
+    router.refresh();
+  }, [router]);
+
+  // ระบบ Real-Time Polling Sync เบื้องหลังสำหรับหน้านี้โดยเฉพาะ
+  useEffect(() => {
+    if (hasChanges) return; // หากครูกำลังแก้ไขตารางด้วยมือ จะไม่ทับข้อมูลชั่วคราว
+    const syncWithServer = async () => {
+      try {
+        const res = await fetch(`/api/attendance/live?sessionId=${sessionId}&format=json`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.allRecords && data.allRecords.length > 0) {
+            const recordMap = new Map(data.allRecords.map((ar: any) => [ar.studentId, ar]));
+            setRecords((prev) => {
+              let changed = false;
+              const next = prev.map((r) => {
+                const liveRec: any = recordMap.get(r.studentId);
+                if (!liveRec) return r;
+                if (liveRec.status !== r.status || liveRec.checkInMethod !== r.checkInMethod) {
+                  changed = true;
+                  return {
+                    ...r,
+                    status: liveRec.status,
+                    checkInMethod: liveRec.checkInMethod,
+                    checkedAt: liveRec.checkedAt,
+                    latitude: liveRec.latitude,
+                    longitude: liveRec.longitude,
+                    locationAccuracy: liveRec.locationAccuracy,
+                    distanceFromSession: liveRec.distanceFromSession,
+                    hasLocation: liveRec.hasLocation,
+                  };
+                }
+                return r;
+              });
+              return changed ? next : prev;
+            });
+          }
+        }
+      } catch {
+        // ignore fetch error
+      }
+    };
+
+    const interval = setInterval(syncWithServer, 3500);
+    return () => clearInterval(interval);
+  }, [sessionId, hasChanges]);
 
   // Filters & Search
   const [selectedClass, setSelectedClass] = useState<string>("ALL");
@@ -240,6 +338,15 @@ export function AttendanceSheetClient({
 
         {/* Top Actions */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsProjectorOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 border border-amber-300 active:scale-95 transition-all shadow-2xs cursor-pointer"
+          >
+            <KeyRound className="w-4 h-4 text-amber-700" />
+            <span>เปิดจอ Dynamic Key (30s)</span>
+          </button>
+
           <a
             href={`/api/export/attendance?sessionId=${sessionId}&className=${selectedClass}`}
             download
@@ -319,8 +426,51 @@ export function AttendanceSheetClient({
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-[#EADBCC] shadow-2xs space-y-3">
+      {/* Main Tab Switcher: Sheet View vs Location Audit */}
+      <div className="flex items-center gap-2 border-b border-[#EBE3D5] pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("SHEET")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            activeMainTab === "SHEET"
+              ? "bg-[#5C4A3A] text-white shadow-xs"
+              : "bg-white text-[#7A6A5C] hover:text-[#3F342B] border border-[#EBE3D5]"
+          }`}
+        >
+          📋 ตารางบันทึกการเช็กชื่อ
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveMainTab("AUDIT")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+            activeMainTab === "AUDIT"
+              ? "bg-[#5C4A3A] text-white shadow-xs"
+              : "bg-white text-[#7A6A5C] hover:text-[#3F342B] border border-[#EBE3D5]"
+          }`}
+        >
+          <MapPin className="w-3.5 h-3.5 text-amber-600" />
+          <span>
+            ตรวจสอบพิกัด & Audit ({records.filter((r) => r.hasLocation).length} คน)
+          </span>
+        </button>
+      </div>
+
+      {activeMainTab === "AUDIT" ? (
+        <AttendanceLocationAuditTab
+          sessionId={sessionId}
+          records={records.map((r) => ({
+            ...r,
+            hasLocation: !!r.hasLocation,
+          }))}
+          centerCoords={centerCoords}
+          onUpdateStatus={(studentId, newStatus) => {
+            handleStatusChange(studentId, newStatus);
+          }}
+        />
+      ) : (
+        <>
+          {/* Filter and Search Bar */}
+          <div className="bg-white rounded-2xl p-4 border border-[#EADBCC] shadow-2xs space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           {/* Class Filter */}
           <div className="flex flex-wrap items-center gap-1.5">
@@ -687,46 +837,67 @@ export function AttendanceSheetClient({
           pageSizeOptions={[10, 15, 30, 50]}
         />
       </div>
+      </>
+      )}
 
-      {/* Floating Bottom Sticky Save Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EADBCC] p-3 sm:px-8 shadow-2xl">
-        <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            {hasChanges ? (
-              <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 inline-flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
-                มีการแก้ไขที่ยังไม่ได้บันทึก
-              </span>
-            ) : (
-              <span className="text-xs text-[#7A6A5C] hidden sm:inline-flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                ข้อมูลตรงกับในระบบเรียบร้อย
-              </span>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleSaveChanges}
-              disabled={isSaving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>กำลังบันทึก...</span>
-                </>
+      {/* Floating Bottom Sticky Save Bar (แสดงเฉพาะใน Sheet view) */}
+      {activeMainTab === "SHEET" && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EADBCC] p-3 sm:px-8 shadow-2xl">
+          <div className="max-w-5xl mx-auto flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              {hasChanges ? (
+                <span className="text-xs font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200 inline-flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                  มีการแก้ไขที่ยังไม่ได้บันทึก
+                </span>
               ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>บันทึกผลการเช็กชื่อ</span>
-                </>
+                <span className="text-xs text-[#7A6A5C] hidden sm:inline-flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  ข้อมูลตรงกับในระบบเรียบร้อย
+                </span>
               )}
-            </button>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveChanges}
+                disabled={isSaving}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-95 disabled:opacity-50 transition-all shadow-md cursor-pointer"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>กำลังบันทึก...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>บันทึกผลการเช็กชื่อ</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* Dynamic Key Projector Modal */}
+      <DynamicKeyProjectorModal
+        isOpen={isProjectorOpen}
+        onClose={() => {
+          setIsProjectorOpen(false);
+          router.refresh();
+        }}
+        sessionId={sessionId}
+        sessionTitle={sessionTitle}
+        academicTerm={academicTerm}
+        totalStudents={records.length}
+        initialIsActive={isKeyActive}
+        initialKeySecret={keySecret}
+        initialCenterCoords={centerCoords}
+        onCheckInEvent={handleRealTimeCheckIn}
+      />
     </div>
   );
 }

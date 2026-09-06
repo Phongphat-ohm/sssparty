@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
@@ -14,6 +15,7 @@ import {
   Info,
   List,
   Flag,
+  KeyRound,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
@@ -233,9 +235,18 @@ export function StudentAttendanceCalendar({
 
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs">
-              <Sparkles className="w-3.5 h-3.5 text-amber-200" />
-              <span>ประวัติการเข้าร่วมกิจกรรมชุมนุม</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold bg-white/20 px-3 py-1 rounded-full backdrop-blur-xs">
+                <Sparkles className="w-3.5 h-3.5 text-amber-200" />
+                <span>ประวัติการเข้าร่วมกิจกรรมชุมนุม</span>
+              </div>
+              <Link
+                href="/student/checkin"
+                className="inline-flex items-center gap-1.5 text-xs font-bold bg-white text-[#5C4A3A] hover:bg-amber-50 px-3 py-1 rounded-full shadow-xs active:scale-95 transition-all"
+              >
+                <KeyRound className="w-3.5 h-3.5 text-amber-600" />
+                <span>เข้าห้องเช็กชื่อสด</span>
+              </Link>
             </div>
             <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight">
               สถิติการเช็กชื่อของ {studentName}

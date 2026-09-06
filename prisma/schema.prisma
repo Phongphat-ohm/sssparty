@@ -257,14 +257,19 @@ model RubricScore {
 }
 
 model AttendanceSession {
-  id           String             @id @default(cuid())
-  title        String
-  date         DateTime
-  academicTerm String             @default("1/2569")
-  note         String?            @db.Text
-  createdById  String
-  createdAt    DateTime           @default(now())
-  updatedAt    DateTime           @updatedAt
+  id              String             @id @default(cuid())
+  title           String
+  date            DateTime
+  academicTerm    String             @default("1/2569")
+  note            String?            @db.Text
+  keySecret       String?
+  isKeyActive     Boolean            @default(false)
+  centerLatitude  Float?
+  centerLongitude Float?
+  expectedRadius  Float?             @default(100)
+  createdById     String
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 
   creator User               @relation("AttendanceCreator", fields: [createdById], references: [id], onDelete: Restrict)
   records AttendanceRecord[]
@@ -275,12 +280,20 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id        String           @id @default(cuid())
-  sessionId String
-  studentId String
-  status    AttendanceStatus @default(PRESENT)
-  note      String?          @db.Text
-  checkedAt DateTime         @default(now())
+  id                  String           @id @default(cuid())
+  sessionId           String
+  studentId           String
+  status              AttendanceStatus @default(PRESENT)
+  note                String?          @db.Text
+  checkedAt           DateTime         @default(now())
+  checkInMethod       String?          @default("MANUAL")
+  latitude            Float?
+  longitude           Float?
+  locationAccuracy    Float?
+  distanceFromSession Float?
+  hasLocation         Boolean          @default(false)
+  ipAddress           String?
+  userAgent           String?
 
   session AttendanceSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   student Student           @relation(fields: [studentId], references: [id], onDelete: Cascade)

@@ -54,12 +54,29 @@ export default async function AdminAttendanceDetailPage({ params }: Props) {
       lastName: s.lastName,
       className: s.className,
       studentNumber: s.studentNumber,
-      status: existing ? existing.status : "PRESENT",
+      status: existing ? existing.status : "ABSENT",
       note: existing?.note || null,
+      checkInMethod: existing?.checkInMethod || null,
+      checkedAt: existing?.checkedAt ? existing.checkedAt.toISOString() : null,
+      latitude: existing?.latitude || null,
+      longitude: existing?.longitude || null,
+      locationAccuracy: existing?.locationAccuracy || null,
+      distanceFromSession: existing?.distanceFromSession || null,
+      hasLocation: existing?.hasLocation || false,
+      ipAddress: existing?.ipAddress || null,
     };
   });
 
   const classList = Array.from(new Set(allActiveStudents.map((s) => s.className)));
+
+  const centerCoords =
+    attendanceSession.centerLatitude && attendanceSession.centerLongitude
+      ? {
+          latitude: attendanceSession.centerLatitude,
+          longitude: attendanceSession.centerLongitude,
+          expectedRadius: attendanceSession.expectedRadius || 100,
+        }
+      : null;
 
   return (
     <div className="p-4 sm:p-8 max-w-6xl mx-auto w-full">
@@ -69,6 +86,9 @@ export default async function AdminAttendanceDetailPage({ params }: Props) {
         sessionDate={attendanceSession.date.toISOString()}
         academicTerm={attendanceSession.academicTerm}
         sessionNote={attendanceSession.note}
+        isKeyActive={attendanceSession.isKeyActive}
+        keySecret={attendanceSession.keySecret}
+        centerCoords={centerCoords}
         initialRecords={rows}
         classList={classList}
       />

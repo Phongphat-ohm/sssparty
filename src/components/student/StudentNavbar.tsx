@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LogOut, BookOpen, LayoutDashboard, Sparkles, User, Calendar } from "lucide-react";
+import { GraduationCap, LogOut, BookOpen, LayoutDashboard, Sparkles, User, Calendar, KeyRound } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 
 interface StudentNavbarProps {
@@ -89,6 +89,16 @@ export function StudentNavbar({
             );
           })}
         </nav>
+
+        {/* Quick Check-in Button */}
+        <Link
+          href="/student/checkin"
+          prefetch={false}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-white shadow-xs transition-all cursor-pointer"
+        >
+          <KeyRound className="w-3.5 h-3.5" />
+          <span>เช็กชื่อสด</span>
+        </Link>
 
         {/* Student Badge & Logout */}
         <div className="flex items-center gap-2">

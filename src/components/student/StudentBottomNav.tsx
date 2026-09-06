@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, BookOpen, User, Calendar } from "lucide-react";
+import { LayoutDashboard, BookOpen, User, Calendar, KeyRound } from "lucide-react";
 
 interface StudentBottomNavProps {
   studentName: string;
@@ -29,7 +29,13 @@ export function StudentBottomNav({
       icon: BookOpen,
     },
     {
-      name: "เข้าเรียน",
+      name: "เช็กชื่อ",
+      href: "/student/checkin",
+      icon: KeyRound,
+      isSpecial: true,
+    },
+    {
+      name: "ประวัติ",
       href: "/student/attendance",
       icon: Calendar,
     },
@@ -41,8 +47,8 @@ export function StudentBottomNav({
   ];
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EADBCC] px-4 py-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg">
-      <div className="grid grid-cols-4 max-w-sm mx-auto">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-30 bg-white/95 backdrop-blur-md border-t border-[#EADBCC] px-2 py-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))] shadow-lg">
+      <div className="grid grid-cols-5 max-w-md mx-auto">
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = pathname === tab.href;
