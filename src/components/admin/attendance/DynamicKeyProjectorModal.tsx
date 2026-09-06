@@ -112,18 +112,27 @@ export function DynamicKeyProjectorModal({
   const [centerCoords, setCenterCoords] = useState(initialCenterCoords);
   const [isPinningLocation, setIsPinningLocation] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
+  const hasAutoStartedRef = useRef(false);
 
-  // เมื่อเปิด Modal ขึ้นมา ให้เริ่มรับเช็กชื่อทันทีโดยอัตโนมัติหากยังไม่ได้เริ่ม
+  // เมื่อเปิด Modal ขึ้นมา ซิงก์ค่าและ auto-start เพียง 1 ครั้งถ้ายังไม่เคยเริ่ม
   useEffect(() => {
-    if (isOpen && !isActive) {
-      startDynamicKeySessionAction(sessionId, centerCoords).then((res) => {
-        if (res.success) {
-          setIsActive(true);
-          setKeySecret(res.keySecret || null);
-        }
-      });
+    if (isOpen) {
+      // ถ้าเปิด modal และยังไม่เคย active มาก่อน ให้ auto-start เพียงครั้งแรก
+      if (!initialIsActive && !hasAutoStartedRef.current) {
+        hasAutoStartedRef.current = true;
+        startDynamicKeySessionAction(sessionId, centerCoords).then((res) => {
+          if (res.success) {
+            setIsActive(true);
+            setKeySecret(res.keySecret || null);
+            if (onCheckInEvent) onCheckInEvent();
+          }
+        });
+      }
+    } else {
+      // เมื่อปิด Modal ให้รีเซ็ต flag สำหรับครั้งถัดไป
+      hasAutoStartedRef.current = false;
     }
-  }, [isOpen, isActive, sessionId, centerCoords]);
+  }, [isOpen, sessionId, initialIsActive, centerCoords, onCheckInEvent]);
 
   // อัปเดตรหัส Key และ QR Code ทุก 1 วินาที
   useEffect(() => {
@@ -269,14 +278,17 @@ export function DynamicKeyProjectorModal({
           "ต้องการปิดรับการเช็กชื่อ?",
           "นักเรียนจะไม่สามารถใช้รหัส Key หรือ QR Code เช็กชื่อได้อีกจนกว่าจะเปิดใหม่"
         );
-        if (confirmed) {
-          const res = await stopDynamicKeySessionAction(sessionId);
-          if (res.success) {
-            setIsActive(false);
-            await showCozySuccess("ปิดระบบเรียบร้อย", res.message);
-          } else {
-            await showCozyError("เกิดข้อผิดพลาด", res.message);
-          }
+        if (!confirmed.isConfirmed) {
+          return;
+        }
+
+        const res = await stopDynamicKeySessionAction(sessionId);
+        if (res.success) {
+          setIsActive(false);
+          await showCozySuccess("ปิดระบบเรียบร้อย", res.message);
+          if (onCheckInEvent) onCheckInEvent();
+        } else {
+          await showCozyError("เกิดข้อผิดพลาด", res.message);
         }
       }
     } catch (err: any) {
@@ -327,7 +339,7 @@ export function DynamicKeyProjectorModal({
       "ปรับผู้ที่ยังไม่เช็กชื่อเป็น ขาดเรียน?",
       "ระบบจะปรับสถานะของนักเรียนทุกคนที่ยังไม่ได้เช็กชื่อในรอบนี้ให้เป็น 'ขาดเรียน (ABSENT)' โดยอัตโนมัติ"
     );
-    if (!confirmed) return;
+    if (!confirmed.isConfirmed) return;
 
     setIsBusy(true);
     try {
@@ -351,7 +363,7 @@ export function DynamicKeyProjectorModal({
       "รีเซ็ตทุกคนเป็น 'ขาดเรียน' เพื่อเริ่มเช็กชื่อใหม่?",
       "ระบบจะปรับสถานะทุกคนในรอบนี้เป็น 'ขาดเรียน (ABSENT)' เพื่อเตรียมพร้อมให้นักเรียนเริ่มสแกน QR Code หรือกรอก Key ใหม่"
     );
-    if (!confirmed) return;
+    if (!confirmed.isConfirmed) return;
 
     setIsBusy(true);
     try {
@@ -599,7 +611,19 @@ export function DynamicKeyProjectorModal({
 
           {/* QR Code ขนาดยักษ์ คมชัดพิเศษ */}
           <div className="bg-white p-4 sm:p-6 rounded-3xl shadow-2xl border-4 border-amber-400/70 relative transition-transform hover:scale-[1.01]">
-            {qrDataUrl ? (
+            {!isActive ? (
+              <div className="w-64 h-64 sm:w-80 sm:h-80 md:w-96 md:h-96 flex flex-col items-center justify-center bg-stone-100 text-stone-600 rounded-2xl gap-3 p-6 text-center">
+                <div className="w-16 h-16 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center shadow-inner">
+                  <Square className="w-8 h-8 fill-rose-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-base text-stone-800">ระบบปิดรับการเช็กชื่ออยู่</p>
+                  <p className="text-xs text-stone-500 mt-1 max-w-[260px]">
+                    กดปุ่ม &quot;เริ่มรับเช็กชื่อ&quot; ด้านบนขวาเพื่อเปิดระบบและแสดง QR Code
+                  </p>
+                </div>
+              </div>
+            ) : qrDataUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={qrDataUrl}
