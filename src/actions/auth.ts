@@ -223,9 +223,15 @@ export async function studentLoginAction(
       details: `นักเรียนเข้าสู่ระบบสำเร็จ: ${student.firstName} ${student.lastName} (ห้อง ${student.className} เลขที่ ${student.studentNumber})`,
     });
 
+    const redirectParam = (formData.get("redirect") as string) || "";
+    const safeRedirectUrl =
+      redirectParam.startsWith("/") && !redirectParam.startsWith("//")
+        ? redirectParam
+        : "/student/dashboard";
+
     return {
       success: true,
-      redirectUrl: "/student/dashboard",
+      redirectUrl: safeRedirectUrl,
     };
   } catch (err) {
     console.error("studentLoginAction error:", err);

@@ -134,12 +134,15 @@ export function DynamicKeyProjectorModal({
     }
   }, [isOpen, sessionId, initialIsActive, centerCoords, onCheckInEvent]);
 
+  const lastGeneratedKeyRef = useRef<string>("");
+
   // อัปเดตรหัส Key และ QR Code ทุก 1 วินาที
   useEffect(() => {
     if (!isActive || !keySecret) {
       setCurrentKey("------");
       setRemainingSeconds(30);
       setQrDataUrl("");
+      lastGeneratedKeyRef.current = "";
       return;
     }
 
@@ -148,8 +151,9 @@ export function DynamicKeyProjectorModal({
       setCurrentKey(key);
       setRemainingSeconds(remainingSeconds);
 
-      // สร้าง QR Code URL คมชัดพิเศษความละเอียดสูง
-      if (typeof window !== "undefined") {
+      // สร้าง QR Code URL คมชัดพิเศษความละเอียดสูง เฉพาะเมื่อรหัส key เปลี่ยนใหม่
+      if (lastGeneratedKeyRef.current !== key && typeof window !== "undefined") {
+        lastGeneratedKeyRef.current = key;
         const checkinUrl = `${window.location.origin}/student/checkin?sessionId=${sessionId}&key=${key}`;
         try {
           const url = await QRCode.toDataURL(checkinUrl, {

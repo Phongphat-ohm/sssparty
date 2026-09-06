@@ -262,6 +262,32 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
       return { success: false, message: "ไม่พบข้อมูลนักเรียน" };
     }
 
+    // 2.1 ตรวจสอบว่านักเรียนเช็กชื่อในรอบนี้ไปแล้วหรือไม่ เพื่อป้องกันการส่งซ้ำซ้อน
+    const existingRecord = await prisma.attendanceRecord.findUnique({
+      where: {
+        sessionId_studentId: {
+          sessionId: attendanceSession.id,
+          studentId: student.id,
+        },
+      },
+    });
+
+    if (
+      existingRecord &&
+      existingRecord.status === "PRESENT" &&
+      (existingRecord.checkInMethod === "DYNAMIC_KEY" || existingRecord.checkInMethod === "DYNAMIC_QR")
+    ) {
+      return {
+        success: true,
+        alreadyCheckedIn: true,
+        message: "คุณได้เช็กชื่อเข้าเรียนในรอบนี้เรียบร้อยแล้ว!",
+        studentName: `${student.firstName} ${student.lastName}`,
+        checkedAt: existingRecord.checkedAt.toISOString(),
+        distanceMeters: existingRecord.distanceFromSession,
+        hasLocation: existingRecord.hasLocation,
+      };
+    }
+
     // 3. ดึง Client Request Context (IP Address, User Agent)
     const clientContext = await getClientRequestContext();
 

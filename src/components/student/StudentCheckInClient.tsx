@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import {
@@ -66,6 +66,12 @@ export function StudentCheckInClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Refs ป้องกัน Race Condition และการยิงคำขอซ้ำซ้อนจาก Scanner หรือ URL auto-submit
+  const isSubmittingRef = useRef(false);
+  const hasAutoSubmittedUrlRef = useRef(false);
+  const lastScannedRef = useRef<{ code: string; time: number } | null>(null);
+  const coordsRef = useRef<{ latitude: number; longitude: number; accuracy?: number } | null>(null);
+
   // Success state
   const [checkInResult, setCheckInResult] = useState<{
     success: boolean;
@@ -94,6 +100,11 @@ export function StudentCheckInClient({
     "idle" | "requesting" | "granted" | "denied" | "unsupported"
   >("idle");
 
+  // ซิงก์ coordsRef กับ state เพื่อให้ handleSubmitKey ได้พิกัดล่าสุดเสมอ
+  useEffect(() => {
+    coordsRef.current = coords;
+  }, [coords]);
+
   // ขอพิกัดอย่างปลอดภัย
   const requestLocation = useCallback(() => {
     if (typeof window === "undefined" || !navigator.geolocation) {
@@ -104,11 +115,13 @@ export function StudentCheckInClient({
     setLocationStatus("requesting");
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setCoords({
+        const newCoords = {
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
           accuracy: pos.coords.accuracy,
-        });
+        };
+        setCoords(newCoords);
+        coordsRef.current = newCoords;
         setLocationStatus("granted");
       },
       (err) => {
@@ -124,37 +137,29 @@ export function StudentCheckInClient({
     requestLocation();
   }, [requestLocation]);
 
-  // ตรวจสอบ URL Search Params เผื่อสแกน QR Code จากกล้องมือถือแล้วเปิดเว็บพร้อมรหัส
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlKey = urlParams.get("key");
-      if (urlKey && /^\d{6}$/.test(urlKey)) {
-        setKeyDigits(urlKey.split(""));
-        // auto submit if key is present from URL
-        if (initialSession && !checkInResult) {
-          handleSubmitKey(urlKey, "DYNAMIC_QR");
-        }
-      }
-    }
-  }, [initialSession, checkInResult]);
-
-  // ฟังก์ชันส่งรหัสยืนยัน
+  // ฟังก์ชันส่งรหัสยืนยัน (พร้อมตัวล็อคป้องกันเรียกซ้ำซ้อน)
   const handleSubmitKey = async (
     code: string,
-    method: "DYNAMIC_KEY" | "DYNAMIC_QR" = "DYNAMIC_KEY"
+    method: "DYNAMIC_KEY" | "DYNAMIC_QR" = "DYNAMIC_KEY",
+    targetSessionId?: string
   ) => {
-    if (!initialSession) return;
+    const activeSessionId = targetSessionId || initialSession?.id;
+    if (!activeSessionId) {
+      setErrorMessage("ไม่พบรอบเช็กชื่อที่เปิดอยู่");
+      return;
+    }
     if (code.length !== 6) return;
+    if (isSubmittingRef.current) return;
 
+    isSubmittingRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
 
     try {
       const res = await studentCheckInAction({
-        sessionId: initialSession.id,
+        sessionId: activeSessionId,
         key: code,
-        coords,
+        coords: coordsRef.current,
         method,
       });
 
@@ -181,13 +186,39 @@ export function StudentCheckInClient({
       setErrorMessage(err.message || "เกิดข้อผิดพลาดในการเชื่อมต่อระบบ");
       setKeyDigits([]);
     } finally {
+      isSubmittingRef.current = false;
       setIsSubmitting(false);
     }
   };
 
+  // ตรวจสอบ URL Search Params เผื่อสแกน QR Code จากกล้องมือถือแล้วเปิดเว็บพร้อมรหัส
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlKey = urlParams.get("key");
+    const urlSessionId = urlParams.get("sessionId");
+
+    if (urlKey && /^\d{6}$/.test(urlKey)) {
+      setKeyDigits(urlKey.split(""));
+
+      // ทำ Auto-Submit เพียงครั้งเดียวเมื่อเปิดหน้าเว็บผ่าน URL ที่มี Key
+      if (!hasAutoSubmittedUrlRef.current && !checkInResult) {
+        hasAutoSubmittedUrlRef.current = true;
+
+        // รอพิกัดเล็กน้อย (สูงสุด 800ms) หากกำลังขอพิกัดอยู่ เพื่อให้แนบพิกัดได้ทัน
+        const submitTimer = setTimeout(() => {
+          handleSubmitKey(urlKey, "DYNAMIC_QR", urlSessionId || undefined);
+        }, 800);
+
+        return () => clearTimeout(submitTimer);
+      }
+    }
+  }, [checkInResult]);
+
   // แป้นกดตัวเลขบนหน้าจอ (Custom On-Screen Numpad)
   const handleNumpadPress = (num: string) => {
-    if (isSubmitting || checkInResult) return;
+    if (isSubmittingRef.current || checkInResult) return;
     setErrorMessage(null);
 
     if (keyDigits.length < 6) {
@@ -203,35 +234,58 @@ export function StudentCheckInClient({
 
   // ปุ่มลบ
   const handleBackspace = () => {
-    if (isSubmitting || checkInResult) return;
+    if (isSubmittingRef.current || checkInResult) return;
     setErrorMessage(null);
     setKeyDigits((prev) => prev.slice(0, -1));
   };
 
   // ปุ่มล้าง
   const handleClear = () => {
-    if (isSubmitting || checkInResult) return;
+    if (isSubmittingRef.current || checkInResult) return;
     setErrorMessage(null);
     setKeyDigits([]);
   };
 
-  // จัดการเมื่อกล้องสแกนพบ QR Code
+  // จัดการเมื่อกล้องสแกนพบ QR Code (พร้อมป้องกันการยิงซ้ำซ้อนจากแต่ละเฟรมของกล้อง)
   const handleQrScan = (detectedCodes: any) => {
-    if (isSubmitting || checkInResult || !detectedCodes || detectedCodes.length === 0) return;
-    const rawVal = detectedCodes[0]?.rawValue || "";
-    
+    if (isSubmittingRef.current || checkInResult || !detectedCodes) return;
+
+    let rawVal = "";
+    if (typeof detectedCodes === "string") {
+      rawVal = detectedCodes;
+    } else if (Array.isArray(detectedCodes) && detectedCodes.length > 0) {
+      rawVal = detectedCodes[0]?.rawValue || detectedCodes[0]?.value || "";
+    } else if (typeof detectedCodes === "object") {
+      rawVal = detectedCodes.rawValue || detectedCodes.value || "";
+    }
+
+    rawVal = (rawVal || "").trim();
+    if (!rawVal) return;
+
+    // ป้องกันการสแกนซ้ำโค้ดเดิมภายใน 4 วินาที
+    const now = Date.now();
+    if (
+      lastScannedRef.current &&
+      lastScannedRef.current.code === rawVal &&
+      now - lastScannedRef.current.time < 4000
+    ) {
+      return;
+    }
+    lastScannedRef.current = { code: rawVal, time: now };
+
     // รูปแบบที่ 1: เป็นตัวเลข 6 หลักตรงๆ
-    if (/^\d{6}$/.test(rawVal.trim())) {
-      handleSubmitKey(rawVal.trim(), "DYNAMIC_QR");
+    if (/^\d{6}$/.test(rawVal)) {
+      handleSubmitKey(rawVal, "DYNAMIC_QR");
       return;
     }
 
-    // รูปแบบที่ 2: เป็น URL เช่น https://...?key=839214
+    // รูปแบบที่ 2: เป็น URL เช่น https://...?sessionId=...&key=839214
     try {
       const url = new URL(rawVal);
       const urlKey = url.searchParams.get("key");
+      const urlSessionId = url.searchParams.get("sessionId");
       if (urlKey && /^\d{6}$/.test(urlKey)) {
-        handleSubmitKey(urlKey, "DYNAMIC_QR");
+        handleSubmitKey(urlKey, "DYNAMIC_QR", urlSessionId || undefined);
       }
     } catch {
       // ไม่ใช่ URL หรือตัวเลข

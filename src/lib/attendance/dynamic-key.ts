@@ -81,10 +81,16 @@ export function verifyDynamicKey(
     return { valid: true, isPreviousStep: false };
   }
 
-  // 2. ตรวจสอบรอบก่อนหน้า (T-1, Grace Window 30 วินาที)
+  // 2. ตรวจสอบรอบก่อนหน้า (T-1, Grace Window 30 วินาทีสำหรับเน็ตช้าหรือเพิ่งเปลี่ยนรอบ)
   const previousKey = generateKeyForStep(secret, currentStep - 1);
   if (cleanInput === previousKey) {
     return { valid: true, isPreviousStep: true };
+  }
+
+  // 3. ตรวจสอบรอบถัดไป (T+1, Grace Window สำหรับกรณีนาฬิกาเครื่องนักเรียนเร็วกว่าเซิร์ฟเวอร์เล็กน้อย)
+  const nextKey = generateKeyForStep(secret, currentStep + 1);
+  if (cleanInput === nextKey) {
+    return { valid: true, isPreviousStep: false };
   }
 
   return { valid: false };

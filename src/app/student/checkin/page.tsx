@@ -8,10 +8,23 @@ export const metadata = {
   description: "ระบบเช็กชื่อเข้าเรียนด้วยรหัส Key 6 หลักและ QR Code ชุมนุมสื่อสร้างสรรค์",
 };
 
-export default async function StudentCheckInPage() {
+interface PageProps {
+  searchParams: Promise<{ sessionId?: string; key?: string }>;
+}
+
+export default async function StudentCheckInPage(props: PageProps) {
+  const searchParams = await props.searchParams;
+  const { sessionId: querySessionId, key: queryKey } = searchParams || {};
+
   const session = await getAuthSession();
   if (!session || session.role !== "STUDENT" || !session.studentId) {
-    redirect("/student-login");
+    let target = "/student/checkin";
+    const p = new URLSearchParams();
+    if (querySessionId) p.set("sessionId", querySessionId);
+    if (queryKey) p.set("key", queryKey);
+    const qs = p.toString();
+    if (qs) target += `?${qs}`;
+    redirect(`/student-login?redirect=${encodeURIComponent(target)}`);
   }
 
   const student = await prisma.student.findUnique({
@@ -30,18 +43,40 @@ export default async function StudentCheckInPage() {
     redirect("/student-login");
   }
 
-  // ค้นหารอบเช็กชื่อที่เปิดอยู่
-  const activeSession = await prisma.attendanceSession.findFirst({
-    where: { isKeyActive: true },
-    orderBy: { updatedAt: "desc" },
-    select: {
-      id: true,
-      title: true,
-      date: true,
-      academicTerm: true,
-      note: true,
-    },
-  });
+  // ค้นหารอบเช็กชื่อ: ถ้ามี querySessionId ให้ค้นหาจาก ID ก่อน
+  let activeSession = null;
+  if (querySessionId) {
+    activeSession = await prisma.attendanceSession.findUnique({
+      where: { id: querySessionId },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+        academicTerm: true,
+        note: true,
+        isKeyActive: true,
+      },
+    });
+  }
+
+  // ถ้าไม่มี querySessionId หรือหาไม่เจอ หรือ session นั้นไม่ active ให้ค้นหารอบที่ isKeyActive อยู่
+  if (!activeSession || !activeSession.isKeyActive) {
+    const fallbackActive = await prisma.attendanceSession.findFirst({
+      where: { isKeyActive: true },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+        academicTerm: true,
+        note: true,
+        isKeyActive: true,
+      },
+    });
+    if (fallbackActive) {
+      activeSession = fallbackActive;
+    }
+  }
 
   let myRecord = null;
   if (activeSession) {

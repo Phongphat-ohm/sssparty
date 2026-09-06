@@ -8,7 +8,13 @@ import { GraduationCap, Hash, School, Sparkles, ArrowRight, Loader2, Wrench, Clo
 import type { SystemSettingsMap } from "@/lib/settings/system-settings";
 import { MaintenanceCountdown } from "@/components/common/MaintenanceCountdown";
 
-export function StudentLoginForm({ settings }: { settings: SystemSettingsMap }) {
+export function StudentLoginForm({
+  settings,
+  redirectUrl,
+}: {
+  settings: SystemSettingsMap;
+  redirectUrl?: string;
+}) {
   const router = useRouter();
   const [state, formAction, isPending] = useActionState(studentLoginAction, null);
 
@@ -103,6 +109,9 @@ export function StudentLoginForm({ settings }: { settings: SystemSettingsMap }) 
         )}
 
         <form action={formAction} className="space-y-4 relative">
+          {redirectUrl && (
+            <input type="hidden" name="redirect" value={redirectUrl} />
+          )}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
               รหัสนักเรียน (Student Code)
