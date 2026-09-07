@@ -8,6 +8,7 @@ import {
   FileText,
   CheckCircle2,
   AlertTriangle,
+  AlertCircle,
   Clock,
   Loader2,
   ExternalLink,
@@ -23,6 +24,7 @@ import {
   ClipboardPaste,
   FileCheck2,
   Trash2,
+  RotateCcw,
 } from "lucide-react";
 import { validateFileMeta, getFileTypeCategory } from "@/lib/s3/file-validator";
 import { requestDownloadUrlAction } from "@/actions/upload";
@@ -31,9 +33,9 @@ import { submitAssignmentAction } from "@/actions/submission";
 export interface QuestionData {
   id: string;
   questionText: string;
-  hint?: string;
-  imageKey?: string;
-  imageUrl?: string;
+  hint?: string | null;
+  imageKey?: string | null;
+  imageUrl?: string | null;
   isRequired: boolean;
   sortOrder: number;
 }
@@ -48,11 +50,19 @@ export interface SubmissionData {
   linkUrl?: string | null;
   comment: string | null;
   submittedAt: Date;
-  status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED";
+  status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
+  returnReason?: string | null;
+  returnedAt?: Date | string | null;
   grade?: {
-    totalScore: number;
+    score?: number;
+    totalScore?: number;
     feedback: string | null;
     gradedAt: Date;
+    rubricScores?: Array<{
+      rubricId: string;
+      score: number;
+      note?: string | null;
+    }>;
   } | null;
   answers?: Array<{
     questionId: string;
@@ -68,6 +78,7 @@ interface StudentSubmissionFormProps {
   maxScore: number;
   questions?: QuestionData[];
   initialSubmission: SubmissionData | null;
+  isClosed?: boolean;
 }
 
 export function StudentSubmissionForm({
@@ -78,6 +89,7 @@ export function StudentSubmissionForm({
   maxScore,
   questions = [],
   initialSubmission,
+  isClosed = false,
 }: StudentSubmissionFormProps) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -106,6 +118,7 @@ export function StudentSubmissionForm({
 
   const isGraded = initialSubmission?.status === "GRADED";
   const isDraft = initialSubmission?.status === "DRAFT";
+  const isReturned = initialSubmission?.status === "RETURNED";
   const hasOfficialSubmission =
     initialSubmission &&
     (initialSubmission.status === "SUBMITTED" ||
@@ -321,19 +334,112 @@ export function StudentSubmissionForm({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (isClosed) {
+      Swal.fire({
+        icon: "warning",
+        title: "ปิดรับงานแล้ว",
+        text: "การบ้านนี้ปิดรับการส่งงานแล้ว ไม่สามารถส่งงานได้",
+        confirmButtonColor: "#B94E48",
+        confirmButtonText: "รับทราบ",
+        background: "#FFF9F0",
+        color: "#3F342B",
+      });
+      return;
+    }
+
+    // 1. Pre-submit validation: FILE
+    if (submissionType === "FILE") {
+      const hasFile = selectedFile || initialSubmission?.fileKey;
+      if (!hasFile) {
+        Swal.fire({
+          icon: "warning",
+          title: "ยังไม่ได้เลือกไฟล์",
+          text: "กรุณาเลือกหรือแนบไฟล์ผลงานของคุณก่อนกดยืนยันส่งงาน",
+          confirmButtonColor: "#D9A441",
+          confirmButtonText: "เลือกไฟล์เดี๋ยวนี้",
+          background: "#FFF9F0",
+          color: "#3F342B",
+        }).then(() => {
+          fileInputRef.current?.click();
+        });
+        return;
+      }
+    }
+
+    // 2. Pre-submit validation: LINK
+    if (submissionType === "LINK") {
+      const cleanUrl = linkUrl.trim();
+      if (!cleanUrl) {
+        Swal.fire({
+          icon: "warning",
+          title: "ยังไม่ได้ระบุลิงก์",
+          text: "กรุณากรอกลิงก์ผลงานของคุณก่อนกดยืนยันส่งงาน",
+          confirmButtonColor: "#D9A441",
+          confirmButtonText: "ตกลง",
+          background: "#FFF9F0",
+          color: "#3F342B",
+        });
+        return;
+      }
+      if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+        Swal.fire({
+          icon: "warning",
+          title: "รูปแบบลิงก์ไม่ถูกต้อง",
+          text: "ลิงก์ต้องขึ้นต้นด้วย https:// หรือ http:// เช่น https://www.canva.com/...",
+          confirmButtonColor: "#D9A441",
+          confirmButtonText: "แก้ไขลิงก์",
+          background: "#FFF9F0",
+          color: "#3F342B",
+        });
+        return;
+      }
+    }
+
+    // 3. Pre-submit validation: QUESTIONS
+    if (submissionType === "QUESTIONS") {
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (q.isRequired) {
+          const ans = (answersMap[q.id] || "").trim();
+          if (!ans) {
+            Swal.fire({
+              icon: "warning",
+              title: `ยังไม่ได้ตอบข้อ ${i + 1}`,
+              text: `ข้อที่ ${i + 1} (${q.questionText}) เป็นข้อบังคับ กรุณาพิมพ์คำตอบก่อนส่งงาน`,
+              confirmButtonColor: "#D9A441",
+              confirmButtonText: "ไปตอบคำถาม",
+              background: "#FFF9F0",
+              color: "#3F342B",
+            });
+            return;
+          }
+        }
+      }
+    }
+
     const now = new Date();
     const isLate = now.getTime() > new Date(dueDate).getTime();
 
+    const titleText = isReturned
+      ? "🔄 ยืนยันการส่งงานใหม่?"
+      : isLate
+      ? "⚠️ ยืนยันการส่งงานล่าช้า?"
+      : "ยืนยันการส่งงาน?";
+
+    const bodyText = isReturned
+      ? `คุณต้องการส่งงาน "${assignmentTitle}" ใหม่อีกครั้งใช่หรือไม่? คุณครูจะได้รับการแจ้งเตือนเพื่อตรวจงานรอบใหม่`
+      : isLate
+      ? "ขณะนี้เลยกำหนดส่งงานแล้ว การส่งงานครั้งนี้จะถูกบันทึกสถานะว่า 'ส่งช้ากว่ากำหนด (LATE)' คุณต้องการส่งงานหรือไม่?"
+      : `คุณต้องการส่งงาน "${assignmentTitle}" ใช่หรือไม่?`;
+
     Swal.fire({
-      icon: isLate ? "warning" : "question",
-      title: isLate ? "⚠️ ยืนยันการส่งงานล่าช้า?" : "ยืนยันการส่งงาน?",
-      text: isLate
-        ? "ขณะนี้เลยกำหนดส่งงานแล้ว การส่งงานครั้งนี้จะถูกบันทึกสถานะว่า 'ส่งช้ากว่ากำหนด (LATE)' คุณต้องการส่งงานหรือไม่?"
-        : `คุณต้องการส่งงาน "${assignmentTitle}" ใช่หรือไม่?`,
+      icon: isReturned ? "question" : isLate ? "warning" : "question",
+      title: titleText,
+      text: bodyText,
       showCancelButton: true,
-      confirmButtonColor: isLate ? "#C96B4B" : "#D9A441",
+      confirmButtonColor: isReturned ? "#C96B4B" : isLate ? "#C96B4B" : "#D9A441",
       cancelButtonColor: "#A8988B",
-      confirmButtonText: isLate ? "ยืนยันส่งงานล่าช้า" : "ยืนยันส่งงาน",
+      confirmButtonText: isReturned ? "ยืนยันส่งงานใหม่" : isLate ? "ยืนยันส่งงานล่าช้า" : "ยืนยันส่งงาน",
       cancelButtonText: "ยกเลิก",
       background: "#FFF9F0",
       color: "#3F342B",
@@ -350,7 +456,7 @@ export function StudentSubmissionForm({
   };
 
   return (
-    <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCC] shadow-sm space-y-4">
+    <div className="bg-white rounded-3xl p-5 sm:p-6 border border-[#EADBCC] shadow-sm space-y-4 mb-28 sm:mb-24 md:mb-12">
       {/* 1. Card Header */}
       <div className="flex items-center justify-between gap-2 border-b border-[#F2E8DC] pb-3">
         <div className="flex items-center gap-2">
@@ -392,6 +498,13 @@ export function StudentSubmissionForm({
             </span>
           )}
 
+          {isReturned && (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-orange-100 text-orange-900 border border-orange-300 animate-pulse">
+              <RotateCcw className="w-3 h-3 text-orange-700" />
+              <span>ตีกลับให้แก้ไข</span>
+            </span>
+          )}
+
           {isGraded && (
             <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
               <Award className="w-3 h-3 text-emerald-600" />
@@ -407,6 +520,23 @@ export function StudentSubmissionForm({
           )}
         </div>
       </div>
+
+      {/* CLOSED BANNER */}
+      {isClosed && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex items-center gap-3 text-rose-950 shadow-2xs">
+          <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <h4 className="text-xs sm:text-sm font-bold text-rose-950">
+              การบ้านนี้ปิดรับการส่งงานแล้ว (Closed)
+            </h4>
+            <p className="text-[11px] text-rose-800 leading-relaxed">
+              ระบบปิดรับการส่งงานและแก้ไขผลงานแล้ว หากมีข้อสงสัยกรุณาติดต่อครูผู้สอน
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* 2. Grade Feedback Box (If Graded) */}
       {isGraded && initialSubmission.grade && (
@@ -432,46 +562,126 @@ export function StudentSubmissionForm({
         </div>
       )}
 
-      {/* 3. DRAFT ALERT BANNER */}
-      {isDraft && !isEditingDraft && (
-        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-4 space-y-2.5">
+      {/* 2.5 RETURNED ALERT & PREVIOUS WORK (Unified & Clean) */}
+      {(isReturned || (Boolean(initialSubmission?.returnReason) && !isGraded)) && (
+        <div className="bg-orange-50 border border-orange-300 rounded-2xl p-3.5 sm:p-4 space-y-2.5 shadow-2xs">
           <div className="flex items-start gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
-              <Save className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <RotateCcw className="w-4 h-4" />
             </div>
-            <div className="space-y-0.5">
-              <h4 className="text-xs font-bold text-amber-950">
-                คุณมีงานที่บันทึกเป็นแบบร่างไว้ (ยังไม่ส่ง)
-              </h4>
-              <p className="text-[11px] text-amber-800 leading-relaxed">
-                ครูยังไม่สามารถให้คะแนนได้จนกว่าคุณจะกดยืนยันส่งงานอย่างเป็นทางการ
-              </p>
+            <div className="space-y-1 min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <h4 className="text-xs sm:text-sm font-bold text-orange-950">
+                  {isReturned
+                    ? "งานถูกตีกลับให้แก้ไข (ต้องส่งใหม่)"
+                    : "คำแนะนำจากครูในการแก้ไข (คุณกำลังทำแบบร่าง)"}
+                </h4>
+                {initialSubmission?.returnedAt && (
+                  <span className="text-[10px] text-orange-700/80 font-mono">
+                    {new Date(initialSubmission.returnedAt).toLocaleString("th-TH")}
+                  </span>
+                )}
+              </div>
+
+              {initialSubmission?.returnReason && (
+                <div className="bg-white/95 p-2.5 rounded-xl border border-orange-200 text-xs text-orange-900 leading-relaxed font-medium">
+                  <span className="font-bold text-orange-950 block mb-0.5">เหตุผลและคำแนะนำจากครู:</span>
+                  &ldquo;{initialSubmission.returnReason}&rdquo;
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
-            <button
-              type="button"
-              disabled={isSubmitting}
-              onClick={handleFormSubmit}
-              className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-[#D9A441] hover:bg-[#C28F30] active:scale-98 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-            >
-              {isSubmitting ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-white" />
-              ) : (
-                <Send className="w-3.5 h-3.5" />
-              )}
-              <span>ยืนยันส่งงานทันที (Turn In)</span>
-            </button>
+          {/* Original File Summary */}
+          {submissionType === "FILE" && initialSubmission?.fileKey && (
+            <div className="bg-white p-2.5 rounded-xl border border-orange-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-2xs">
+              <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                <div className="w-8 h-8 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="overflow-hidden min-w-0">
+                  <p className="text-xs font-bold text-[#3F342B] truncate">
+                    {initialSubmission.fileName || "ไฟล์เดิมที่ส่ง"}
+                  </p>
+                  <p className="text-[10px] text-[#7A6A5C]">
+                    {((initialSubmission.fileSize || 0) / (1024 * 1024)).toFixed(2)} MB •{" "}
+                    {getFileTypeCategory(
+                      initialSubmission.fileName || "",
+                      initialSubmission.mimeType || ""
+                    ).label}
+                  </p>
+                </div>
+              </div>
 
-            <button
-              type="button"
-              onClick={() => setIsEditingDraft(true)}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-white border border-amber-300 text-xs font-bold text-amber-950 hover:bg-amber-100 transition-all cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-amber-700" />
-              <span>แก้ไข</span>
-            </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleOpenSubmittedFile}
+                  disabled={isDownloading}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-white border border-[#D9CABB] text-[#3F342B] hover:border-orange-400 transition-all cursor-pointer disabled:opacity-60"
+                  title="เปิดดูไฟล์เดิม"
+                >
+                  <ExternalLink className="w-3 h-3 inline mr-1 text-orange-600" />
+                  เปิดดู
+                </button>
+                <a
+                  href={`/api/files/${initialSubmission.fileKey}?download=1`}
+                  download={initialSubmission.fileName || "previous-file"}
+                  className="px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-[#D9A441] text-white hover:bg-[#C28F30] transition-all shadow-2xs"
+                  title="ดาวน์โหลดไฟล์เดิมไปแก้ไข"
+                >
+                  <Download className="w-3 h-3 inline mr-1" />
+                  ดาวน์โหลดไปแก้
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* Original Link Summary */}
+          {submissionType === "LINK" && initialSubmission?.linkUrl && (
+            <div className="bg-white p-2.5 rounded-xl border border-orange-200 flex items-center justify-between gap-2 shadow-2xs">
+              <div className="overflow-hidden min-w-0 flex items-center gap-2">
+                <Link2 className="w-4 h-4 text-blue-600 shrink-0" />
+                <span className="text-xs text-blue-600 font-mono truncate">
+                  {initialSubmission.linkUrl}
+                </span>
+              </div>
+              <a
+                href={initialSubmission.linkUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-all shrink-0"
+              >
+                เปิดลิงก์เดิม
+              </a>
+            </div>
+          )}
+
+          {/* Comment note (if any) */}
+          {initialSubmission?.comment && (
+            <div className="text-xs text-[#5A4D41] bg-white p-2 rounded-xl border border-orange-200">
+              <span className="font-semibold text-[#3F342B]">ข้อความที่คุณเคยเขียนส่ง: </span>
+              &ldquo;{initialSubmission.comment}&rdquo;
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. DRAFT ALERT BANNER (Clean informational banner) */}
+      {isDraft && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 space-y-1 shadow-2xs">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0">
+              <Clock className="w-4 h-4" />
+            </div>
+            <div className="space-y-0.5 min-w-0">
+              <h4 className="text-xs font-bold text-amber-950">
+                คุณมีงานที่บันทึกเป็นแบบร่างไว้ (ยังไม่ได้ส่งอย่างเป็นทางการ)
+              </h4>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                คุณครูจะยังไม่สามารถตรวจให้คะแนนได้จนกว่าคุณจะกดยืนยันส่งงานที่ปุ่มด้านล่าง
+              </p>
+            </div>
           </div>
         </div>
       )}
@@ -642,14 +852,18 @@ export function StudentSubmissionForm({
                 <div>
                   <p className="text-xs font-bold text-[#3F342B]">
                     {selectedFile ? (
-                      <span className="text-[#D9A441]">เลือกไฟล์แล้ว: {selectedFile.name}</span>
+                      <span className="text-[#D9A441]">เลือกไฟล์ใหม่แล้ว: {selectedFile.name}</span>
+                    ) : isReturned ? (
+                      "ลากไฟล์ฉบับแก้ไขมาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์ใหม่"
                     ) : (
                       "ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์"
                     )}
                   </p>
                   <p className="text-[11px] text-[#7A6A5C] mt-0.5">
                     {selectedFile
-                      ? `ขนาด: ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB`
+                      ? `ขนาด: ${(selectedFile.size / (1024 * 1024)).toFixed(2)} MB (จะถูกส่งแทนที่ไฟล์เดิม)`
+                      : isReturned
+                      ? "เลือกไฟล์ผลงานฉบับปรับปรุงใหม่ (หากไม่เลือกใหม่ ระบบจะใช้ไฟล์เดิม)"
                       : "รูปภาพ, PDF, Word, Excel, PowerPoint, วิดีโอ หรือ ZIP (ไม่เกิน 50MB)"}
                   </p>
                 </div>
@@ -661,7 +875,7 @@ export function StudentSubmissionForm({
                   <div className="flex items-center gap-2 overflow-hidden min-w-0">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span className="text-xs font-bold text-emerald-950 truncate">
-                      {selectedFile.name}
+                      {isReturned ? "ไฟล์ใหม่ที่จะส่งแทนที่: " : ""}{selectedFile.name}
                     </span>
                   </div>
                   <button
@@ -811,53 +1025,66 @@ export function StudentSubmissionForm({
             {/* Primary Submit Button */}
             <button
               type="submit"
-              disabled={isSubmitting || isSavingDraft}
-              className="w-full py-3 px-4 rounded-xl text-xs font-bold text-white bg-[#D9A441] hover:bg-[#C28F30] active:scale-98 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isClosed || isSubmitting || isSavingDraft}
+              className={`w-full py-3 px-4 rounded-xl text-xs font-bold text-white active:scale-98 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2 ${
+                isClosed
+                  ? "bg-neutral-400 cursor-not-allowed"
+                  : isReturned
+                  ? "bg-[#B94E48] hover:bg-[#A33F39] cursor-pointer"
+                  : "bg-[#D9A441] hover:bg-[#C28F30] cursor-pointer"
+              }`}
             >
-              {isSubmitting ? (
+              {isClosed ? (
+                <>
+                  <AlertCircle className="w-4 h-4" />
+                  <span>ปิดรับการส่งงานแล้ว (Closed)</span>
+                </>
+              ) : isSubmitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>กำลังส่งงาน...</span>
                 </>
               ) : (
                 <>
-                  <Send className="w-4 h-4" />
-                  <span>ยืนยันส่งงาน (Turn In)</span>
+                  {isReturned ? <RotateCcw className="w-4 h-4" /> : <Send className="w-4 h-4" />}
+                  <span>{isReturned ? "ส่งงานใหม่อีกครั้ง (Resubmit)" : "ยืนยันส่งงาน (Turn In)"}</span>
                 </>
               )}
             </button>
 
             {/* Secondary Save Draft Button */}
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                disabled={isSubmitting || isSavingDraft}
-                onClick={handleSaveDraft}
-                className="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-[#5A4D41] bg-white border border-[#D9CABB] hover:border-[#D9A441] hover:text-[#D9A441] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {isSavingDraft ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9A441]" />
-                    <span>กำลังบันทึก...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5 text-[#D9A441]" />
-                    <span>บันทึกแบบร่าง (Draft)</span>
-                  </>
-                )}
-              </button>
-
-              {isEditingDraft && (
+            {!isClosed && (
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setIsEditingDraft(false)}
-                  className="py-2 px-3 rounded-xl text-xs font-semibold text-[#7A6A5C] hover:text-[#3F342B] border border-transparent hover:border-[#D9CABB] cursor-pointer"
+                  disabled={isSubmitting || isSavingDraft}
+                  onClick={handleSaveDraft}
+                  className="flex-1 py-2 px-3 rounded-xl text-xs font-bold text-[#5A4D41] bg-white border border-[#D9CABB] hover:border-[#D9A441] hover:text-[#D9A441] transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
-                  ยกเลิก
+                  {isSavingDraft ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin text-[#D9A441]" />
+                      <span>กำลังบันทึก...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5 text-[#D9A441]" />
+                      <span>บันทึกแบบร่าง (Draft)</span>
+                    </>
+                  )}
                 </button>
-              )}
-            </div>
+
+                {isEditingDraft && (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingDraft(false)}
+                    className="py-2 px-3 rounded-xl text-xs font-semibold text-[#7A6A5C] hover:text-[#3F342B] border border-transparent hover:border-[#D9CABB] cursor-pointer"
+                  >
+                    ยกเลิก
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </form>
       )}

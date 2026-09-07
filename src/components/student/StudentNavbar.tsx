@@ -77,11 +77,10 @@ export function StudentNavbar({
                 key={link.href}
                 href={link.href}
                 prefetch={false}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  isActive
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${isActive
                     ? "bg-[#D9A441] text-white shadow-xs"
                     : "text-[#5A4D41] hover:text-[#D9A441]"
-                }`}
+                  }`}
               >
                 <Icon className="w-3.5 h-3.5" />
                 <span>{link.name}</span>
@@ -91,14 +90,14 @@ export function StudentNavbar({
         </nav>
 
         {/* Quick Check-in Button */}
-        <Link
+        {/*<Link
           href="/student/checkin"
           prefetch={false}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-white shadow-xs transition-all cursor-pointer"
         >
           <KeyRound className="w-3.5 h-3.5" />
           <span>เช็กชื่อสด</span>
-        </Link>
+        </Link>*/}
 
         {/* Student Badge & Logout */}
         <div className="flex items-center gap-2">

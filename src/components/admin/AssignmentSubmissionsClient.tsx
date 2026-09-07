@@ -13,6 +13,7 @@ import {
   FileSpreadsheet,
   FileText,
   Printer,
+  RotateCcw,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
@@ -28,7 +29,9 @@ export interface StudentSubmissionRow {
   submissionId?: string;
   fileName?: string | null;
   submittedAt?: string;
-  status?: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "NOT_SUBMITTED";
+  status?: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "RETURNED" | "NOT_SUBMITTED";
+  returnReason?: string | null;
+  returnedAt?: string | null;
   score?: number | null;
   maxScore: number;
 }
@@ -220,6 +223,10 @@ export function AssignmentSubmissionsClient({
               label: `รอตรวจ (${rows.filter((r) => r.status === "SUBMITTED" || r.status === "LATE").length})`,
             },
             {
+              key: "RETURNED",
+              label: `ถูกตีกลับ (${rows.filter((r) => r.status === "RETURNED").length})`,
+            },
+            {
               key: "NOT_SUBMITTED",
               label: `ยังไม่ส่ง (${rows.filter((r) => !r.status || r.status === "NOT_SUBMITTED").length})`,
             },
@@ -328,10 +335,36 @@ export function AssignmentSubmissionsClient({
                           <CheckCircle2 className="w-3 h-3" />
                           ตรวจแล้ว
                         </span>
+                      ) : r.status === "RETURNED" ? (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200 inline-flex items-center gap-1"
+                          title={r.returnReason ? `เหตุผล: ${r.returnReason}` : "ถูกตีกลับให้แก้ไข"}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          ถูกตีกลับ
+                        </span>
                       ) : isLate ? (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          ส่งช้า (รอตรวจ)
+                        r.returnedAt ? (
+                          <span
+                            className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-300 inline-flex items-center gap-1"
+                            title={r.returnReason ? `ส่งงานใหม่ล่าช้า (เหตุผลเดิมที่ตีกลับ: ${r.returnReason})` : "ส่งงานใหม่ล่าช้า (รอตรวจ)"}
+                          >
+                            <RotateCcw className="w-3 h-3 text-orange-700" />
+                            ส่งงานใหม่ช้า (รอตรวจ)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            ส่งช้า (รอตรวจ)
+                          </span>
+                        )
+                      ) : r.returnedAt ? (
+                        <span
+                          className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 inline-flex items-center gap-1"
+                          title={r.returnReason ? `ส่งงานใหม่หลังถูกตีกลับ (เหตุผลเดิม: ${r.returnReason})` : "ส่งงานใหม่หลังถูกตีกลับ (รอตรวจ)"}
+                        >
+                          <RotateCcw className="w-3 h-3 text-indigo-600" />
+                          ส่งงานใหม่ (รอตรวจ)
                         </span>
                       ) : (
                         <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 inline-flex items-center gap-1">

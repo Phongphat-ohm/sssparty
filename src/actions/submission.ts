@@ -27,7 +27,7 @@ export interface SubmitActionResult {
   success: boolean;
   message?: string;
   submissionId?: string;
-  status?: "DRAFT" | "SUBMITTED" | "LATE";
+  status?: "DRAFT" | "SUBMITTED" | "LATE" | "RETURNED";
 }
 
 /**
@@ -275,18 +275,25 @@ export async function submitAssignmentAction(
     revalidatePath("/admin/submissions");
     revalidatePath("/admin/dashboard");
 
+    const isResubmission = existingSubmission?.status === "RETURNED";
+    const auditActionName = isResubmission ? "RESUBMIT_ASSIGNMENT" : "SUBMIT_ASSIGNMENT";
+
     await createAuditLog({
       username: session.username,
       role: "STUDENT",
-      action: "SUBMIT_ASSIGNMENT",
+      action: auditActionName,
       targetType: "SUBMISSION",
       targetId: submission.id,
-      details: `${isLate ? "ส่งงานล่าช้า" : "ส่งงานเรียบร้อย"}: การบ้าน "${assignment.title}" (${assignment.submissionType})`,
+      details: isResubmission
+        ? `ส่งงานใหม่หลังถูกตีกลับ (${isLate ? "ส่งช้ากว่ากำหนด" : "ส่งในกำหนด"}): การบ้าน "${assignment.title}" (${assignment.submissionType})`
+        : `${isLate ? "ส่งงานล่าช้า" : "ส่งงานเรียบร้อย"}: การบ้าน "${assignment.title}" (${assignment.submissionType})`,
     });
 
     return {
       success: true,
-      message: isLate ? "ส่งงานสำเร็จ (ส่งช้ากว่ากำหนดเวลา)" : "ส่งงานสำเร็จเรียบร้อยแล้ว",
+      message: isResubmission
+        ? (isLate ? "ส่งงานใหม่สำเร็จ (ส่งช้ากว่ากำหนดเวลา)" : "ส่งงานใหม่เรียบร้อยแล้ว")
+        : (isLate ? "ส่งงานสำเร็จ (ส่งช้ากว่ากำหนดเวลา)" : "ส่งงานสำเร็จเรียบร้อยแล้ว"),
       submissionId: submission.id,
       status: submissionStatus,
     };

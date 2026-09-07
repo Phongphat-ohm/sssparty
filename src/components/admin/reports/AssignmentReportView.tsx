@@ -164,6 +164,9 @@ export function AssignmentReportView({
               if (row.status === "GRADED") {
                 statusText = "ตรวจแล้ว";
                 statusStyle = "text-emerald-800 bg-emerald-50 border border-emerald-200 font-semibold";
+              } else if (row.status === "RETURNED") {
+                statusText = "ตีกลับให้แก้ไข";
+                statusStyle = "text-orange-800 bg-orange-50 border border-orange-200 font-semibold";
               } else if (row.status === "SUBMITTED") {
                 statusText = "รอตรวจ";
                 statusStyle = "text-blue-700 bg-blue-50 border border-blue-200";

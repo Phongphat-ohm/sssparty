@@ -116,13 +116,15 @@ export async function generateAssignmentReportPdf(params: {
 
   const mappedStudents = students.map((st) => {
     const sub = subMap.get(st.id);
-    let submissionStatus: "SUBMITTED" | "LATE" | "DRAFT" | "NOT_SUBMITTED" = "NOT_SUBMITTED";
+    let submissionStatus: "SUBMITTED" | "LATE" | "DRAFT" | "NOT_SUBMITTED" | "RETURNED" = "NOT_SUBMITTED";
     let submittedAtStr = "";
     let score: number | null = null;
     let passed = false;
 
     if (sub) {
-      if (sub.status === "DRAFT") {
+      if (sub.status === "RETURNED") {
+        submissionStatus = "RETURNED";
+      } else if (sub.status === "DRAFT") {
         submissionStatus = "DRAFT";
       } else {
         const isLate = sub.submittedAt.getTime() > assignment.dueDate.getTime();

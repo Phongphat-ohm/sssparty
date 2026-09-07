@@ -67,6 +67,14 @@ export async function saveGradeAction(
       };
     }
 
+    // ห้ามให้คะแนนงานที่อยู่ในสถานะถูกตีกลับให้แก้ไข (RETURNED)
+    if (submission.status === "RETURNED") {
+      return {
+        success: false,
+        message: "ไม่สามารถให้คะแนนงานที่อยู่ในสถานะถูกตีกลับได้ กรุณารอให้นักเรียนส่งงานใหม่อีกครั้ง",
+      };
+    }
+
     const assignmentRubrics = submission.assignment.rubrics;
     const rubricsMap = new Map(assignmentRubrics.map((r) => [r.id, r]));
 
@@ -165,3 +173,122 @@ export async function saveGradeAction(
     return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกคะแนน กรุณาลองใหม่อีกครั้ง" };
   }
 }
+
+export interface ReturnSubmissionResult {
+  success: boolean;
+  message?: string;
+}
+
+/**
+ * ตีกลับงานของนักเรียนเพื่อให้แก้ไขและส่งใหม่ (Return for Revision)
+ * - เปลี่ยนสถานะ Submission เป็น RETURNED
+ * - บันทึก returnReason, returnedAt, returnedById
+ * - ลบ/ยกเลิก Grade เดิม (ถ้ามี) เพื่อให้นักเรียนทำมาส่งใหม่
+ * - บันทึก Audit Log เหตุการณ์ RETURN_SUBMISSION
+ */
+export async function returnSubmissionAction(
+  submissionId: string,
+  returnReason: string
+): Promise<ReturnSubmissionResult> {
+  try {
+    const authCheck = await requireAdminPermission("GRADE_SUBMISSIONS");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
+    }
+
+    const { user: currentUser, session } = authCheck;
+
+    if (!submissionId || !submissionId.trim()) {
+      return { success: false, message: "รหัสการส่งงานไม่ถูกต้อง" };
+    }
+
+    const cleanReason = returnReason?.trim();
+    if (!cleanReason || cleanReason.length < 3) {
+      return { success: false, message: "กรุณาระบุเหตุผลในการตีกลับงานอย่างน้อย 3 ตัวอักษร" };
+    }
+
+    const submission = await prisma.submission.findUnique({
+      where: { id: submissionId },
+      include: {
+        student: true,
+        assignment: true,
+        grade: true,
+      },
+    });
+
+    if (!submission) {
+      return { success: false, message: "ไม่พบข้อมูลชิ้นงานในระบบ" };
+    }
+
+    if (submission.status === "DRAFT") {
+      return {
+        success: false,
+        message: "งานนี้ยังอยู่ในสถานะแบบร่าง (นักเรียนยังไม่ได้กดยืนยันส่งงาน) ไม่สามารถตีกลับได้",
+      };
+    }
+
+    const hadPreviousGrade = Boolean(submission.grade);
+    const previousScore = submission.grade?.score;
+
+    // ทำรายการใน Transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. ถ้ามี Grade เดิมอยู่ ให้ลบ rubricScores และ grade ออก
+      if (hadPreviousGrade) {
+        await tx.rubricScore.deleteMany({
+          where: { grade: { submissionId } },
+        });
+        await tx.grade.delete({
+          where: { submissionId },
+        });
+      }
+
+      // 2. อัปเดตสถานะ Submission เป็น RETURNED
+      await tx.submission.update({
+        where: { id: submissionId },
+        data: {
+          status: "RETURNED",
+          returnReason: cleanReason,
+          returnedAt: new Date(),
+          returnedById: session.userId,
+        },
+      });
+    });
+
+    const studentInfo = `${submission.student.firstName} ${submission.student.lastName} (${submission.student.className} เลขที่ ${submission.student.studentNumber})`;
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "RETURN_SUBMISSION",
+      targetType: "SUBMISSION",
+      targetId: submissionId,
+      details: {
+        submissionId,
+        studentId: submission.studentId,
+        studentName: studentInfo,
+        assignmentId: submission.assignmentId,
+        assignmentTitle: submission.assignment.title,
+        returnReason: cleanReason,
+        previousScore: hadPreviousGrade ? previousScore : null,
+      },
+    });
+
+    revalidatePath(`/admin/submissions/${submissionId}`);
+    revalidatePath(`/admin/assignments/${submission.assignmentId}/submissions`);
+    revalidatePath("/admin/assignments");
+    revalidatePath("/admin/dashboard");
+    revalidatePath(`/student/assignments/${submission.assignmentId}`);
+    revalidatePath("/student/assignments");
+    revalidatePath("/student/dashboard");
+
+    return {
+      success: true,
+      message: `ตีกลับงานของ ${submission.student.firstName} เรียบร้อยแล้ว (นักเรียนสามารถแก้ไขและส่งใหม่ได้)`,
+    };
+  } catch (error) {
+    console.error("returnSubmissionAction error:", error);
+    return { success: false, message: "เกิดข้อผิดพลาดในการตีกลับงาน กรุณาลองใหม่อีกครั้ง" };
+  }
+}
+

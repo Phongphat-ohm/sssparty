@@ -36,6 +36,8 @@ const AUDIT_CATEGORY_ACTIONS: Record<Exclude<AuditCategory, "ALL">, string[]> = 
     "UPDATE_GRADE",
     "DELETE_GRADE",
     "BATCH_GRADE",
+    "RETURN_SUBMISSION",
+    "RESUBMIT_ASSIGNMENT",
   ],
   USER_MGMT: [
     "CREATE_USER",

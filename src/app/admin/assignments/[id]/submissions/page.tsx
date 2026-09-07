@@ -55,7 +55,8 @@ export default async function AssignmentSubmissionsPage({
 
   const totalSubmitted = assignment.submissions.length;
   const totalGraded = assignment.submissions.filter((s) => s.status === "GRADED").length;
-  const totalPending = totalSubmitted - totalGraded;
+  const totalReturned = assignment.submissions.filter((s) => s.status === "RETURNED").length;
+  const totalPending = assignment.submissions.filter((s) => s.status === "SUBMITTED" || s.status === "LATE").length;
 
   const rows: StudentSubmissionRow[] = allStudents.map((s) => {
     const sub = submissionsMap.get(s.id);
@@ -70,6 +71,8 @@ export default async function AssignmentSubmissionsPage({
       fileName: sub?.fileName || undefined,
       submittedAt: sub?.submittedAt?.toISOString(),
       status: sub?.status || "NOT_SUBMITTED",
+      returnReason: sub?.returnReason || undefined,
+      returnedAt: sub?.returnedAt?.toISOString(),
       score: sub?.grade?.score,
       maxScore: assignment.maxScore,
     };

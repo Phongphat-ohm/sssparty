@@ -13,8 +13,9 @@ import {
   HelpCircle,
   Percent,
   Lock,
+  RotateCcw,
 } from "lucide-react";
-import { saveGradeAction } from "@/actions/grade";
+import { saveGradeAction, returnSubmissionAction } from "@/actions/grade";
 
 export interface RubricDefinition {
   id: string;
@@ -46,6 +47,9 @@ interface RubricGradingTableProps {
   studentNumber: number;
   isLate: boolean;
   isDraft?: boolean;
+  status?: string;
+  returnReason?: string | null;
+  returnedAt?: string | null;
 }
 
 export function RubricGradingTable({
@@ -59,8 +63,15 @@ export function RubricGradingTable({
   studentNumber,
   isLate,
   isDraft = false,
+  status,
+  returnReason,
+  returnedAt,
 }: RubricGradingTableProps) {
   const router = useRouter();
+  const [isReturning, setIsReturning] = useState(false);
+
+  const isReturned = status === "RETURNED";
+  const isGradingDisabled = isDraft || isReturned;
 
   // Initialize rubric scores state
   const [scores, setScores] = useState<Record<string, number>>(() => {
@@ -100,17 +111,20 @@ export function RubricGradingTable({
   const gradeInfo = getGradeColor(percentage);
 
   const handleScoreChange = (rubricId: string, val: number, max: number) => {
+    if (isGradingDisabled) return;
     const cleanVal = Math.min(Math.max(0, val), max);
     setScores((prev) => ({ ...prev, [rubricId]: cleanVal }));
   };
 
   const handleQuickPill = (rubricId: string, ratio: number, max: number) => {
+    if (isGradingDisabled) return;
     const calculated = Math.round(max * ratio * 10) / 10;
     setScores((prev) => ({ ...prev, [rubricId]: calculated }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isGradingDisabled) return;
     setIsPending(true);
 
     try {
@@ -176,6 +190,80 @@ export function RubricGradingTable({
     }
   };
 
+  const handleReturnSubmission = async () => {
+    if (isDraft) return;
+
+    const { value: reason } = await Swal.fire({
+      title: "ตีกลับงานให้แก้ไข",
+      text: `ระบุเหตุผลในการตีกลับงานของ ${studentName} เพื่อให้นักเรียนทราบและแก้ไขส่งใหม่`,
+      input: "textarea",
+      inputPlaceholder: "เช่น ไฟล์เปิดไม่ได้, ยังไม่ได้เปิดสิทธิ์ Public, ขาดข้อมูลตามโจทย์...",
+      showCancelButton: true,
+      confirmButtonText: "ยืนยันตีกลับงาน",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#C96B4B",
+      cancelButtonColor: "#A8988B",
+      background: "#FFF9F0",
+      color: "#3F342B",
+      customClass: {
+        popup: "rounded-3xl border border-[#EADBCC]",
+        confirmButton: "rounded-xl font-semibold px-5 py-2.5 text-white cursor-pointer shadow-xs",
+        cancelButton: "rounded-xl font-semibold px-5 py-2.5 text-white cursor-pointer shadow-xs",
+      },
+      inputValidator: (val) => {
+        if (!val || val.trim().length < 3) {
+          return "กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร";
+        }
+        return null;
+      },
+    });
+
+    if (reason) {
+      try {
+        setIsReturning(true);
+        const res = await returnSubmissionAction(submissionId, reason);
+        if (res.success) {
+          await Swal.fire({
+            icon: "success",
+            title: "ตีกลับงานสำเร็จ!",
+            text: res.message,
+            confirmButtonColor: "#D9A441",
+            confirmButtonText: "รับทราบ",
+            background: "#FFF9F0",
+            color: "#3F342B",
+            customClass: {
+              popup: "rounded-3xl border border-[#EADBCC]",
+              confirmButton: "rounded-xl font-semibold px-6 py-2.5 text-white cursor-pointer shadow-xs",
+            },
+          });
+          router.refresh();
+        } else {
+          Swal.fire({
+            icon: "error",
+            title: "เกิดข้อผิดพลาด",
+            text: res.message,
+            confirmButtonColor: "#B94E48",
+            confirmButtonText: "ปิด",
+            background: "#FFF9F0",
+            color: "#3F342B",
+          });
+        }
+      } catch (err: any) {
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาด",
+          text: err.message || "ระบบขัดข้อง กรุณาลองใหม่อีกครั้ง",
+          confirmButtonColor: "#B94E48",
+          confirmButtonText: "ปิด",
+          background: "#FFF9F0",
+          color: "#3F342B",
+        });
+      } finally {
+        setIsReturning(false);
+      }
+    }
+  };
+
   return (
     <div className="bg-white rounded-3xl border border-[#EADBCC] shadow-xs flex flex-col h-full overflow-hidden">
       {/* Top Header: Student Info & Overall Real-time Score */}
@@ -190,6 +278,12 @@ export function RubricGradingTable({
               {isLate && (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
                   ส่งล่าช้า
+                </span>
+              )}
+              {status === "RETURNED" && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-800 border border-orange-200 flex items-center gap-1">
+                  <RotateCcw className="w-3 h-3" />
+                  <span>ถูกตีกลับ</span>
                 </span>
               )}
             </div>
@@ -231,6 +325,58 @@ export function RubricGradingTable({
               <span className="text-amber-900 font-normal leading-relaxed block">
                 นักเรียนยังไม่ได้กดยืนยันส่งงานอย่างเป็นทางการ คุณครูสามารถดูความคืบหน้าของงานได้ แต่ระบบจะล็อกการให้คะแนนไว้จนกว่านักเรียนจะกดยืนยันส่งงาน
               </span>
+            </div>
+          </div>
+        )}
+
+        {/* Returned Notice Banner */}
+        {isReturned && (
+          <div className="p-4 bg-orange-50 border border-orange-300 text-orange-950 rounded-2xl text-xs font-semibold flex items-start gap-2.5 shadow-2xs">
+            <RotateCcw className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <span className="font-bold block text-orange-950 text-sm">
+                ⚠️ งานนี้อยู่ในสถานะ &ldquo;ถูกตีกลับให้แก้ไข&rdquo; (ล็อกการให้คะแนน)
+              </span>
+              <p className="text-orange-900 font-normal leading-relaxed">
+                คุณครูได้ตีกลับงานชิ้นนี้เพื่อให้นักเรียนส่งงานฉบับปรับปรุงใหม่ ระบบจึงไม่อนุญาตให้กรอกหรือบันทึกคะแนนจนกว่านักเรียนจะทำการแก้ไขและส่งงานใหม่อีกครั้ง
+              </p>
+              {returnReason && (
+                <div className="bg-white/90 p-2.5 rounded-xl border border-orange-200 mt-1">
+                  <span className="font-bold text-orange-950">เหตุผลและคำแนะนำที่คุณครูระบุไว้: </span>
+                  <span className="text-orange-900 font-normal">&ldquo;{returnReason}&rdquo;</span>
+                </div>
+              )}
+              {returnedAt && (
+                <span className="text-[10px] text-orange-700/80 font-mono block mt-0.5">
+                  วันเวลาที่ตีกลับ: {new Date(returnedAt).toLocaleString("th-TH")}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Resubmission Context Banner for Teacher (When status is SUBMITTED/LATE/GRADED but was previously returned) */}
+        {!isReturned && returnReason && (
+          <div className="p-4 bg-indigo-50/80 border border-indigo-200 text-indigo-950 rounded-2xl text-xs font-semibold flex items-start gap-2.5 shadow-2xs">
+            <RotateCcw className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+            <div className="space-y-1 w-full">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <span className="font-bold text-indigo-950 text-xs sm:text-sm">
+                  📌 ชิ้นงานฉบับแก้ไขส่งใหม่ (นักเรียนส่งงานรอบใหม่แล้ว)
+                </span>
+                {returnedAt && (
+                  <span className="text-[10px] text-indigo-700/80 font-mono">
+                    ตีกลับเมื่อ: {new Date(returnedAt).toLocaleString("th-TH")}
+                  </span>
+                )}
+              </div>
+              <p className="text-indigo-900 font-normal leading-relaxed text-[11px]">
+                งานนี้เคยถูกตีกลับเพื่อให้นักเรียนแก้ไข คุณครูสามารถตรวจเปรียบเทียบผลงานฉบับใหม่กับคำแนะนำเดิมด้านล่างนี้ได้:
+              </p>
+              <div className="bg-white/90 p-2.5 rounded-xl border border-indigo-200 mt-1 text-xs">
+                <span className="font-bold text-indigo-950">เหตุผลและคำแนะนำที่คุณครูเคยระบุไว้: </span>
+                <span className="text-indigo-900 font-normal">&ldquo;{returnReason}&rdquo;</span>
+              </div>
             </div>
           </div>
         )}
@@ -281,7 +427,7 @@ export function RubricGradingTable({
                         <button
                           key={pill.label}
                           type="button"
-                          disabled={isDraft}
+                          disabled={isGradingDisabled}
                           onClick={() => handleQuickPill(rubric.id, pill.ratio, rubric.maxScore)}
                           className="px-2 py-1 text-[10px] font-bold rounded-lg bg-white hover:bg-[#FAF0E1] text-[#5A4D41] hover:text-[#8C5D23] border border-[#D9CABB] transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                         >
@@ -297,7 +443,7 @@ export function RubricGradingTable({
                         step="0.5"
                         min="0"
                         max={rubric.maxScore}
-                        disabled={isDraft}
+                        disabled={isGradingDisabled}
                         value={currentScore}
                         onChange={(e) =>
                           handleScoreChange(rubric.id, parseFloat(e.target.value) || 0, rubric.maxScore)
@@ -312,7 +458,7 @@ export function RubricGradingTable({
                   <div>
                     <input
                       type="text"
-                      disabled={isDraft}
+                      disabled={isGradingDisabled}
                       placeholder="ข้อเสนอแนะเฉพาะเกณฑ์นี้ (ถ้ามี)..."
                       value={notes[rubric.id] || ""}
                       onChange={(e) =>
@@ -335,7 +481,7 @@ export function RubricGradingTable({
           </label>
           <textarea
             rows={3}
-            disabled={isDraft}
+            disabled={isGradingDisabled}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="เขียนคำชม ข้อสังเกต หรือแนวทางพัฒนาผลงานในครั้งต่อไปให้นักเรียน..."
@@ -343,33 +489,63 @@ export function RubricGradingTable({
           />
         </div>
 
-        {/* Submit Grading Button */}
-        <button
-          type="submit"
-          disabled={isPending || isDraft}
-          className={`w-full py-3.5 px-6 rounded-2xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 ${
-            isDraft
-              ? "bg-amber-800/60 cursor-not-allowed opacity-75"
-              : "bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-          }`}
-        >
-          {isDraft ? (
-            <>
-              <Lock className="w-4 h-4" />
-              <span>ล็อกการให้คะแนน (งานยังอยู่ในสถานะแบบร่าง)</span>
-            </>
-          ) : isPending ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin text-white" />
-              <span>กำลังบันทึกผลการตรวจงาน...</span>
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>บันทึกคะแนนและคำติชม ({totalScore} / {assignmentMaxScore})</span>
-            </>
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-2 pt-2">
+          {/* Submit Grading Button */}
+          <button
+            type="submit"
+            disabled={isPending || isGradingDisabled || isReturning}
+            className={`flex-1 py-3.5 px-4 rounded-2xl text-xs font-bold text-white transition-all shadow-md flex items-center justify-center gap-2 ${
+              isReturned
+                ? "bg-orange-900/60 cursor-not-allowed opacity-75"
+                : isDraft
+                ? "bg-amber-800/60 cursor-not-allowed opacity-75"
+                : "bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+            }`}
+          >
+            {isReturned ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>ไม่สามารถให้คะแนนได้ (งานถูกตีกลับให้นักเรียนแก้ไข)</span>
+              </>
+            ) : isDraft ? (
+              <>
+                <Lock className="w-4 h-4" />
+                <span>ล็อกการให้คะแนน (งานแบบร่าง)</span>
+              </>
+            ) : isPending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin text-white" />
+                <span>กำลังบันทึกผลการตรวจงาน...</span>
+              </>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>บันทึกคะแนนและคำติชม ({totalScore} / {assignmentMaxScore})</span>
+              </>
+            )}
+          </button>
+
+          {/* Return Submission Button */}
+          {!isDraft && (
+            <button
+              type="button"
+              onClick={handleReturnSubmission}
+              disabled={isPending || isReturning}
+              className="py-3.5 px-4 rounded-2xl text-xs font-bold text-[#8C4623] bg-orange-50 border border-orange-200 hover:bg-orange-100 active:scale-[0.99] disabled:opacity-50 cursor-pointer flex items-center justify-center gap-1.5 transition-colors shadow-2xs shrink-0"
+              title="ตีกลับงานให้นักเรียนแก้ไขส่งใหม่ พร้อมระบุเหตุผล"
+            >
+              <RotateCcw className={`w-4 h-4 text-[#8C4623] ${isReturning ? "animate-spin" : ""}`} />
+              <span>
+                {isReturning
+                  ? "กำลังตีกลับ..."
+                  : isReturned
+                  ? "แก้ไขเหตุผลที่ตีกลับ"
+                  : "ตีกลับให้แก้ไข"}
+              </span>
+            </button>
           )}
-        </button>
+        </div>
       </form>
     </div>
   );

@@ -36,7 +36,7 @@ export interface AnswerItem {
 
 interface SubmissionFilePreviewerProps {
   submissionType?: "FILE" | "LINK" | "QUESTIONS";
-  status?: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED";
+  status?: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
   downloadUrl?: string | null;
   fileName?: string | null;
   fileSize?: number | null;

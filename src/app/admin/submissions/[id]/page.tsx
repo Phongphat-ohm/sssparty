@@ -174,6 +174,9 @@ export default async function TeacherGradingStudioPage({
             studentNumber={submission.student.studentNumber}
             isLate={submission.status === "LATE"}
             isDraft={submission.status === "DRAFT"}
+            status={submission.status}
+            returnReason={submission.returnReason}
+            returnedAt={submission.returnedAt?.toISOString()}
           />
         </div>
       </div>

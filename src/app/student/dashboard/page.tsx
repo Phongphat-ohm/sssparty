@@ -13,6 +13,7 @@ import {
   HelpCircle,
   Link2,
   KeyRound,
+  RotateCcw,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
 import Link from "next/link";
@@ -56,13 +57,21 @@ export default async function StudentDashboardPage() {
   });
 
   const totalAssignments = assignments.length;
-  const submittedAssignments = assignments.filter((a) => a.submissions.length > 0);
+  const returnedAssignments = assignments.filter(
+    (a) => a.submissions[0]?.status === "RETURNED"
+  );
+  const submittedAssignments = assignments.filter((a) => {
+    const s = a.submissions[0]?.status;
+    return s === "SUBMITTED" || s === "LATE" || s === "GRADED";
+  });
   const submittedCount = submittedAssignments.length;
   const pendingGradingCount = assignments.filter(
     (a) =>
       a.submissions[0]?.status === "SUBMITTED" || a.submissions[0]?.status === "LATE"
   ).length;
-  const unsubmittedAssignments = assignments.filter((a) => a.submissions.length === 0);
+  const unsubmittedAssignments = assignments.filter(
+    (a) => a.submissions.length === 0 || a.submissions[0]?.status === "RETURNED" || a.submissions[0]?.status === "DRAFT"
+  );
   const unsubmittedCount = unsubmittedAssignments.length;
 
   const gradedAssignments = assignments.filter(
@@ -80,8 +89,14 @@ export default async function StudentDashboardPage() {
   const completionRate =
     totalAssignments > 0 ? Math.round((submittedCount / totalAssignments) * 100) : 0;
 
-  // Urgent upcoming deadlines (unsubmitted assignments sorted by due date)
-  const upcomingDeadlines = unsubmittedAssignments.slice(0, 3);
+  // Urgent upcoming deadlines (prioritize RETURNED tasks first, then by dueDate)
+  const sortedActionNeeded = [...unsubmittedAssignments].sort((a, b) => {
+    const aReturned = a.submissions[0]?.status === "RETURNED" ? 1 : 0;
+    const bReturned = b.submissions[0]?.status === "RETURNED" ? 1 : 0;
+    if (aReturned !== bReturned) return bReturned - aReturned;
+    return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+  });
+  const upcomingDeadlines = sortedActionNeeded.slice(0, 3);
 
   // Recent graded feedback
   const recentGraded = gradedAssignments.slice(0, 2);
@@ -90,7 +105,8 @@ export default async function StudentDashboardPage() {
   const studentScores = assignments.map((a) => {
     const sub = a.submissions[0];
     const isGraded = sub?.status === "GRADED";
-    const isSubmitted = !!sub;
+    const isReturned = sub?.status === "RETURNED";
+    const isSubmitted = !!sub && !isReturned && sub.status !== "DRAFT";
 
     return {
       id: a.id,
@@ -107,6 +123,40 @@ export default async function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
+      {/* Returned Assignments Urgent Alert Banner */}
+      {returnedAssignments.length > 0 && (
+        <div className="bg-gradient-to-r from-orange-500 via-rose-500 to-red-600 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 border border-orange-400/50 animate-in slide-in-from-top-3">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
+              <RotateCcw className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-white animate-ping" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-orange-100">
+                  มีงานถูกตีกลับให้แก้ไข {returnedAssignments.length} รายการ!
+                </span>
+              </div>
+              <h3 className="font-bold text-base sm:text-lg tracking-tight">
+                {returnedAssignments.map((a) => a.title).join(", ")}
+              </h3>
+              {returnedAssignments[0]?.submissions[0]?.returnReason && (
+                <p className="text-xs text-orange-100 mt-0.5 line-clamp-1">
+                  คำแนะนำจากครู: {returnedAssignments[0].submissions[0].returnReason}
+                </p>
+              )}
+            </div>
+          </div>
+          <Link
+            href={`/student/assignments/${returnedAssignments[0].id}`}
+            className="self-start sm:self-auto inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white text-orange-950 hover:bg-orange-50 font-bold text-xs shadow-xs active:scale-95 transition-all shrink-0"
+          >
+            <span>แก้ไขและส่งงานใหม่</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       {/* Live Active Attendance Banner */}
       {/* Live Active Attendance Banner */}
       {activeAttendance && (
@@ -260,27 +310,41 @@ export default async function StudentDashboardPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
             {upcomingDeadlines.map((assignment) => {
               const isPastDue = Date.now() > new Date(assignment.dueDate).getTime();
+              const sub = assignment.submissions[0];
+              const isReturned = sub?.status === "RETURNED";
 
               return (
                 <div
                   key={assignment.id}
-                  className="bg-white rounded-2xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs hover:border-[#D9A441] transition-all flex flex-col justify-between gap-4 group"
+                  className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between gap-4 group ${
+                    isReturned
+                      ? "border-orange-300 shadow-md ring-1 ring-orange-200"
+                      : "border-[#EADBCC] shadow-2xs hover:border-[#D9A441]"
+                  }`}
                 >
                   <div className="space-y-2">
                     <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
-                          assignment.submissionType === "FILE"
-                            ? "bg-amber-50 text-amber-800 border-amber-200"
-                            : assignment.submissionType === "LINK"
-                            ? "bg-blue-50 text-blue-800 border-blue-200"
-                            : "bg-purple-50 text-purple-800 border-purple-200"
-                        }`}
-                      >
-                        {assignment.submissionType === "FILE" && "📁 ไฟล์"}
-                        {assignment.submissionType === "LINK" && "🔗 ลิงก์"}
-                        {assignment.submissionType === "QUESTIONS" && "📝 คำถาม"}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                            assignment.submissionType === "FILE"
+                              ? "bg-amber-50 text-amber-800 border-amber-200"
+                              : assignment.submissionType === "LINK"
+                              ? "bg-blue-50 text-blue-800 border-blue-200"
+                              : "bg-purple-50 text-purple-800 border-purple-200"
+                          }`}
+                        >
+                          {assignment.submissionType === "FILE" && "📁 ไฟล์"}
+                          {assignment.submissionType === "LINK" && "🔗 ลิงก์"}
+                          {assignment.submissionType === "QUESTIONS" && "📝 คำถาม"}
+                        </span>
+                        {isReturned && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-100 text-orange-900 border border-orange-300 flex items-center gap-1">
+                            <RotateCcw className="w-3 h-3 text-orange-700" />
+                            ถูกตีกลับ
+                          </span>
+                        )}
+                      </div>
 
                       <span className="text-[11px] font-semibold text-[#8C5D23] bg-[#FAF0E1] px-2 py-0.5 rounded-lg border border-[#EADBCC]">
                         เต็ม {assignment.maxScore} คะแนน
@@ -291,31 +355,45 @@ export default async function StudentDashboardPage() {
                       {assignment.title}
                     </h3>
 
-                    <p className="text-[11px] text-[#7A6A5C] flex items-center gap-1">
-                      <Clock className="w-3 h-3 text-[#C96B4B] shrink-0" />
-                      <span>
-                        ส่งภายใน:{" "}
-                        <strong className={isPastDue ? "text-red-600 font-bold" : "text-[#3F342B]"}>
-                          {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </strong>
-                        {isPastDue && (
-                          <span className="text-red-600 font-bold ml-1">(เลยกำหนด)</span>
-                        )}
-                      </span>
-                    </p>
+                    {isReturned && sub?.returnReason ? (
+                      <p className="text-[11px] text-orange-900 bg-orange-50 p-2 rounded-xl border border-orange-200 line-clamp-2 leading-tight">
+                        <strong className="font-bold">เหตุผล: </strong>{sub.returnReason}
+                      </p>
+                    ) : (
+                      <p className="text-[11px] text-[#7A6A5C] flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-[#C96B4B] shrink-0" />
+                        <span>
+                          ส่งภายใน:{" "}
+                          <strong className={isPastDue ? "text-red-600 font-bold" : "text-[#3F342B]"}>
+                            {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </strong>
+                          {isPastDue && (
+                            <span className="text-red-600 font-bold ml-1">(เลยกำหนด)</span>
+                          )}
+                        </span>
+                      </p>
+                    )}
                   </div>
 
                   <Link
                     href={`/student/assignments/${assignment.id}`}
-                    className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-[#D9A441] hover:bg-[#C28F30] active:scale-98 text-white text-xs font-bold transition-all shadow-2xs"
+                    className={`w-full inline-flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl text-xs font-bold transition-all shadow-2xs ${
+                      isReturned
+                        ? "bg-[#B94E48] hover:bg-[#A33D37] text-white active:scale-98"
+                        : "bg-[#D9A441] hover:bg-[#C28F30] text-white active:scale-98"
+                    }`}
                   >
-                    <Send className="w-3.5 h-3.5" />
-                    <span>ส่งงานทันที</span>
+                    {isReturned ? (
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    <span>{isReturned ? "แก้ไขและส่งงานใหม่" : "ส่งงานทันที"}</span>
                     <ArrowRight className="w-3 h-3 ml-0.5" />
                   </Link>
                 </div>

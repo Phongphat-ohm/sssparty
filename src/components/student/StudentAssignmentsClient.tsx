@@ -19,6 +19,7 @@ import {
   HelpCircle,
   X,
   Edit3,
+  RotateCcw,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
@@ -33,7 +34,7 @@ export interface StudentAssignmentItem {
   rubricCount: number;
   submission?: {
     id: string;
-    status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED";
+    status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
     score?: number | null;
   } | null;
 }
@@ -70,7 +71,10 @@ export function StudentAssignmentsClient({
 
   // Counts
   const todoCount = assignments.filter(
-    (a) => !a.submission || a.submission.status === "DRAFT"
+    (a) => !a.submission || a.submission.status === "DRAFT" || a.submission.status === "RETURNED"
+  ).length;
+  const returnedCount = assignments.filter(
+    (a) => a.submission?.status === "RETURNED"
   ).length;
   const inReviewCount = assignments.filter(
     (a) => a.submission?.status === "SUBMITTED" || a.submission?.status === "LATE"
@@ -83,7 +87,9 @@ export function StudentAssignmentsClient({
     const sub = a.submission;
     let matchStatus = true;
     if (statusFilter === "TODO") {
-      matchStatus = !sub || sub.status === "DRAFT";
+      matchStatus = !sub || sub.status === "DRAFT" || sub.status === "RETURNED";
+    } else if (statusFilter === "RETURNED") {
+      matchStatus = sub?.status === "RETURNED";
     } else if (statusFilter === "IN_REVIEW") {
       matchStatus = sub?.status === "SUBMITTED" || sub?.status === "LATE";
     } else if (statusFilter === "GRADED") {
@@ -126,6 +132,7 @@ export function StudentAssignmentsClient({
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC]">
             {[
               { key: "TODO", label: "งานที่ต้องทำ (To-Do)", count: todoCount },
+              { key: "RETURNED", label: "ตีกลับให้แก้ไข", count: returnedCount },
               { key: "IN_REVIEW", label: "รอตรวจ", count: inReviewCount },
               { key: "GRADED", label: "ตรวจแล้ว", count: gradedCount },
               { key: "ALL", label: "ทั้งหมด", count: assignments.length },
@@ -241,6 +248,7 @@ export function StudentAssignmentsClient({
               const submission = assignment.submission;
               const isSubmitted = !!submission;
               const isDraft = submission?.status === "DRAFT";
+              const isReturned = submission?.status === "RETURNED";
               const isGraded = submission?.status === "GRADED";
               const isLate = submission?.status === "LATE";
               const isPastDue = Date.now() > new Date(assignment.dueDate).getTime();
@@ -324,6 +332,11 @@ export function StudentAssignmentsClient({
                           <Award className="w-3.5 h-3.5 text-emerald-600" />
                           ได้คะแนน: {submission?.score} / {assignment.maxScore}
                         </span>
+                      ) : isReturned ? (
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-900 border border-orange-300 flex items-center gap-1 animate-pulse">
+                          <RotateCcw className="w-3.5 h-3.5 text-orange-700" />
+                          ถูกตีกลับ (ต้องส่งใหม่)
+                        </span>
                       ) : isDraft ? (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
                           <Edit3 className="w-3.5 h-3.5 text-amber-700" />
@@ -363,7 +376,9 @@ export function StudentAssignmentsClient({
                     <Link
                       href={`/student/assignments/${assignment.id}`}
                       className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-2xs ${
-                        isGraded
+                        isReturned
+                          ? "bg-[#B94E48] hover:bg-[#A33D37] text-white shadow-sm"
+                          : isGraded
                           ? "bg-white border border-[#D9CABB] text-[#3F342B] hover:border-[#D9A441]"
                           : isDraft
                           ? "bg-amber-500 hover:bg-amber-600 text-white"
@@ -372,8 +387,11 @@ export function StudentAssignmentsClient({
                           : "bg-[#D9A441] text-white hover:bg-[#C28F30]"
                       }`}
                     >
+                      {isReturned && <RotateCcw className="w-3.5 h-3.5 animate-spin-reverse" />}
                       <span>
-                        {isGraded
+                        {isReturned
+                          ? "แก้ไขและส่งงานใหม่"
+                          : isGraded
                           ? "ดูผลคะแนนและคำติชม"
                           : isDraft
                           ? "แก้ไขและส่งงาน"

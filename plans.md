@@ -496,9 +496,37 @@
      - แสดง Badge และไอคอนแยกตามระดับความสำคัญ (Success, Warning/Failed, Delete/Critical)
      - แสดงรายละเอียดแบบ JSON Viewer พร้อมแท็กแสดงข้อมูลเปรียบเทียบก่อน-หลัง (Diff Display)
      - เพิ่มปุ่มส่งออกข้อมูลประวัติการใช้งาน (Export Audit Logs .csv)
+---
+
+### 23. ระบบส่งคืนงานให้แก้ไขและส่งใหม่ (Assignment Submission Return & Resubmission System)
+- **สถานะ**: ดำเนินการเสร็จสมบูรณ์ 100% (Completed)
+- **วัตถุประสงค์**:
+  - รองรับกรณีคุณครูตรวจผลงานของนักเรียนแล้วพบว่ายังไม่ถูกต้อง ไม่ครบถ้วน หรือต้องการให้นักเรียนปรับปรุงชิ้นงานใหม่ สามารถกด "ตีกลับงานให้แก้ไข" ได้
+  - ระบบจะล้างคะแนนเดิมออก (ถ้ามี) พร้อมเปิดโอกาสให้นักเรียนแก้ไขไฟล์ ลิงก์ หรือคำตอบเพื่อส่งใหม่ (Resubmit) ได้อย่างสะดวก
+- **รายละเอียดการดำเนินงาน**:
+  1. **โครงสร้างฐานข้อมูล (Prisma Database & Migration)**:
+     - เพิ่มสถานะ `RETURNED` ใน `enum SubmissionStatus`
+     - เพิ่มฟิลด์ `returnReason String? @db.Text`, `returnedAt DateTime?`, `returnedById String?`, และ Relation `returnedBy User?` ใน `model Submission`
+     - เพิ่ม `returnedSubmissions Submission[] @relation("ReturnedByUser")` ใน `model User`
+     - ปรับใช้ Migration `20260907143500_add_return_submission_status` ด้วย `bun x prisma migrate deploy` สำเร็จ
+  2. **Audit Logging สำหรับความโปร่งใส**:
+     - เพิ่ม `RETURN_SUBMISSION` และ `RESUBMIT_ASSIGNMENT` ใน `AuditActionType`
+     - จัดหมวดหมู่ในกลุ่ม `GRADING` ของระบบ Audit Log
+  3. **Server Actions (`src/actions/grade.ts` & `src/actions/submission.ts`)**:
+     - `returnSubmissionAction(submissionId, returnReason)`: ตรวจสอบสิทธิ์ `GRADE_SUBMISSIONS`, ล้าง `Grade` และ `RubricScore` เดิม, อัปเดตสถานะเป็น `RETURNED`, บันทึกเวลาและครูผู้ตีกลับ, พร้อมบันทึก Audit Log
+     - `submitAssignmentAction`: ปลดล็อกการส่งงานใหม่เมื่อสถานะเดิมเป็น `RETURNED`, อัปเดตเวลาส่งงานใหม่, และบันทึก Audit Log `RESUBMIT_ASSIGNMENT`
+  4. **อินเทอร์เฟซฝั่งครู/ผู้ตรวจ (Admin UI)**:
+     - `RubricGradingTable`: เพิ่มปุ่ม "ตีกลับงานให้แก้ไข" คู่กับปุ่มบันทึกคะแนน พร้อม Modal รับเหตุผลและคำแนะนำ (SweetAlert2)
+     - `GradingQueueClient` & `AssignmentSubmissionsClient`: เพิ่มแถบตัวกรอง "ถูกตีกลับ (RETURNED)", เพิ่ม Badge สีส้มแจ้งเตือนสถานะ และ Tooltip แสดงเหตุผล
+     - `SubmissionFilePreviewer`: รองรับสถานะ `RETURNED`
+  5. **อินเทอร์เฟซฝั่งนักเรียน (Student UI)**:
+     - `StudentSubmissionForm`: ปลดล็อกฟอร์มเมื่อสถานะเป็น `RETURNED`, แสดง Alert Banner สีส้มสดใสพร้อมเหตุผลจากครู, และปุ่ม "ส่งงานใหม่อีกครั้ง (Resubmit)"
+     - `StudentAssignmentsClient`: แสดงสถานะ "ถูกตีกลับ (ต้องส่งใหม่)", ปุ่ม "แก้ไขและส่งงานใหม่" (สีแดง-ส้ม), และแท็บตัวกรองแยก
+     - `StudentDashboardPage`: แจ้งเตือนแบนเนอร์ด่วนด้านบนสุดเมื่อมีงานถูกตีกลับ พร้อมจัดลำดับงานที่ถูกตีกลับขึ้นมาเป็น Priority อันดับ 1 ในช่อง "ภาระงานที่ต้องส่ง"
+  6. **ระบบรายงานทางการและเอกสาร PDF (Reports & Exports)**:
+     - ปรับปรุง `AssignmentSubmissionsPdf`, `AssignmentReportView`, `report-html-templates`, และ Route Export CSV ให้นับและแสดงสถานะ "ตีกลับให้แก้ไข" ได้อย่างถูกต้อง
 - **การทดสอบและตรวจสอบ**:
-  - ทดสอบการทำงานของมิดเดิลแวร์และ Driver ทั้งกรณี Success, Rejection, Exception
-  - ทดสอบว่า User Latency ไม่ได้รับผลกระทบ (Non-blocking ทำงานสมบูรณ์)
-  - ทดสอบ TypeScript Type Check (`bun x tsc --noEmit`) ผ่าน 100%
-  - ทดสอบ Next.js Production Build (`bun run build`) ผ่าน 100%
+  - `bun x tsc --noEmit` ผ่าน 0 errors
+  - `bun run build` (Turbopack production build) ผ่าน 100%
+
 

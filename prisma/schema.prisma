@@ -55,6 +55,7 @@ enum SubmissionStatus {
   SUBMITTED
   LATE
   GRADED
+  RETURNED
 }
 
 enum AttendanceStatus {
@@ -80,6 +81,7 @@ model User {
   createdAttendanceSessions  AttendanceSession[] @relation("AttendanceCreator")
   auditLogs                  AuditLog[]
   generatedReports           GeneratedReport[]
+  returnedSubmissions        Submission[]        @relation("ReturnedByUser")
 
   @@map("users")
 }
@@ -189,11 +191,15 @@ model Submission {
   comment        String?          @db.Text
   submittedAt    DateTime         @default(now())
   status         SubmissionStatus @default(SUBMITTED)
+  returnReason   String?          @db.Text
+  returnedAt     DateTime?
+  returnedById   String?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
 
   assignment Assignment       @relation(fields: [assignmentId], references: [id], onDelete: Restrict)
   student    Student          @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  returnedBy User?            @relation("ReturnedByUser", fields: [returnedById], references: [id], onDelete: SetNull)
   grade      Grade?
   answers    QuestionAnswer[]
 

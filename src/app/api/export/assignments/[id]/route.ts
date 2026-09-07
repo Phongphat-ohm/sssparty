@@ -101,6 +101,7 @@ export async function GET(
 
       if (sub) {
         if (sub.status === "GRADED") statusText = "ตรวจแล้ว";
+        else if (sub.status === "RETURNED") statusText = "ตีกลับให้แก้ไข";
         else if (sub.status === "SUBMITTED") statusText = "ส่งแล้ว (รอตรวจ)";
         else if (sub.status === "LATE") statusText = "ส่งช้ากว่ากำหนด";
         else if (sub.status === "DRAFT") statusText = "แบบร่าง";

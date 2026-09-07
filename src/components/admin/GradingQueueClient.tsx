@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  RotateCcw,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
@@ -31,7 +32,7 @@ export interface GradingQueueItem {
   fileName?: string | null;
   fileSize?: number | null;
   submittedAt: string;
-  status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED";
+  status: "DRAFT" | "SUBMITTED" | "LATE" | "GRADED" | "RETURNED";
   score?: number | null;
 }
 
@@ -46,7 +47,7 @@ export function GradingQueueClient({
   assignmentsList,
   classList,
 }: GradingQueueClientProps) {
-  const [items] = useState<GradingQueueItem>(initialItems as any);
+  const [items] = useState<GradingQueueItem[]>(initialItems as any);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [classFilter, setClassFilter] = useState<string>("ALL");
   const [assignmentFilter, setAssignmentFilter] = useState<string>("ALL");
@@ -75,8 +76,10 @@ export function GradingQueueClient({
   const filtered = initialItems.filter((item) => {
     const matchStatus =
       statusFilter === "ALL" ||
-      (statusFilter === "PENDING" && item.status !== "GRADED") ||
-      item.status === statusFilter;
+      (statusFilter === "PENDING" && item.status !== "GRADED" && item.status !== "RETURNED") ||
+      (statusFilter === "GRADED" && item.status === "GRADED") ||
+      (statusFilter === "RETURNED" && item.status === "RETURNED") ||
+      (statusFilter === "LATE" && item.status === "LATE");
 
     const matchClass = classFilter === "ALL" || item.className === classFilter;
     const matchAssignment =
@@ -152,6 +155,10 @@ export function GradingQueueClient({
               { key: "ALL", label: `ทั้งหมด (${initialItems.length})` },
               { key: "PENDING", label: `รอตรวจ (${pendingCount})` },
               { key: "GRADED", label: `ตรวจแล้ว (${gradedCount})` },
+              {
+                key: "RETURNED",
+                label: `ถูกตีกลับ (${initialItems.filter((i) => i.status === "RETURNED").length})`,
+              },
               {
                 key: "LATE",
                 label: `ส่งช้า (${initialItems.filter((i) => i.status === "LATE").length})`,
@@ -326,6 +333,11 @@ export function GradingQueueClient({
                         <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
                           <CheckCircle2 className="w-3.5 h-3.5" />
                           ได้: {sub.score} / {sub.maxScore}
+                        </span>
+                      ) : sub.status === "RETURNED" ? (
+                        <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-orange-100 text-orange-800 border border-orange-200 flex items-center gap-1">
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          ถูกตีกลับ (รอส่งใหม่)
                         </span>
                       ) : isLate ? (
                         <span className="text-xs font-bold px-3 py-1.5 rounded-xl bg-red-100 text-red-800 border border-red-200 flex items-center gap-1">

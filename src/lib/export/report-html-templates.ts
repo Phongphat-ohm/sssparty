@@ -66,6 +66,7 @@ export function generateAssignmentReportHtml(params: {
     .map((r, i) => {
       let statusText = "ยังไม่ส่ง";
       if (r.status === "GRADED") statusText = "ตรวจแล้ว";
+      else if (r.status === "RETURNED") statusText = "ตีกลับให้แก้ไข";
       else if (r.status === "SUBMITTED") statusText = "รอตรวจ";
       else if (r.status === "LATE") statusText = "ส่งช้า";
 

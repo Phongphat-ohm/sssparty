@@ -36,7 +36,7 @@ export interface AssignmentSubmissionsPdfData {
     studentCode: string;
     name: string;
     className: string;
-    submissionStatus: "SUBMITTED" | "LATE" | "DRAFT" | "NOT_SUBMITTED";
+    submissionStatus: "SUBMITTED" | "LATE" | "DRAFT" | "NOT_SUBMITTED" | "RETURNED";
     submittedAtStr: string;
     score: number | null;
     passed: boolean;
@@ -309,7 +309,8 @@ export function AssignmentSubmissionsPdf({ data }: { data: AssignmentSubmissions
           {/* Table Rows */}
           {data.students.map((st, idx) => {
             let statusText = "ยังไม่ส่ง";
-            if (st.submissionStatus === "SUBMITTED") statusText = "ส่งตรงเวลา";
+            if (st.submissionStatus === "RETURNED") statusText = "ตีกลับให้แก้ไข";
+            else if (st.submissionStatus === "SUBMITTED") statusText = "ส่งตรงเวลา";
             else if (st.submissionStatus === "LATE") statusText = "ส่งช้ากว่ากำหนด";
             else if (st.submissionStatus === "DRAFT") statusText = "แบบร่าง";
 
