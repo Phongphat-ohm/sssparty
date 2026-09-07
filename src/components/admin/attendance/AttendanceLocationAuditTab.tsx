@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+
 import {
   MapPin,
   ExternalLink,
@@ -15,8 +16,13 @@ import {
   UserX,
   FileSpreadsheet,
   Info,
+  Table,
+  Map as MapIcon,
+  Edit3,
 } from "lucide-react";
 import { evaluateLocationStatus, formatDistance } from "@/lib/attendance/geo-utils";
+import { StudentAttendanceMap } from "./StudentAttendanceMap";
+import { ClassroomMapPickerModal } from "./ClassroomMapPickerModal";
 
 export interface StudentAuditLocationRow {
   studentId: string;
@@ -46,13 +52,23 @@ interface Props {
 export function AttendanceLocationAuditTab({
   sessionId,
   records,
-  centerCoords,
+  centerCoords: initialCenterCoords,
   onUpdateStatus,
 }: Props) {
+  const [viewMode, setViewMode] = useState<"TABLE" | "MAP">("TABLE");
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [centerCoords, setCenterCoords] = useState(initialCenterCoords);
+  const [selectedStudentForMap, setSelectedStudentForMap] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCenterCoords(initialCenterCoords);
+  }, [initialCenterCoords]);
+
   const [filterType, setFilterType] = useState<
     "ALL" | "WITH_LOCATION" | "SUSPICIOUS" | "NO_LOCATION"
   >("ALL");
   const [searchQuery, setSearchQuery] = useState("");
+
 
   const expectedRadius = centerCoords?.expectedRadius || 100;
 
@@ -159,221 +175,311 @@ export function AttendanceLocationAuditTab({
               </span>
             ) : (
               <span className="text-amber-800 italic">
-                ยังไม่ได้ปักหมุดพิกัดห้องเรียนในรอบนี้ (สามารถกด &quot;ปักหมุดพิกัด&quot; ในโหมดฉายโปรเจกเตอร์เพื่อคำนวณระยะห่าง)
+                ยังไม่ได้ปักหมุดพิกัดห้องเรียนในรอบนี้
               </span>
             )}
           </div>
         </div>
 
-        <Link
-          href="/admin/logs?targetType=ATTENDANCE"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-900 font-bold border border-amber-300 shadow-2xs hover:bg-amber-100 self-start sm:self-auto transition-all"
-        >
-          <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-          <span>ดูบันทึก Audit Logs ทั้งหมด</span>
-        </Link>
+        <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setIsMapPickerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-600 text-white font-bold shadow-2xs hover:bg-amber-700 transition-all active:scale-95 text-xs"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+            <span>{centerCoords ? "แก้ไขพิกัดบนแผนที่" : "เลือกพิกัดบนแผนที่"}</span>
+          </button>
+
+          <Link
+            href="/admin/logs?targetType=ATTENDANCE"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white text-amber-900 font-bold border border-amber-300 shadow-2xs hover:bg-amber-100 transition-all"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+            <span>Audit Logs</span>
+          </Link>
+        </div>
       </div>
 
-      {/* 3. Filter & Search Controls */}
+      {/* 3. View Mode Switcher & Filter & Search Controls */}
       <div className="bg-white p-4 rounded-2xl border border-[#EBE3D5] shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-3">
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setFilterType("ALL")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              filterType === "ALL"
-                ? "bg-[#5C4A3A] text-white shadow-2xs"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            ทั้งหมด ({total})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType("WITH_LOCATION")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              filterType === "WITH_LOCATION"
-                ? "bg-emerald-600 text-white shadow-2xs"
-                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-            }`}
-          >
-            แชร์พิกัด ({withLocation})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType("SUSPICIOUS")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              filterType === "SUSPICIOUS"
-                ? "bg-red-600 text-white shadow-2xs"
-                : "bg-red-50 text-red-700 hover:bg-red-100"
-            }`}
-          >
-            🚨 อยู่นอกพื้นที่ ({suspicious})
-          </button>
-          <button
-            type="button"
-            onClick={() => setFilterType("NO_LOCATION")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              filterType === "NO_LOCATION"
-                ? "bg-stone-700 text-white shadow-2xs"
-                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-            }`}
-          >
-            ไม่มีพิกัด ({withoutLocation})
-          </button>
+        {/* View Mode Toggle */}
+        <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+          <div className="inline-flex bg-stone-100 p-1 rounded-xl">
+            <button
+              type="button"
+              onClick={() => setViewMode("TABLE")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === "TABLE" ? "bg-white text-stone-900 shadow-2xs" : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              <Table className="w-3.5 h-3.5" />
+              <span>ตารางรายชื่อ</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("MAP")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                viewMode === "MAP" ? "bg-emerald-600 text-white shadow-2xs" : "text-stone-600 hover:text-stone-900"
+              }`}
+            >
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>แผนที่พิกัดสด ({withLocation})</span>
+            </button>
+          </div>
         </div>
 
-        {/* Search */}
-        <div className="relative w-full sm:w-64">
-          <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อ, รหัส, ชั้น..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-300"
+        {/* Filters & Search (Only shown in Table View or useful for both) */}
+        {viewMode === "TABLE" && (
+          <div className="flex flex-col sm:flex-row items-center gap-2 w-full sm:w-auto">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => setFilterType("ALL")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterType === "ALL"
+                    ? "bg-[#5C4A3A] text-white shadow-2xs"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                }`}
+              >
+                ทั้งหมด ({total})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType("WITH_LOCATION")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterType === "WITH_LOCATION"
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                }`}
+              >
+                แชร์พิกัด ({withLocation})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType("SUSPICIOUS")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterType === "SUSPICIOUS"
+                    ? "bg-red-600 text-white shadow-2xs"
+                    : "bg-red-50 text-red-700 hover:bg-red-100"
+                }`}
+              >
+                🚨 นอกพื้นที่ ({suspicious})
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterType("NO_LOCATION")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  filterType === "NO_LOCATION"
+                    ? "bg-stone-700 text-white shadow-2xs"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                }`}
+              >
+                ไม่มีพิกัด ({withoutLocation})
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="relative w-full sm:w-56">
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+              <input
+                type="text"
+                placeholder="ค้นหาชื่อ, รหัส..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 text-xs rounded-xl bg-stone-50 border border-stone-200 focus:outline-none focus:ring-2 focus:ring-amber-300"
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 4. Content Area: Map View vs Table View */}
+      {viewMode === "MAP" ? (
+        <div className="space-y-3">
+          <StudentAttendanceMap
+            records={records.map((r) => ({
+              studentId: r.studentId,
+              studentCode: r.studentCode,
+              studentName: `${r.firstName} ${r.lastName}`,
+              className: r.className,
+              studentNumber: r.studentNumber,
+              status: r.status,
+              checkedAt: r.checkedAt,
+              checkInMethod: r.checkInMethod,
+              latitude: r.latitude,
+              longitude: r.longitude,
+              locationAccuracy: r.locationAccuracy,
+              distanceFromSession: r.distanceFromSession,
+              hasLocation: r.hasLocation,
+            }))}
+            centerCoords={centerCoords}
+            height="560px"
+            selectedStudentId={selectedStudentForMap}
           />
         </div>
-      </div>
-
-      {/* 4. Table */}
-      <div className="bg-white rounded-3xl border border-[#EBE3D5] shadow-xs overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-[#FAF7F2] border-b border-[#EBE3D5] text-[#7A6A5C] font-bold">
-                <th className="py-3 px-4 w-12 text-center">#</th>
-                <th className="py-3 px-4">นักเรียน</th>
-                <th className="py-3 px-4">ชั้น/เลขที่</th>
-                <th className="py-3 px-4">สถานะ</th>
-                <th className="py-3 px-4">วิธีการเช็ก</th>
-                <th className="py-3 px-4">เวลาที่บันทึก</th>
-                <th className="py-3 px-4">ระยะห่าง</th>
-                <th className="py-3 px-4">การประเมิน</th>
-                <th className="py-3 px-4 text-center">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EBE3D5]/60">
-              {filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-8 text-center text-stone-400">
-                    ไม่พบรายการข้อมูลที่ตรงกับเงื่อนไข
-                  </td>
+      ) : (
+        <div className="bg-white rounded-3xl border border-[#EBE3D5] shadow-xs overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="bg-[#FAF7F2] border-b border-[#EBE3D5] text-[#7A6A5C] font-bold">
+                  <th className="py-3 px-4 w-12 text-center">#</th>
+                  <th className="py-3 px-4">นักเรียน</th>
+                  <th className="py-3 px-4">ชั้น/เลขที่</th>
+                  <th className="py-3 px-4">สถานะ</th>
+                  <th className="py-3 px-4">วิธีการเช็ก</th>
+                  <th className="py-3 px-4">เวลาที่บันทึก</th>
+                  <th className="py-3 px-4">ระยะห่าง</th>
+                  <th className="py-3 px-4">การประเมิน</th>
+                  <th className="py-3 px-4 text-center">จัดการ</th>
                 </tr>
-              ) : (
-                filtered.map((row, idx) => {
-                  const evalResult = evaluateLocationStatus({
-                    hasLocation: row.hasLocation,
-                    distanceFromSession: row.distanceFromSession,
-                    accuracy: row.locationAccuracy,
-                    expectedRadius,
-                  });
+              </thead>
+              <tbody className="divide-y divide-[#EBE3D5]/60">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="py-8 text-center text-stone-400">
+                      ไม่พบรายการข้อมูลที่ตรงกับเงื่อนไข
+                    </td>
+                  </tr>
+                ) : (
+                  filtered.map((row, idx) => {
+                    const evalResult = evaluateLocationStatus({
+                      hasLocation: row.hasLocation,
+                      distanceFromSession: row.distanceFromSession,
+                      accuracy: row.locationAccuracy,
+                      expectedRadius,
+                    });
 
-                  const hasCoords = row.hasLocation && row.latitude && row.longitude;
-                  const googleMapsUrl = hasCoords
-                    ? `https://www.google.com/maps?q=${row.latitude},${row.longitude}`
-                    : null;
+                    const hasCoords = row.hasLocation && row.latitude && row.longitude;
+                    const googleMapsUrl = hasCoords
+                      ? `https://www.google.com/maps?q=${row.latitude},${row.longitude}`
+                      : null;
 
-                  const timeStr = row.checkedAt
-                    ? new Date(row.checkedAt).toLocaleTimeString("th-TH", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "-";
+                    const timeStr = row.checkedAt
+                      ? new Date(row.checkedAt).toLocaleTimeString("th-TH", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "-";
 
-                  return (
-                    <tr
-                      key={row.studentId}
-                      className={`hover:bg-amber-50/40 transition-colors ${
-                        evalResult.status === "SUSPICIOUS_FAR" ? "bg-red-50/20" : ""
-                      }`}
-                    >
-                      <td className="py-3 px-4 text-center font-mono text-stone-400">
-                        {idx + 1}
-                      </td>
-                      <td className="py-3 px-4">
-                        <p className="font-bold text-[#3F342B]">
-                          {row.firstName} {row.lastName}
-                        </p>
-                        <p className="text-[10px] text-[#7A6A5C] font-mono">
-                          {row.studentCode}
-                        </p>
-                      </td>
-                      <td className="py-3 px-4 text-[#5C4A3A]">
-                        {row.className} เลขที่ {row.studentNumber}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            row.status === "PRESENT"
-                              ? "bg-emerald-100 text-emerald-800"
-                              : row.status === "LATE"
-                              ? "bg-amber-100 text-amber-800"
-                              : row.status === "LEAVE"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {row.status}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4">
-                        <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-700">
-                          {row.checkInMethod || "MANUAL"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-[#5C4A3A] font-mono">
-                        {timeStr} น.
-                      </td>
-                      <td className="py-3 px-4 font-semibold text-[#3F342B]">
-                        {formatDistance(row.distanceFromSession)}
-                        {row.locationAccuracy && (
-                          <span className="text-[10px] text-stone-400 block font-normal">
-                            ±{Math.round(row.locationAccuracy)}ม.
+                    return (
+                      <tr
+                        key={row.studentId}
+                        className={`hover:bg-amber-50/40 transition-colors ${
+                          evalResult.status === "SUSPICIOUS_FAR" ? "bg-red-50/20" : ""
+                        }`}
+                      >
+                        <td className="py-3 px-4 text-center font-mono text-stone-400">
+                          {idx + 1}
+                        </td>
+                        <td className="py-3 px-4">
+                          <p className="font-bold text-[#3F342B]">
+                            {row.firstName} {row.lastName}
+                          </p>
+                          <p className="text-[10px] text-[#7A6A5C] font-mono">
+                            {row.studentCode}
+                          </p>
+                        </td>
+                        <td className="py-3 px-4 text-[#5C4A3A]">
+                          {row.className} เลขที่ {row.studentNumber}
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                              row.status === "PRESENT"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : row.status === "LATE"
+                                ? "bg-amber-100 text-amber-800"
+                                : row.status === "LEAVE"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-red-100 text-red-800"
+                            }`}
+                          >
+                            {row.status}
                           </span>
-                        )}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${evalResult.badgeColor}`}
-                        >
-                          {evalResult.label}
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {googleMapsUrl && (
-                            <a
-                              href={googleMapsUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              title="เปิดดูตำแหน่งจริงบน Google Maps"
-                              className="p-1.5 rounded-lg bg-stone-100 hover:bg-emerald-100 text-stone-600 hover:text-emerald-700 transition-colors"
-                            >
-                              <ExternalLink className="w-3.5 h-3.5" />
-                            </a>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-stone-100 text-stone-700">
+                            {row.checkInMethod || "MANUAL"}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-[#5C4A3A] font-mono">
+                          {timeStr} น.
+                        </td>
+                        <td className="py-3 px-4 font-semibold text-[#3F342B]">
+                          {formatDistance(row.distanceFromSession)}
+                          {row.locationAccuracy && (
+                            <span className="text-[10px] text-stone-400 block font-normal">
+                              ±{Math.round(row.locationAccuracy)}ม.
+                            </span>
                           )}
-                          {onUpdateStatus && row.status !== "ABSENT" && (
-                            <button
-                              type="button"
-                              onClick={() => onUpdateStatus(row.studentId, "ABSENT")}
-                              title="ปรับสถานะเป็น ขาดเรียน"
-                              className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
-                            >
-                              ปรับขาด
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span
+                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold border ${evalResult.badgeColor}`}
+                          >
+                            {evalResult.label}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {hasCoords && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setSelectedStudentForMap(row.studentId);
+                                  setViewMode("MAP");
+                                }}
+                                title="ดูหมุดของนักเรียนบนแผนที่"
+                                className="p-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 transition-colors"
+                              >
+                                <MapPin className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            {googleMapsUrl && (
+                              <a
+                                href={googleMapsUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="เปิดดูตำแหน่งจริงบน Google Maps"
+                                className="p-1.5 rounded-lg bg-stone-100 hover:bg-amber-100 text-stone-600 hover:text-amber-700 transition-colors"
+                              >
+                                <ExternalLink className="w-3.5 h-3.5" />
+                              </a>
+                            )}
+                            {onUpdateStatus && row.status !== "ABSENT" && (
+                              <button
+                                type="button"
+                                onClick={() => onUpdateStatus(row.studentId, "ABSENT")}
+                                title="ปรับสถานะเป็น ขาดเรียน"
+                                className="px-2 py-1 rounded-lg text-[10px] font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors"
+                              >
+                                ปรับขาด
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Classroom Location Map Picker Modal */}
+      <ClassroomMapPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        sessionId={sessionId}
+        initialCoords={centerCoords}
+        onSaved={(newCoords) => setCenterCoords(newCoords)}
+      />
     </div>
   );
 }
+

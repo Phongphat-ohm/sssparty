@@ -3,15 +3,17 @@ import { Kanit, Sarabun } from "next/font/google";
 import "./globals.css";
 
 const kanit = Kanit({
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
   subsets: ["thai", "latin"],
   variable: "--font-kanit",
+  display: "swap",
 });
 
 const sarabun = Sarabun({
   weight: ["300", "400", "500", "600", "700"],
   subsets: ["thai", "latin"],
   variable: "--font-sarabun",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -28,10 +30,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="th" className={`${kanit.variable} ${sarabun.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">
+      <body className={`${kanit.className} min-h-full flex flex-col font-sans`}>
         <RouteProgressBar />
         {children}
       </body>
     </html>
   );
 }
+

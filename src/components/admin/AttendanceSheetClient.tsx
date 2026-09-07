@@ -22,6 +22,8 @@ import {
   KeyRound,
   MapPin,
   ShieldCheck,
+  ExternalLink,
+  Map as MapIcon,
 } from "lucide-react";
 import {
   AttendanceStatusType,
@@ -31,8 +33,9 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
-import { DynamicKeyProjectorModal } from "@/components/admin/attendance/DynamicKeyProjectorModal";
 import { AttendanceLocationAuditTab } from "@/components/admin/attendance/AttendanceLocationAuditTab";
+import { ClassroomMapPickerModal } from "@/components/admin/attendance/ClassroomMapPickerModal";
+import { StudentAttendanceMapModal } from "@/components/admin/attendance/StudentAttendanceMapModal";
 
 export interface StudentAttendanceRow {
   studentId: string;
@@ -86,17 +89,20 @@ export function AttendanceSheetClient({
   const [isSaving, setIsSaving] = useState(false);
   const [isMarkingAll, setIsMarkingAll] = useState(false);
 
-  // Dynamic Key Projector & Audit Tab
-  const [isProjectorOpen, setIsProjectorOpen] = useState(false);
+  // Dynamic Key Projector & Maps State
   const [activeMainTab, setActiveMainTab] = useState<"SHEET" | "AUDIT">("SHEET");
   const [currentIsKeyActive, setCurrentIsKeyActive] = useState<boolean>(isKeyActive);
   const [currentKeySecret, setCurrentKeySecret] = useState<string | null>(keySecret);
+  const [currentCenterCoords, setCurrentCenterCoords] = useState(centerCoords);
+  const [isMapPickerOpen, setIsMapPickerOpen] = useState(false);
+  const [isStudentMapOpen, setIsStudentMapOpen] = useState(false);
 
-  // ซิงก์สถานะ Key เมื่อ Server Component refresh
+  // ซิงก์สถานะ Key และ CenterCoords เมื่อ Server Component refresh
   useEffect(() => {
     setCurrentIsKeyActive(isKeyActive);
     setCurrentKeySecret(keySecret);
-  }, [isKeyActive, keySecret]);
+    setCurrentCenterCoords(centerCoords);
+  }, [isKeyActive, keySecret, centerCoords]);
 
   // ซิงก์ข้อมูล records เมื่อ initialRecords เปลี่ยนแปลง
   useEffect(() => {
@@ -354,22 +360,48 @@ export function AttendanceSheetClient({
 
         {/* Top Actions */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
+          {/* ปุ่มเปิดจอโปรเจกเตอร์แยกหน้าใหม่ */}
           <button
             type="button"
-            onClick={() => setIsProjectorOpen(true)}
+            onClick={() => {
+              window.open(`/admin/attendance/${sessionId}/projector`, "_blank", "noopener,noreferrer");
+            }}
+            title="เปิดหน้าต่างแสดง QR Code และ Key 6 หลักแยกอิสระ (สำหรับฉายโปรเจกเตอร์หรือทีวีในห้องเรียน)"
             className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold border active:scale-95 transition-all shadow-2xs cursor-pointer ${
               currentIsKeyActive
                 ? "text-emerald-900 bg-emerald-100 hover:bg-emerald-200 border-emerald-300 ring-2 ring-emerald-400/40"
                 : "text-amber-900 bg-amber-100 hover:bg-amber-200 border-amber-300"
             }`}
           >
-            <KeyRound className={`w-4 h-4 ${currentIsKeyActive ? "text-emerald-700" : "text-amber-700"}`} />
-            <span>เปิดจอ Dynamic Key (30s)</span>
+            <ExternalLink className={`w-4 h-4 ${currentIsKeyActive ? "text-emerald-700" : "text-amber-700"}`} />
+            <span>เปิดจอโปรเจกเตอร์ (แยกหน้าใหม่)</span>
             {currentIsKeyActive && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded-full ml-0.5 animate-pulse">
                 กำลังเปิดรับ
               </span>
             )}
+          </button>
+
+          {/* ปุ่มปักหมุดตำแหน่งห้องเรียนบนแผนที่ */}
+          <button
+            type="button"
+            onClick={() => setIsMapPickerOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
+            title="ตั้งค่าพิกัดห้องเรียนและระยะรัศมีบนแผนที่"
+          >
+            <MapPin className="w-4 h-4 text-amber-600" />
+            <span>พิกัดห้องเรียน (แผนที่)</span>
+          </button>
+
+          {/* ปุ่มเปิดแผนที่หมุดนักเรียน */}
+          <button
+            type="button"
+            onClick={() => setIsStudentMapOpen(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
+            title="ดูแผนที่หมุดตำแหน่งที่นักเรียนกดเช็กชื่อ"
+          >
+            <MapIcon className="w-4 h-4 text-emerald-600" />
+            <span>แผนที่นักเรียน</span>
           </button>
 
           <a
@@ -907,22 +939,41 @@ export function AttendanceSheetClient({
         </div>
       )}
 
-      {/* Dynamic Key Projector Modal */}
-      <DynamicKeyProjectorModal
-        isOpen={isProjectorOpen}
-        onClose={() => {
-          setIsProjectorOpen(false);
+      {/* Classroom Map Picker Modal */}
+      <ClassroomMapPickerModal
+        isOpen={isMapPickerOpen}
+        onClose={() => setIsMapPickerOpen(false)}
+        sessionId={sessionId}
+        initialCoords={currentCenterCoords}
+        onSaved={(newCoords) => {
+          setCurrentCenterCoords(newCoords);
           router.refresh();
         }}
-        sessionId={sessionId}
+      />
+
+      {/* Student Attendance Map Modal */}
+      <StudentAttendanceMapModal
+        isOpen={isStudentMapOpen}
+        onClose={() => setIsStudentMapOpen(false)}
         sessionTitle={sessionTitle}
-        academicTerm={academicTerm}
-        totalStudents={records.length}
-        initialIsActive={currentIsKeyActive}
-        initialKeySecret={currentKeySecret}
-        initialCenterCoords={centerCoords}
-        onCheckInEvent={handleRealTimeCheckIn}
+        records={records.map((r) => ({
+          studentId: r.studentId,
+          studentCode: r.studentCode,
+          studentName: `${r.firstName} ${r.lastName}`,
+          className: r.className,
+          studentNumber: r.studentNumber,
+          status: r.status,
+          checkedAt: r.checkedAt,
+          checkInMethod: r.checkInMethod,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          locationAccuracy: r.locationAccuracy,
+          distanceFromSession: r.distanceFromSession,
+          hasLocation: !!r.hasLocation,
+        }))}
+        centerCoords={currentCenterCoords}
       />
     </div>
   );
 }
+

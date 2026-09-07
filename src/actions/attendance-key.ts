@@ -485,3 +485,106 @@ export async function batchMarkUncheckedAbsentAction(sessionId: string) {
     return { success: false, message: error.message || "เกิดข้อผิดพลาด" };
   }
 }
+
+/**
+ * ครูอัปเดตหรือปักหมุดตำแหน่งห้องเรียนอ้างอิง (Center Coordinates & Expected Radius)
+ * พร้อมคำนวณระยะห่างย้อนหลังของนักเรียนที่เช็กชื่อเข้ามาแล้ว
+ */
+export async function updateSessionClassroomLocationAction(
+  sessionId: string,
+  coords: {
+    latitude: number;
+    longitude: number;
+    expectedRadius?: number;
+  }
+) {
+  try {
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
+    }
+    const { user: currentUser } = authCheck;
+
+    const existingSession = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        records: {
+          where: {
+            hasLocation: true,
+            latitude: { not: null },
+            longitude: { not: null },
+          },
+        },
+      },
+    });
+
+    if (!existingSession) {
+      return { success: false, message: "ไม่พบข้อมูลรอบเช็กชื่อ" };
+    }
+
+    const expectedRadius = coords.expectedRadius ?? existingSession.expectedRadius ?? 100;
+
+    // อัปเดตพิกัดห้องเรียน
+    await prisma.attendanceSession.update({
+      where: { id: sessionId },
+      data: {
+        centerLatitude: coords.latitude,
+        centerLongitude: coords.longitude,
+        expectedRadius,
+      },
+    });
+
+    // คำนวณระยะห่างย้อนหลังให้กับนักเรียนที่มีพิกัดแล้ว
+    if (existingSession.records.length > 0) {
+      for (const rec of existingSession.records) {
+        if (rec.latitude !== null && rec.longitude !== null) {
+          const dist = calculateHaversineDistance(
+            coords.latitude,
+            coords.longitude,
+            rec.latitude,
+            rec.longitude
+          );
+          await prisma.attendanceRecord.update({
+            where: { id: rec.id },
+            data: { distanceFromSession: dist },
+          });
+        }
+      }
+    }
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_SESSION_LOCATION" as any,
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: JSON.stringify({
+        centerLatitude: coords.latitude,
+        centerLongitude: coords.longitude,
+        expectedRadius,
+        recalculatedStudents: existingSession.records.length,
+      }),
+    });
+
+    revalidatePath(`/admin/attendance/${sessionId}`);
+    revalidatePath(`/admin/attendance/${sessionId}/projector`);
+
+    return {
+      success: true,
+      message: "บันทึกพิกัดห้องเรียนและคำนวณระยะห่างเรียบร้อยแล้ว",
+      centerCoords: {
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        expectedRadius,
+      },
+    };
+  } catch (error: any) {
+    console.error("updateSessionClassroomLocationAction error:", error);
+    return {
+      success: false,
+      message: error.message || "เกิดข้อผิดพลาดในการบันทึกตำแหน่งห้องเรียน",
+    };
+  }
+}
+
