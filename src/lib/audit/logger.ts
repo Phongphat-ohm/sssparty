@@ -1,31 +1,60 @@
 import { headers } from "next/headers";
-import { prisma } from "@/lib/prisma/client";
+import { getAuditDriver } from "./drivers";
 
 export type AuditActionType =
+  // 1. Authentication & Security
   | "LOGIN_SUCCESS"
   | "LOGIN_FAILED"
+  | "LOGIN_BLOCKED_MAINTENANCE"
   | "LOGOUT"
+  | "PASSWORD_CHANGE_SUCCESS"
+  | "PASSWORD_CHANGE_FAILED"
+  | "PASSWORD_RESET"
+  | "UNAUTHORIZED_ACCESS"
+
+  // 2. Attendance & Geofence
+  | "CREATE_ATTENDANCE_SESSION"
+  | "UPDATE_ATTENDANCE_SESSION"
+  | "DELETE_ATTENDANCE_SESSION"
+  | "START_DYNAMIC_KEY"
+  | "STOP_DYNAMIC_KEY"
+  | "STUDENT_CHECK_IN"
+  | "CHECK_IN_FAILED"
+  | "SAVE_ATTENDANCE_RECORD"
+  | "BATCH_MARK_ABSENT"
+  | "UPDATE_GEOFENCE"
+
+  // 3. Assignments & Submissions
   | "CREATE_ASSIGNMENT"
   | "UPDATE_ASSIGNMENT"
   | "DELETE_ASSIGNMENT"
   | "PUBLISH_ASSIGNMENT"
+  | "TOGGLE_ASSIGNMENT_STATUS"
+  | "SUBMIT_ASSIGNMENT"
   | "GRADE_SUBMISSION"
   | "UPDATE_GRADE"
+
+  // 4. Student & User Management
   | "CREATE_STUDENT"
   | "UPDATE_STUDENT"
+  | "TOGGLE_STUDENT_STATUS"
   | "DELETE_STUDENT"
   | "IMPORT_STUDENTS_CSV"
-  | "CREATE_ATTENDANCE_SESSION"
-  | "SAVE_ATTENDANCE_RECORD"
-  | "DELETE_ATTENDANCE_SESSION"
   | "CREATE_USER"
   | "UPDATE_USER"
   | "UPDATE_USER_PERMISSIONS"
   | "RESET_PASSWORD"
   | "TOGGLE_USER_STATUS"
   | "DELETE_USER"
+
+  // 5. Reports, Files, Settings & System
+  | "SAVE_OFFICIAL_REPORT"
+  | "DELETE_OFFICIAL_REPORT"
+  | "EXPORT_CSV"
+  | "EXPORT_GRADEBOOK"
   | "FILE_UPLOAD"
-  | "UPDATE_SETTINGS";
+  | "UPDATE_SETTINGS"
+  | "SYSTEM_ERROR";
 
 export type AuditTargetType =
   | "AUTH"
@@ -35,8 +64,11 @@ export type AuditTargetType =
   | "STUDENT"
   | "ATTENDANCE"
   | "USER"
+  | "REPORT"
   | "FILE"
-  | "SETTINGS";
+  | "SETTINGS"
+  | "SECURITY"
+  | "SYSTEM";
 
 export interface CreateAuditLogParams {
   userId?: string | null;
@@ -48,10 +80,13 @@ export interface CreateAuditLogParams {
   details?: string | Record<string, any> | null;
   ipAddress?: string | null;
   userAgent?: string | null;
+  durationMs?: number | null;
+  status?: "SUCCESS" | "FAILED" | "ERROR";
+  createdAt?: Date;
 }
 
 /**
- * ดึง IP Address และ User Agent จาก Next.js request context
+ * ดึง IP Address และ User Agent จาก Next.js request context (รองรับ Cloudflare, Reverse Proxy, Docker)
  */
 export async function getClientRequestContext(): Promise<{
   ipAddress: string;
@@ -78,7 +113,7 @@ export async function getClientRequestContext(): Promise<{
 }
 
 /**
- * บันทึก Audit Log ลงฐานข้อมูลแบบ Asynchronous (Safe & Non-blocking)
+ * บันทึก Audit Log ผ่าน Pluggable Storage Driver แบบ Asynchronous Non-blocking (Safe & Non-blocking)
  */
 export async function createAuditLog(
   params: CreateAuditLogParams
@@ -92,37 +127,16 @@ export async function createAuditLog(
       if (!userAgent) userAgent = clientContext.userAgent;
     }
 
-    const detailsStr =
-      typeof params.details === "object" && params.details !== null
-        ? JSON.stringify(params.details)
-        : params.details || null;
+    const payload = {
+      ...params,
+      ipAddress,
+      userAgent,
+    };
 
-    let validUserId: string | null = null;
-    if (params.userId) {
-      const userExists = await prisma.user.findUnique({
-        where: { id: params.userId },
-        select: { id: true },
-      });
-      if (userExists) {
-        validUserId = params.userId;
-      }
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        userId: validUserId,
-        username: params.username || null,
-        role: params.role || null,
-        action: params.action,
-        targetType: params.targetType || null,
-        targetId: params.targetId || null,
-        details: detailsStr,
-        ipAddress: ipAddress || null,
-        userAgent: userAgent ? userAgent.slice(0, 500) : null,
-      },
-    });
+    const driver = getAuditDriver();
+    await driver.write(payload);
   } catch (error) {
-    // Log error locally so that user's core operations are never disrupted
-    console.error("[AuditLog Error] Failed to write audit log:", error);
+    // Fail-safe error boundary: Local console error only, never crash user operation
+    console.error("[AuditLog Error] Failed in createAuditLog:", error);
   }
 }

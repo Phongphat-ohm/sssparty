@@ -61,10 +61,19 @@ export async function showCozyConfirm(
   return Swal.fire(swalOptions);
 }
 
-export async function showCozySuccess(title: string, text?: string) {
+export async function showCozySuccess(
+  titleOrOptions: string | { title: string; html?: string; text?: string },
+  text?: string
+) {
+  const isObj = typeof titleOrOptions === "object";
+  const title = isObj ? titleOrOptions.title : titleOrOptions;
+  const html = isObj ? titleOrOptions.html : undefined;
+  const bodyText = isObj ? titleOrOptions.text : text;
+
   return Swal.fire({
     title,
-    text,
+    html,
+    text: bodyText,
     icon: "success",
     confirmButtonText: "ตกลง",
     ...cozySwalConfig,
@@ -76,10 +85,19 @@ export async function showCozySuccess(title: string, text?: string) {
   });
 }
 
-export async function showCozyError(title: string, text?: string) {
+export async function showCozyError(
+  titleOrOptions: string | { title: string; html?: string; text?: string },
+  text?: string
+) {
+  const isObj = typeof titleOrOptions === "object";
+  const title = isObj ? titleOrOptions.title : titleOrOptions;
+  const html = isObj ? titleOrOptions.html : undefined;
+  const bodyText = isObj ? titleOrOptions.text : text;
+
   return Swal.fire({
     title,
-    text,
+    html,
+    text: bodyText,
     icon: "error",
     confirmButtonText: "ปิด",
     ...cozySwalConfig,

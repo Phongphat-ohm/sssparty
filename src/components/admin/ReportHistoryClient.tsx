@@ -412,6 +412,7 @@ export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
           filename={`${previewReport.title}_${previewReport.reportCode}`}
           orientation="portrait"
           pdfApiUrl={previewReport.fileUrl}
+          isAlreadyOfficial={true}
         />
       )}
     </div>

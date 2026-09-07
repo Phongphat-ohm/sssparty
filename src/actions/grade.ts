@@ -48,12 +48,16 @@ export async function saveGradeAction(
         student: {
           select: { firstName: true, lastName: true, className: true, studentNumber: true },
         },
+        grade: true,
       },
     });
 
     if (!submission) {
       return { success: false, message: "ไม่พบข้อมูลชิ้นงานที่ต้องการตรวจ" };
     }
+
+    const previousGrade = submission.grade;
+    const isUpdate = Boolean(previousGrade);
 
     // ห้ามให้คะแนนงานที่ยังอยู่ในสถานะแบบร่าง (DRAFT)
     if (submission.status === "DRAFT") {
@@ -130,14 +134,18 @@ export async function saveGradeAction(
       });
     });
 
+    const details = isUpdate
+      ? `แก้ไขคะแนนการบ้าน "${submission.assignment.title}" ของ ${submission.student.firstName} ${submission.student.lastName} (${submission.student.className} เลขที่ ${submission.student.studentNumber}) จาก ${previousGrade?.score} เป็น ${totalScore}/${submission.assignment.maxScore} (คะแนนเปลี่ยน: ${totalScore - (previousGrade?.score || 0)} คะแนน)`
+      : `ตรวจงานการบ้าน "${submission.assignment.title}" ของ ${submission.student.firstName} ${submission.student.lastName} (${submission.student.className} เลขที่ ${submission.student.studentNumber}) ได้คะแนน ${totalScore}/${submission.assignment.maxScore}`;
+
     await createAuditLog({
       userId: currentUser.id,
       username: currentUser.username,
       role: "ADMIN",
-      action: "GRADE_SUBMISSION",
-      targetType: "SUBMISSION",
+      action: isUpdate ? "UPDATE_GRADE" : "GRADE_SUBMISSION",
+      targetType: "GRADE",
       targetId: submissionId,
-      details: `ตรวจงานการบ้าน "${submission.assignment.title}" ของ ${submission.student.firstName} ${submission.student.lastName} (${submission.student.className} เลขที่ ${submission.student.studentNumber}) ได้คะแนน ${totalScore}/${submission.assignment.maxScore}`,
+      details,
     });
 
     revalidatePath(`/admin/submissions/${submissionId}`);

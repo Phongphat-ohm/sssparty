@@ -6,6 +6,7 @@ import {
   View,
   StyleSheet,
   Font,
+  Image,
   renderToBuffer,
 } from "@react-pdf/renderer";
 import path from "path";
@@ -240,9 +241,19 @@ const styles = StyleSheet.create({
 
 interface Props {
   data: ComprehensiveEvaluationReportData;
+  reportCode?: string | null;
+  isOfficial?: boolean;
+  qrDataUrl?: string | null;
+  printedByName?: string | null;
 }
 
-export const ComprehensiveEvaluationPdfDocument: React.FC<Props> = ({ data }) => {
+export const ComprehensiveEvaluationPdfDocument: React.FC<Props> = ({
+  data,
+  reportCode,
+  isOfficial = false,
+  qrDataUrl,
+  printedByName,
+}) => {
   const {
     academicTerm,
     clubName,
@@ -301,16 +312,43 @@ export const ComprehensiveEvaluationPdfDocument: React.FC<Props> = ({ data }) =>
       : 0;
 
   return (
-    <Document title={`รายงานผลการเรียนรู้_${clubName}_${academicTerm.replace("/", "-")}`}>
+    <Document
+      title={`รายงานสรุปผลการประเมิน_${clubName}_ภาคเรียน_${academicTerm.replace("/", "-")}`}
+      author="SSSParty"
+    >
       <Page size="A4" orientation="landscape" style={styles.page}>
         {/* Header (Fixed on each page) */}
         <View style={styles.headerContainer} fixed>
-          <Text style={styles.headerTitle}>
-            แบบรายงานสรุปผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)
-          </Text>
-          <Text style={styles.headerSubTitle}>
-            หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑ (ฉบับปรับปรุง ๒๕๖๐) สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน
-          </Text>
+          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.headerTitle}>
+                แบบรายงานสรุปผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)
+              </Text>
+              <Text style={styles.headerSubTitle}>
+                หลักสูตรแกนกลางการศึกษาขั้นพื้นฐาน พุทธศักราช ๒๕๕๑ (ฉบับปรับปรุง ๒๕๖๐) สำนักงานคณะกรรมการการศึกษาขั้นพื้นฐาน
+              </Text>
+            </View>
+
+            {/* QR Code and Code box */}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ textAlign: "right", fontSize: 7, lineHeight: 1.3 }}>
+                <Text>
+                  รหัสเอกสาร:{" "}
+                  {isOfficial && reportCode ? (
+                    <Text style={{ fontWeight: "bold", color: "#000000" }}>{reportCode}</Text>
+                  ) : (
+                    <Text style={{ color: "#C2410C", fontWeight: "bold" }}>ตัวอย่างก่อนบันทึก (PREVIEW)</Text>
+                  )}
+                </Text>
+                <Text>วันที่จัดพิมพ์: {thaiDateStr}</Text>
+                {printedByName && <Text>ผู้พิมพ์: {printedByName}</Text>}
+              </View>
+
+              {qrDataUrl && (
+                <Image src={qrDataUrl} style={{ width: 40, height: 40, borderWidth: 0.5, borderColor: "#CCCCCC" }} />
+              )}
+            </View>
+          </View>
 
           <View style={styles.metaBar}>
             <View style={styles.metaItem}>

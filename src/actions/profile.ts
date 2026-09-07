@@ -5,8 +5,8 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hashPassword, comparePassword } from "@/lib/auth/password";
-import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSetting } from "@/lib/settings/system-settings";
+import { auditAction } from "@/lib/audit/audit-middleware";
 
 const studentProfileSchema = z.object({
   firstName: z.string().min(1, "กรุณากรอกชื่อจริง"),
@@ -30,65 +30,63 @@ export interface ProfileActionResult {
 }
 
 /**
- * Server Action สำหรับนักเรียนแก้ไขข้อมูลชื่อ-นามสกุลของตนเอง
+ * Server Action สำหรับนักเรียนแก้ไขข้อมูลส่วนตัวของตนเอง
  */
 export async function updateStudentProfileSelfAction(
   formData: FormData
 ): Promise<ProfileActionResult> {
-  try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "STUDENT" || !session.studentId) {
-      return { success: false, message: "ไม่มีสิทธิ์ในการแก้ไขข้อมูลนี้" };
-    }
-
-    const allowEdit = await getSystemSetting("allow_student_name_edit");
-    if (!allowEdit) {
-      return {
-        success: false,
-        message: "ระบบถูกตั้งค่าไม่อนุญาตให้นักเรียนแก้ไขข้อมูลชื่อ-นามสกุลด้วยตนเอง กรุณาติดต่อคุณครู",
-      };
-    }
-
-    const firstName = (formData.get("firstName") as string)?.trim();
-    const lastName = (formData.get("lastName") as string)?.trim();
-
-    const parsed = studentProfileSchema.safeParse({ firstName, lastName });
-    if (!parsed.success) {
-      return {
-        success: false,
-        message: parsed.error.issues[0]?.message || "ข้อมูลไม่ถูกต้อง",
-      };
-    }
-
-    await prisma.student.update({
-      where: { id: session.studentId },
-      data: {
-        firstName: parsed.data.firstName,
-        lastName: parsed.data.lastName,
-      },
-    });
-
-    await createAuditLog({
-      username: session.username,
-      role: "STUDENT",
-      action: "UPDATE_STUDENT_PROFILE",
+  return auditAction(
+    {
+      action: "UPDATE_STUDENT",
       targetType: "STUDENT",
-      targetId: session.studentId,
-      details: `นักเรียนแก้ไขข้อมูลชื่อ-นามสกุลตนเองเป็น "${parsed.data.firstName} ${parsed.data.lastName}"`,
-    });
+      getDetails: (result, ctx) =>
+        result.success
+          ? `นักเรียน (${ctx.session?.username}) แก้ไขข้อมูลส่วนตัวสำเร็จ`
+          : `นักเรียน (${ctx.session?.username}) แก้ไขข้อมูลส่วนตัวไม่สำเร็จ: ${result.message}`,
+    },
+    async (ctx) => {
+      const session = ctx.session;
+      if (!session || session.role !== "STUDENT" || !session.studentId) {
+        return { success: false, message: "ไม่มีสิทธิ์ในการแก้ไขข้อมูลนี้" };
+      }
 
-    revalidatePath("/student/dashboard");
-    revalidatePath("/student/profile");
-    revalidatePath("/student/assignments");
+      const allowEdit = await getSystemSetting("allow_student_name_edit");
+      if (!allowEdit) {
+        return {
+          success: false,
+          message: "ระบบถูกตั้งค่าไม่อนุญาตให้นักเรียนแก้ไขข้อมูลชื่อ-นามสกุลด้วยตนเอง กรุณาติดต่อคุณครู",
+        };
+      }
 
-    return {
-      success: true,
-      message: "อัปเดตข้อมูลส่วนตัวเรียบร้อยแล้ว",
-    };
-  } catch (error) {
-    console.error("updateStudentProfileSelfAction error:", error);
-    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกข้อมูล" };
-  }
+      const firstName = (formData.get("firstName") as string)?.trim();
+      const lastName = (formData.get("lastName") as string)?.trim();
+
+      const parsed = studentProfileSchema.safeParse({ firstName, lastName });
+      if (!parsed.success) {
+        return {
+          success: false,
+          message: parsed.error.issues[0]?.message || "ข้อมูลไม่ถูกต้อง",
+        };
+      }
+
+      await prisma.student.update({
+        where: { id: session.studentId },
+        data: {
+          firstName: parsed.data.firstName,
+          lastName: parsed.data.lastName,
+        },
+      });
+
+      revalidatePath("/student/dashboard");
+      revalidatePath("/student/profile");
+      revalidatePath("/student/assignments");
+
+      return {
+        success: true,
+        message: "อัปเดตข้อมูลส่วนตัวเรียบร้อยแล้ว",
+      };
+    }
+  );
 }
 
 /**
@@ -97,66 +95,74 @@ export async function updateStudentProfileSelfAction(
 export async function changeStudentPasswordAction(
   formData: FormData
 ): Promise<ProfileActionResult> {
-  try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "STUDENT") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่าน" };
-    }
+  return auditAction(
+    {
+      action: "PASSWORD_CHANGE_SUCCESS",
+      failedAction: "PASSWORD_CHANGE_FAILED",
+      targetType: "AUTH",
+      getDetails: (result, ctx) =>
+        result.success
+          ? `นักเรียน (${ctx.session?.username}) เปลี่ยนรหัสผ่านสำเร็จ`
+          : `นักเรียน (${ctx.session?.username}) พยายามเปลี่ยนรหัสผ่านแต่ล้มเหลว: ${result.message}`,
+    },
+    async (ctx) => {
+      const session = ctx.session;
+      if (!session || session.role !== "STUDENT") {
+        return { success: false, message: "ไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่าน" };
+      }
 
-    const currentPassword = (formData.get("currentPassword") as string) || "";
-    const newPassword = (formData.get("newPassword") as string) || "";
-    const confirmPassword = (formData.get("confirmPassword") as string) || "";
+      const currentPassword = (formData.get("currentPassword") as string) || "";
+      const newPassword = (formData.get("newPassword") as string) || "";
+      const confirmPassword = (formData.get("confirmPassword") as string) || "";
 
-    const parsed = changePasswordSchema.safeParse({
-      currentPassword,
-      newPassword,
-      confirmPassword,
-    });
+      const parsed = changePasswordSchema.safeParse({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
 
-    if (!parsed.success) {
+      if (!parsed.success) {
+        return {
+          success: false,
+          message: parsed.error.issues[0]?.message || "ข้อมูลรหัสผ่านไม่ถูกต้อง",
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+      });
+
+      if (!user) {
+        return { success: false, message: "ไม่พบบัญชีผู้ใช้ในระบบ" };
+      }
+
+      // ถ้านักเรียนเคยมีรหัสผ่านเดิม ต้องตรวจสอบรหัสผ่านเดิมก่อน
+      if (user.passwordHash) {
+        if (!currentPassword) {
+          return { success: false, message: "กรุณาระบุรหัสผ่านเดิมเพื่อความปลอดภัย" };
+        }
+
+        const isValid = await comparePassword(currentPassword, user.passwordHash);
+        if (!isValid) {
+          return { success: false, message: "รหัสผ่านเดิมไม่ถูกต้อง" };
+        }
+      }
+
+      const newHash = await hashPassword(newPassword);
+
+      await prisma.user.update({
+        where: { id: session.userId },
+        data: { passwordHash: newHash },
+      });
+
+      revalidatePath("/student/profile");
+
       return {
-        success: false,
-        message: parsed.error.issues[0]?.message || "ข้อมูลรหัสผ่านไม่ถูกต้อง",
+        success: true,
+        message: "เปลี่ยนรหัสผ่านบัญชีสำเร็จเรียบร้อยแล้ว",
       };
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-    });
-
-    if (!user) {
-      return { success: false, message: "ไม่พบบัญชีผู้ใช้ในระบบ" };
-    }
-
-    // ถ้านักเรียนเคยมีรหัสผ่านเดิม ต้องตรวจสอบรหัสผ่านเดิมก่อน
-    if (user.passwordHash) {
-      if (!currentPassword) {
-        return { success: false, message: "กรุณาระบุรหัสผ่านเดิมเพื่อความปลอดภัย" };
-      }
-
-      const isValid = await comparePassword(currentPassword, user.passwordHash);
-      if (!isValid) {
-        return { success: false, message: "รหัสผ่านเดิมไม่ถูกต้อง" };
-      }
-    }
-
-    const newHash = await hashPassword(newPassword);
-
-    await prisma.user.update({
-      where: { id: session.userId },
-      data: { passwordHash: newHash },
-    });
-
-    revalidatePath("/student/profile");
-
-    return {
-      success: true,
-      message: "เปลี่ยนรหัสผ่านบัญชีสำเร็จเรียบร้อยแล้ว",
-    };
-  } catch (error) {
-    console.error("changeStudentPasswordAction error:", error);
-    return { success: false, message: "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน" };
-  }
+  );
 }
 
 /**
@@ -165,68 +171,66 @@ export async function changeStudentPasswordAction(
 export async function changeAdminPasswordAction(
   formData: FormData
 ): Promise<ProfileActionResult> {
-  try {
-    const session = await getAuthSession();
-    if (!session || session.role !== "ADMIN") {
-      return { success: false, message: "ไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่าน" };
-    }
+  return auditAction(
+    {
+      action: "PASSWORD_CHANGE_SUCCESS",
+      failedAction: "PASSWORD_CHANGE_FAILED",
+      targetType: "AUTH",
+      getDetails: (result, ctx) =>
+        result.success
+          ? `ผู้ดูแลระบบ "${ctx.session?.username}" เปลี่ยนรหัสผ่านของตนเองสำเร็จ`
+          : `ผู้ดูแลระบบ "${ctx.session?.username}" เปลี่ยนรหัสผ่านไม่สำเร็จ: ${result.message}`,
+    },
+    async (ctx) => {
+      const session = ctx.session;
+      if (!session || session.role !== "ADMIN") {
+        return { success: false, message: "ไม่มีสิทธิ์ในการเปลี่ยนรหัสผ่าน" };
+      }
 
-    const currentPassword = (formData.get("currentPassword") as string) || "";
-    const newPassword = (formData.get("newPassword") as string) || "";
-    const confirmPassword = (formData.get("confirmPassword") as string) || "";
+      const currentPassword = (formData.get("currentPassword") as string) || "";
+      const newPassword = (formData.get("newPassword") as string) || "";
+      const confirmPassword = (formData.get("confirmPassword") as string) || "";
 
-    const parsed = changePasswordSchema.safeParse({
-      currentPassword,
-      newPassword,
-      confirmPassword,
-    });
+      const parsed = changePasswordSchema.safeParse({
+        currentPassword,
+        newPassword,
+        confirmPassword,
+      });
 
-    if (!parsed.success) {
+      if (!parsed.success) {
+        return {
+          success: false,
+          message: parsed.error.issues[0]?.message || "ข้อมูลรหัสผ่านไม่ถูกต้อง",
+        };
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { id: session.userId },
+      });
+
+      if (!user || !user.passwordHash) {
+        return { success: false, message: "ไม่พบบัญชีผู้ดูแลระบบ" };
+      }
+
+      const isValid = await comparePassword(currentPassword, user.passwordHash);
+      if (!isValid) {
+        return { success: false, message: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
+      }
+
+      const newHash = await hashPassword(newPassword);
+
+      await prisma.user.update({
+        where: { id: session.userId },
+        data: { passwordHash: newHash },
+      });
+
+      revalidatePath("/admin/settings");
+      revalidatePath("/admin/profile");
+
       return {
-        success: false,
-        message: parsed.error.issues[0]?.message || "ข้อมูลรหัสผ่านไม่ถูกต้อง",
+        success: true,
+        message: "เปลี่ยนรหัสผ่านผู้ดูแลระบบสำเร็จเรียบร้อยแล้ว",
       };
     }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.userId },
-    });
-
-    if (!user || !user.passwordHash) {
-      return { success: false, message: "ไม่พบบัญชีผู้ดูแลระบบ" };
-    }
-
-    const isValid = await comparePassword(currentPassword, user.passwordHash);
-    if (!isValid) {
-      return { success: false, message: "รหัสผ่านปัจจุบันไม่ถูกต้อง" };
-    }
-
-    const newHash = await hashPassword(newPassword);
-
-    await prisma.user.update({
-      where: { id: session.userId },
-      data: { passwordHash: newHash },
-    });
-
-    await createAuditLog({
-      userId: session.userId,
-      username: session.username,
-      role: "ADMIN",
-      action: "RESET_PASSWORD",
-      targetType: "USER",
-      targetId: session.userId,
-      details: `ผู้ดูแลระบบ "${session.username}" เปลี่ยนรหัสผ่านของตนเอง`,
-    });
-
-    revalidatePath("/admin/settings");
-    revalidatePath("/admin/profile");
-
-    return {
-      success: true,
-      message: "เปลี่ยนรหัสผ่านผู้ดูแลระบบสำเร็จเรียบร้อยแล้ว",
-    };
-  } catch (error) {
-    console.error("changeAdminPasswordAction error:", error);
-    return { success: false, message: "เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน" };
-  }
+  );
 }

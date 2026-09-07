@@ -5,6 +5,7 @@ import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { revalidatePath } from "next/cache";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSystemSetting } from "@/lib/settings/system-settings";
+import { createAuditLog } from "@/lib/audit/logger";
 
 export interface GeneratedReportItem {
   id: string;
@@ -148,6 +149,16 @@ export async function deleteGeneratedReportAction(id: string) {
 
     await prisma.generatedReport.delete({
       where: { id },
+    });
+
+    await createAuditLog({
+      userId: authCheck.user.id,
+      username: authCheck.user.username,
+      role: "ADMIN",
+      action: "DELETE_OFFICIAL_REPORT",
+      targetType: "REPORT",
+      targetId: report.reportCode,
+      details: `ลบรายงานทางการรหัส "${report.reportCode}" (${report.title}, ภาคเรียน ${report.academicTerm}) และไฟล์บน Cloud S3`,
     });
 
     revalidatePath("/admin/reports");

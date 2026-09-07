@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { s3Client, S3_BUCKET } from "@/lib/s3/client";
 import { getAuthSession } from "@/lib/auth/session";
+import { createAuditLog } from "@/lib/audit/logger";
 
 export async function GET(
   req: NextRequest,
@@ -13,6 +14,12 @@ export async function GET(
 
     // 1. ป้องกัน Path Traversal Attack (ห้ามมี .. หรือ \ ใน Object Key)
     if (fileKey.includes("..") || fileKey.includes("\\")) {
+      await createAuditLog({
+        action: "UNAUTHORIZED_ACCESS",
+        targetType: "SECURITY",
+        details: `ตรวจพบความพยายามโจมตี Path Traversal ด้วยคีย์: "${fileKey}"`,
+      });
+
       return NextResponse.json(
         { error: "Object Key ไม่ถูกต้อง (Bad Request)" },
         { status: 400 }
@@ -43,6 +50,15 @@ export async function GET(
         parts[3] === session.studentId;
 
       if (!isPublicMaterial && !isOwnedByStudent) {
+        await createAuditLog({
+          username: session.username,
+          role: "STUDENT",
+          action: "UNAUTHORIZED_ACCESS",
+          targetType: "SECURITY",
+          targetId: fileKey,
+          details: `นักเรียน (${session.username}) พยายามเปิดดูไฟล์ของผู้อื่นโดยไม่ได้รับอนุญาต (IDOR Attempt): "${fileKey}"`,
+        });
+
         return NextResponse.json(
           { error: "ไม่มีสิทธิ์เปิดดูไฟล์ของผู้อื่น (403 Forbidden)" },
           { status: 403 }

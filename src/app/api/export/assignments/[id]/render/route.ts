@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { generateAssignmentReportPdfViaApi } from "@/lib/export/report-api-service";
+import { generateAssignmentReportPdf } from "@/lib/export/report-api-service";
 
 export const dynamic = "force-dynamic";
 
@@ -43,13 +43,14 @@ export async function GET(
     const assignmentId = resolved.id;
     const { searchParams } = new URL(req.url);
     const filterClass = searchParams.get("className") || "ALL";
-    const customReportCode = searchParams.get("reportCode") || undefined;
+    const mode = searchParams.get("mode") || "preview";
+    const isOfficial = mode === "official";
 
-    const { pdfBuffer, fileName, reportCode } =
-      await generateAssignmentReportPdfViaApi({
+    const { pdfBuffer, fileName } =
+      await generateAssignmentReportPdf({
         assignmentId,
         filterClass,
-        customReportCode,
+        isOfficial,
         user: { id: user.id, username: user.username },
       });
 

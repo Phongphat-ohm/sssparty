@@ -300,6 +300,11 @@ export async function updateUserAction(
       });
     });
 
+    // คำนวณความแตกต่างของสิทธิ์ (Permission Diffs)
+    const oldPerms = (targetUser.permissions as string[]) || [];
+    const addedPermissions = finalPermissions.filter((p) => !oldPerms.includes(p));
+    const removedPermissions = oldPerms.filter((p) => !finalPermissions.includes(p as any));
+
     await createAuditLog({
       userId: currentUser.id,
       username: currentUser.username,
@@ -309,10 +314,12 @@ export async function updateUserAction(
       targetId: userId,
       details: {
         targetUsername: parsed.data.username,
-        oldRole: targetUser.adminRole,
-        newRole: parsed.data.adminRole,
-        permissions: finalPermissions,
-        status: parsed.data.status,
+        roleChanged: targetUser.role !== parsed.data.role ? { from: targetUser.role, to: parsed.data.role } : undefined,
+        adminRoleChanged: targetUser.adminRole !== parsed.data.adminRole ? { from: targetUser.adminRole, to: parsed.data.adminRole } : undefined,
+        statusChanged: targetUser.status !== parsed.data.status ? { from: targetUser.status, to: parsed.data.status } : undefined,
+        addedPermissions: addedPermissions.length > 0 ? addedPermissions : undefined,
+        removedPermissions: removedPermissions.length > 0 ? removedPermissions : undefined,
+        currentPermissions: finalPermissions,
       },
     });
 

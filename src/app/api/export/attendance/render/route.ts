@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { generateAttendanceSummaryReportPdfViaApi } from "@/lib/export/report-api-service";
+import { generateAttendanceSessionReportPdf } from "@/lib/export/report-api-service";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +39,30 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const filterClass = searchParams.get("className") || "ALL";
+    const mode = searchParams.get("mode") || "preview";
+    const isOfficial = mode === "official";
 
-    const { pdfBuffer, fileName, reportCode } =
-      await generateAttendanceSummaryReportPdfViaApi({
+    let targetSessionId = searchParams.get("sessionId");
+    if (!targetSessionId) {
+      const latestSession = await prisma.attendanceSession.findFirst({
+        orderBy: { date: "desc" },
+        select: { id: true },
+      });
+      targetSessionId = latestSession?.id || null;
+    }
+
+    if (!targetSessionId) {
+      return NextResponse.json(
+        { error: "ไม่พบข้อมูลรอบการเช็กชื่อในระบบ" },
+        { status: 404 }
+      );
+    }
+
+    const { pdfBuffer, fileName } =
+      await generateAttendanceSessionReportPdf({
+        sessionId: targetSessionId,
         filterClass,
+        isOfficial,
         user: { id: user.id, username: user.username },
       });
 

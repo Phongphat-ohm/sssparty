@@ -496,7 +496,9 @@ export function AdminAssignmentsClient({
           title="แบบรายงานสรุปผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
           orientation="landscape"
           filename={`รายงานผลการเรียนรู้_${evaluationReportData.clubName.replace(/\s+/g, "_")}_${evaluationReportData.academicTerm.replace(/[\/\\]/g, "-")}`}
-          pdfApiUrl="/api/export/evaluation/render?className=ALL"
+          pdfApiUrl="/api/export/evaluation/render?className=ALL&mode=preview"
+          reportType="EVALUATION"
+          filterClass="ALL"
           htmlContent={generateComprehensiveEvaluationReportHtml(evaluationReportData)}
         />
       )}

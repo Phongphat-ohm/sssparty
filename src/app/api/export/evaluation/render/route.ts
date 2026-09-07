@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { getComprehensiveEvaluationReportDataAction } from "@/actions/reports";
-import { renderComprehensiveEvaluationPdfBuffer } from "@/lib/export/comprehensive-evaluation-pdf";
+import { generateEvaluationReportPdf } from "@/lib/export/report-api-service";
 
 export const dynamic = "force-dynamic";
 
@@ -48,20 +47,14 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const filterClass = searchParams.get("className") || "ALL";
+    const mode = searchParams.get("mode") || "preview";
+    const isOfficial = mode === "official";
 
-    const reportRes = await getComprehensiveEvaluationReportDataAction(filterClass);
-    if (!reportRes.success || !reportRes.data) {
-      return NextResponse.json(
-        { error: reportRes.message || "ไม่สามารถดึงข้อมูลรายงานผลการเรียนรู้ได้" },
-        { status: 500 }
-      );
-    }
-
-    const pdfBuffer = await renderComprehensiveEvaluationPdfBuffer(reportRes.data);
-
-    const safeTerm = reportRes.data.academicTerm.replace(/[\/\\]/g, "-");
-    const safeClass = filterClass === "ALL" ? "All" : `Class-${filterClass}`;
-    const fileName = `Comprehensive_Evaluation_Report_${safeClass}_Term_${safeTerm}.pdf`;
+    const { pdfBuffer, fileName } = await generateEvaluationReportPdf({
+      filterClass,
+      isOfficial,
+      user: { id: user.id, username: user.username },
+    });
 
     return new NextResponse(new Uint8Array(pdfBuffer), {
       status: 200,

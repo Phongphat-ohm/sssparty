@@ -140,6 +140,14 @@ export async function studentLoginAction(
 
     const settings = await getSystemSettings();
     if (settings.maintenance_mode) {
+      await createAuditLog({
+        username: (formData.get("studentCode") as string) || "STUDENT",
+        role: "STUDENT",
+        action: "LOGIN_BLOCKED_MAINTENANCE",
+        targetType: "AUTH",
+        details: `การเข้าสู่ระบบถูกปฏิเสธเนื่องจากเปิดโหมดบำรุงรักษา (Maintenance Mode): ${settings.maintenance_message}`,
+      });
+
       let timeInfo = "";
       if (settings.maintenance_expected_end) {
         const d = new Date(settings.maintenance_expected_end);

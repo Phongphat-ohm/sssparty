@@ -17,8 +17,6 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { PdfReportModal } from "@/components/admin/PdfReportModal";
-import { showCozyConfirm } from "@/lib/ui/swal";
-import { getNextReportCodeAction } from "@/actions/reports-history";
 
 export interface StudentSubmissionRow {
   studentId: string;
@@ -56,70 +54,8 @@ export function AssignmentSubmissionsClient({
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
-  const [reportDocCode, setReportDocCode] = useState<string>("");
 
-  const handlePrintReport = async () => {
-    const targetGroup =
-      selectedClass === "ALL" ? "นักเรียนทั้งหมดทุกห้อง" : `ห้อง ${selectedClass}`;
-
-    // ดึงรหัสเอกสารรันอัตโนมัติตามปีการศึกษาและจำนวนรายงานในระบบ (เช่น DOC-3S-2569-0001)
-    let defaultDocCode = "DOC-3S-2569-0001";
-    try {
-      const codeRes = await getNextReportCodeAction();
-      if (codeRes.success && codeRes.code) {
-        defaultDocCode = codeRes.code;
-      }
-    } catch {
-      // fallback
-    }
-
-    const result = await showCozyConfirm({
-      title: "ยืนยันการสร้างรายงานผลการส่งงาน",
-      html: `
-        <div class="text-left text-sm space-y-3 mt-2 text-[#5C4D3C]">
-          <div>
-            <span class="text-xs text-[#7A6A5C]">ชื่องาน:</span>
-            <p class="font-bold text-[#3F342B]">${assignmentTitle}</p>
-          </div>
-          <div>
-            <span class="text-xs text-[#7A6A5C]">กลุ่มเป้าหมาย:</span>
-            <p class="font-bold text-[#3F342B]">${targetGroup}</p>
-          </div>
-          <div class="pt-1">
-            <div class="flex items-center justify-between mb-1.5">
-              <span class="text-xs font-bold text-[#3F342B] flex items-center gap-1">
-                🔒 รหัสเอกสาร (Doc Code):
-              </span>
-              <span class="text-[10px] font-bold text-amber-800 bg-amber-100/70 px-2 py-0.5 rounded-full border border-amber-300">
-                ระบบสร้างอัตโนมัติ (ห้ามแก้ไข)
-              </span>
-            </div>
-            <div class="w-full px-3.5 py-2.5 text-xs font-mono font-black bg-[#FAF0E1]/80 border border-[#D9CABB] rounded-xl text-[#3F342B] tracking-wider select-all flex items-center justify-between shadow-2xs">
-              <span>${defaultDocCode}</span>
-              <span class="text-[10px] font-sans font-semibold text-[#7A6A5C] bg-white px-2 py-0.5 rounded-md border border-[#EADBCC]">
-                Official
-              </span>
-            </div>
-            <p class="text-[11px] text-[#A8988B] mt-1.5">
-              * รหัสเอกสารสร้างโดยระบบอัตโนมัติตามลำดับปีการศึกษา เพื่อความถูกต้องของเอกสารราชการและ QR Code (ไม่สามารถแก้ไขได้)
-            </p>
-          </div>
-          <div class="p-3 bg-[#FAF0E1] border border-[#EADBCC] rounded-xl text-xs text-[#8C5D23] leading-relaxed">
-            ℹ️ ระบบจะสร้างเอกสาร บันทึกประวัติในชื่อของคุณ และจัดเก็บบน Cloud Storage (S3) พร้อม QR Code ตรวจสอบ
-          </div>
-        </div>
-      `,
-      confirmText: "ยืนยันและสร้างรายงาน",
-      cancelText: "ยกเลิก",
-      icon: "info",
-    });
-
-    // ตรวจสอบอย่างรัดกุม: หากกดยกเลิกหรือปิดกล่อง จะไม่เปิด modal และไม่สร้าง PDF
-    if (!result.isConfirmed) {
-      return;
-    }
-
-    setReportDocCode(defaultDocCode);
+  const handlePrintReport = () => {
     setIsPdfModalOpen(true);
   };
 
@@ -465,10 +401,13 @@ export function AssignmentSubmissionsClient({
       <PdfReportModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
-        title={`รายงานสรุปผลการส่งงาน: ${assignmentTitle}${reportDocCode ? ` (${reportDocCode})` : ""}`}
-        filename={`รายงานผลการส่งงาน_${assignmentTitle}_${selectedClass === "ALL" ? "ทุกห้อง" : `ห้อง_${selectedClass}`}${reportDocCode ? `_${reportDocCode}` : ""}`}
+        title={`รายงานสรุปผลการส่งงาน: ${assignmentTitle}`}
+        filename={`รายงานผลการส่งงาน_${assignmentTitle}_${selectedClass === "ALL" ? "ทุกห้อง" : `ห้อง_${selectedClass}`}`}
         orientation="portrait"
-        pdfApiUrl={`/api/export/assignments/${assignmentId}/render?className=${selectedClass}${reportDocCode ? `&reportCode=${encodeURIComponent(reportDocCode)}` : ""}`}
+        pdfApiUrl={`/api/export/assignments/${assignmentId}/render?className=${selectedClass}&mode=preview`}
+        reportType="ASSIGNMENT"
+        assignmentId={assignmentId}
+        filterClass={selectedClass}
       />
     </div>
   );

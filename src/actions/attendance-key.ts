@@ -240,6 +240,15 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
     }
 
     if (!attendanceSession.isKeyActive || !attendanceSession.keySecret) {
+      await createAuditLog({
+        username: authSession.username,
+        role: "STUDENT",
+        action: "CHECK_IN_FAILED",
+        targetType: "ATTENDANCE",
+        targetId: sessionId,
+        details: `เช็กชื่อไม่สำเร็จ: รอบการเช็กชื่อ "${attendanceSession.title}" ไม่ได้เปิดรับ หรือปิดไปแล้ว`,
+      });
+
       return {
         success: false,
         message: "รอบการเช็กชื่อนี้ไม่ได้เปิดรับ หรือครูได้ปิดระบบไปแล้ว",
@@ -249,6 +258,15 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
     // 1. ตรวจสอบความถูกต้องของ Dynamic Key (มี Grace Window 30 วินาที)
     const verification = verifyDynamicKey(attendanceSession.keySecret, key);
     if (!verification.valid) {
+      await createAuditLog({
+        username: authSession.username,
+        role: "STUDENT",
+        action: "CHECK_IN_FAILED",
+        targetType: "ATTENDANCE",
+        targetId: sessionId,
+        details: `เช็กชื่อไม่สำเร็จ: รหัส Key "${key}" ไม่ถูกต้องหรือหมดอายุแล้ว (รอบ: "${attendanceSession.title}")`,
+      });
+
       return {
         success: false,
         message:

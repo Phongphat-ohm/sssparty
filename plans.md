@@ -450,9 +450,55 @@
      - ในโหมด **แบบการ์ด (Card)**: แสดงการ์ดข้อมูลแบบ Responsive Grid (1 คอลัมน์บนมือถือ, 2 คอลัมน์บนแท็บเล็ต, 3 คอลัมน์บนจอใหญ่) ใช้งานง่ายด้วยปุ่มสัมผัสขนาดใหญ่
   2. **การทดสอบ**: Next.js Production Build (`bun run build`) ผ่าน 100% ไร้ข้อผิดพลาด
 
+---
 
-
-
-
-
+### Phase 22 — Centralized Audit Logging Architecture & Pluggable Storage Drivers (PostgreSQL & Redis) ⏳ (In Progress)
+- **บริบทและปัญหาเดิม**:
+  1. การบันทึก Audit Log ในปัจจุบันยังกระจายอยู่ในฟังก์ชันต่างๆ แบบ Manual ทำให้เกิดช่องว่าง (Logging Gaps) ในหลายจุดสำคัญ เช่น การเปลี่ยนรหัสผ่านนักเรียน, การสแกน/กรอก Dynamic Key ล้มเหลว, การลบประวัติรายงานทางการออกจาก S3/DB, การตรวจแก้คะแนนย้อนหลังโดยไม่มี Diff, และการพยายามเข้าถึงไฟล์โดยมิชอบ
+  2. หากต้องการปรับปรุงฟิลด์หรือวิธีบันทึก ต้องแก้โค้ดซ้ำซ้อนในหลายสิบจุด เสี่ยงต่อ Human Error
+- **สถาปัตยกรรมหลัก (Centralized Middleware + Pluggable Driver)**:
+  1. **มิดเดิลแวร์กลาง (`src/lib/audit/audit-middleware.ts`)**:
+     - `auditAction<TResult>(config, actionFn)`: ห่อหุ้ม Server Actions ทุกตัว ดึง Session, IP, User-Agent และจับเวลาประมวลผล (`durationMs`) อัตโนมัติ
+     - ตรวจจับผลลัพธ์: หากสำเร็จบันทึกสถานะ Success + Diffs, หากไม่ผ่าน (`success: false`) บันทึก Failed อัตโนมัติ, และหากเกิด Exception บันทึก `SYSTEM_ERROR` พร้อม Stack Trace โดยไม่ทำให้ Client พัง
+     - `withAuditApi(config, routeHandler)`: ห่อหุ้ม API Routes สำหรับตรวจสอบความปลอดภัย
+  2. **Pluggable Storage Driver Pattern (`src/lib/audit/drivers/`)**:
+     - `AuditDriver` Interface: กำหนดสัญญาการบันทึก (`write`, `flush`)
+     - **Mode 1 (PostgresDriver - Default)**: บันทึกตรงลง PostgreSQL ผ่าน Prisma แบบ Asynchronous Non-blocking (User Latency = 0 ms, ข้อมูลไม่สูญหาย 100%, เห็นผลทันที)
+     - **Mode 2 (RedisBufferDriver - Optional High-Scale)**: พักข้อมูลใน Redis In-Memory List/Stream แล้วทำ Batch Ingestion (`createMany`) พร้อมระบบ Auto-fallback กลับมายัง Postgres ทันทีหาก Redis ขัดข้อง
+- **งานที่ต้องทำอย่างละเอียดตามโมดูล (Comprehensive Coverage)**:
+  1. **โมดูลความปลอดภัยบัญชี (Auth & Security)**:
+     - `changeStudentPasswordAction`: บันทึก `PASSWORD_CHANGE_SUCCESS` และกรณีรหัสเดิมผิด `PASSWORD_CHANGE_FAILED`
+     - `changeAdminPasswordAction`: บันทึกกรณีรหัสเดิมผิด `PASSWORD_CHANGE_FAILED`
+     - `adminLoginAction` & `studentLoginAction`: บันทึกกรณีถูกปฏิเสธเมื่อเปิดโหมด Maintenance
+     - `logoutAction`: บันทึกการออกจากระบบพร้อมระบุ Role และ Username
+  2. **โมดูลการเช็กชื่อและ Dynamic Key (Attendance & Key)**:
+     - `studentCheckInAction`: บันทึก `CHECK_IN_FAILED` เมื่อคีย์ผิด, คีย์หมดอายุ, ปิดรับการเช็กชื่อ, หรืออยู่นอกพื้นที่ Geofence พร้อมระบุเหตุผลและระยะห่าง (เมตร)
+     - `batchMarkUncheckedAbsentAction`: บันทึก `BATCH_MARK_ABSENT` พร้อมจำนวนนักเรียนที่ถูกปรับสถานะ
+     - `updateSessionClassroomLocationAction`: บันทึก `UPDATE_GEOFENCE` พิกัดและรัศมีใหม่
+     - `updateAttendanceBatchAction` & `markAllAttendanceStatusAction`: บันทึกข้อมูลก่อนและหลังปรับปรุง
+  3. **โมดูลการบ้านและการตรวจงาน (Assignments, Submissions & Grading)**:
+     - `saveGradeAction`: แยกการตรวจครั้งแรก (`GRADE_SUBMISSION`) และการแก้ไขคะแนนย้อนหลัง (`UPDATE_GRADE`) พร้อมบันทึก Score Diff (`previousScore -> newScore`)
+     - `submitAssignmentAction`: บันทึกการกดยืนยันส่งงาน (Turn In) และการบันทึกแบบร่าง (Draft)
+     - `createAssignmentAction`, `updateAssignmentAction`, `toggleAssignmentStatusAction`, `deleteAssignmentAction`: บันทึกรายละเอียดครบถ้วน
+  4. **โมดูลจัดการผู้ใช้และนักเรียน (Users & Students)**:
+     - `updateUserAction`: บันทึก Permission Diff (`addedPermissions`, `removedPermissions`) และการเปลี่ยนบทบาท (`oldRole -> newRole`)
+     - `createUserAction`, `resetUserPasswordAction`, `toggleUserStatusAction`, `deleteUserAction`: บันทึกการดำเนินการและผู้ถูกกระทำ
+     - `createStudentAction`, `updateStudentAction` (Diff การเปลี่ยนห้อง/เลขที่), `toggleStudentStatusAction`, `importStudentsAction` (จำนวนที่นำเข้า)
+  5. **โมดูลรายงานทางการและ Cloud S3 (Reports & S3)**:
+     - `saveOfficialAssignmentReportAction`, `saveOfficialAttendanceReportAction`, `saveOfficialEvaluationReportAction`: บันทึก `SAVE_OFFICIAL_REPORT` พร้อมรหัสเอกสารและ S3 Key
+     - `deleteGeneratedReportAction`: บันทึก `DELETE_OFFICIAL_REPORT` พร้อมรายละเอียดเอกสารก่อนลบออกจากระบบ
+  6. **โมดูลความปลอดภัยของไฟล์และ API Protection (Security Defense)**:
+     - `/api/files/[...path]`: ดักจับ Path Traversal (`..`) และการพยายามเข้าถึงไฟล์นักเรียนคนอื่น (IDOR) บันทึก `UNAUTHORIZED_ACCESS`
+     - `/api/upload`: บันทึก `FILE_UPLOAD`
+     - `/api/export/*`: บันทึก `EXPORT_CSV`, `EXPORT_GRADEBOOK`
+  7. **โมดูลแสดงผลประวัติในฝั่งผู้ดูแลระบบ (`/admin/logs`)**:
+     - `AuditLogsClient.tsx`: เพิ่มตัวกรองแยก 5 หมวดหมู่หลัก (ความปลอดภัย, เช็กชื่อ, ตรวจงาน, สิทธิ์/ผู้ใช้, รายงานราชการ)
+     - แสดง Badge และไอคอนแยกตามระดับความสำคัญ (Success, Warning/Failed, Delete/Critical)
+     - แสดงรายละเอียดแบบ JSON Viewer พร้อมแท็กแสดงข้อมูลเปรียบเทียบก่อน-หลัง (Diff Display)
+     - เพิ่มปุ่มส่งออกข้อมูลประวัติการใช้งาน (Export Audit Logs .csv)
+- **การทดสอบและตรวจสอบ**:
+  - ทดสอบการทำงานของมิดเดิลแวร์และ Driver ทั้งกรณี Success, Rejection, Exception
+  - ทดสอบว่า User Latency ไม่ได้รับผลกระทบ (Non-blocking ทำงานสมบูรณ์)
+  - ทดสอบ TypeScript Type Check (`bun x tsc --noEmit`) ผ่าน 100%
+  - ทดสอบ Next.js Production Build (`bun run build`) ผ่าน 100%
 

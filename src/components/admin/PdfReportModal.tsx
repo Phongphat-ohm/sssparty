@@ -1,10 +1,28 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { X, Printer, Download, ExternalLink, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import {
+  X,
+  Printer,
+  Download,
+  ExternalLink,
+  Loader2,
+  AlertCircle,
+  RefreshCw,
+  Save,
+  CheckCircle2,
+  Clock,
+  ShieldCheck,
+} from "lucide-react";
 import { printDirectDocument } from "@/lib/export/print-helper";
+import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import {
+  saveOfficialAssignmentReportAction,
+  saveOfficialAttendanceReportAction,
+  saveOfficialEvaluationReportAction,
+} from "@/actions/report-actions";
 
-interface PdfReportModalProps {
+export interface PdfReportModalProps {
   isOpen: boolean;
   onClose: () => void;
   title: string;
@@ -12,6 +30,12 @@ interface PdfReportModalProps {
   orientation?: "portrait" | "landscape";
   pdfApiUrl?: string;
   htmlContent?: string;
+  reportType?: "ASSIGNMENT" | "ATTENDANCE" | "EVALUATION";
+  assignmentId?: string;
+  sessionId?: string;
+  filterClass?: string;
+  isAlreadyOfficial?: boolean;
+  onSavedOfficial?: (reportCode: string, fileUrl?: string | null) => void;
 }
 
 export function PdfReportModal({
@@ -22,13 +46,34 @@ export function PdfReportModal({
   orientation = "portrait",
   pdfApiUrl,
   htmlContent,
+  reportType,
+  assignmentId,
+  sessionId,
+  filterClass = "ALL",
+  isAlreadyOfficial = false,
+  onSavedOfficial,
 }: PdfReportModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pdfBlobUrl, setPdfBlobUrl] = useState<string | null>(null);
+  const [currentFetchUrl, setCurrentFetchUrl] = useState<string | undefined>(pdfApiUrl);
+
+  const [isOfficialSaved, setIsOfficialSaved] = useState<boolean>(isAlreadyOfficial);
+  const [officialCode, setOfficialCode] = useState<string | null>(null);
+  const [savingOfficial, setSavingOfficial] = useState(false);
+
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // ล็อกไม่ให้หน้าเว็บด้านหลังเลื่อน (Lock body scroll) ขณะเปิด Modal
+  // Sync isAlreadyOfficial & pdfApiUrl when opened
+  useEffect(() => {
+    if (isOpen) {
+      setIsOfficialSaved(Boolean(isAlreadyOfficial));
+      setOfficialCode(null);
+      setCurrentFetchUrl(pdfApiUrl);
+    }
+  }, [isOpen, isAlreadyOfficial, pdfApiUrl]);
+
+  // Lock body scroll
   useEffect(() => {
     if (isOpen) {
       const originalOverflow = document.body.style.overflow;
@@ -39,15 +84,16 @@ export function PdfReportModal({
     }
   }, [isOpen]);
 
-  // ฟังก์ชันดาวน์โหลด / โหลด PDF จาก pdfApiUrl
-  const fetchPdf = async () => {
-    if (!pdfApiUrl) return;
+  // Fetch PDF blob from active URL
+  const fetchPdf = useCallback(async (urlToFetch?: string) => {
+    const targetUrl = urlToFetch || currentFetchUrl;
+    if (!targetUrl) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const res = await fetch(pdfApiUrl);
+      const res = await fetch(targetUrl);
       if (!res.ok) {
         const errJson = await res.json().catch(() => null);
         throw new Error(
@@ -64,12 +110,11 @@ export function PdfReportModal({
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentFetchUrl]);
 
-  // ดึง PDF เมื่อเปิด Modal และมี pdfApiUrl
   useEffect(() => {
-    if (isOpen && pdfApiUrl) {
-      fetchPdf();
+    if (isOpen && currentFetchUrl) {
+      fetchPdf(currentFetchUrl);
     }
 
     return () => {
@@ -78,11 +123,121 @@ export function PdfReportModal({
         setPdfBlobUrl(null);
       }
     };
-  }, [isOpen, pdfApiUrl]);
+  }, [isOpen, currentFetchUrl, fetchPdf]);
+
+  // Action บันทึกรายงานฉบับสมบูรณ์ (Official) ลง Cloud S3
+  const handleSaveOfficial = async () => {
+    if (!reportType) return;
+
+    const confirmed = await showCozyConfirm({
+      title: "ยืนยันบันทึกรายงานฉบับสมบูรณ์",
+      html: `
+        <div class="text-left text-sm space-y-2.5 text-[#5C4D3C] mt-2">
+          <p class="leading-relaxed font-semibold text-[#3F342B]">
+            ระบบจะดำเนินการสร้างเอกสารฉบับสมบูรณ์และจัดเก็บถาวร:
+          </p>
+          <ul class="list-disc list-inside space-y-1.5 text-xs text-[#7A6A5C] bg-[#FAF0E1]/80 p-3 rounded-xl border border-[#EADBCC]">
+            <li>ออกรหัสเอกสารราชการทางการ (เช่น <b>DOC-3S-2569-xxxx</b>)</li>
+            <li>สร้างและฝัง <b>QR Code ตรวจสอบความถูกต้องของเอกสาร</b></li>
+            <li>อัปโหลดไฟล์ PDF ฉบับทางการจัดเก็บลง <b>Cloud Storage (S3)</b></li>
+            <li>บันทึกประวัติการสร้างเอกสารและ Audit Log ในระบบ</li>
+          </ul>
+          <p class="text-[11px] text-[#A8988B] italic">
+            * หลังจากบันทึกแล้ว เอกสารจะสามารถสแกน QR Code เพื่อตรวจสอบผลได้ทันที
+          </p>
+        </div>
+      `,
+      confirmText: "💾 บันทึกรายงานฉบับสมบูรณ์",
+      cancelText: "ยกเลิก",
+      icon: "info",
+    });
+
+    if (!confirmed) return;
+
+    setSavingOfficial(true);
+    try {
+      let res: {
+        success: boolean;
+        message: string;
+        reportCode?: string;
+        fileUrl?: string | null;
+        fileName?: string;
+      };
+
+      if (reportType === "ASSIGNMENT") {
+        if (!assignmentId) throw new Error("ไม่พบรหัสภาระงาน (Assignment ID)");
+        res = await saveOfficialAssignmentReportAction({
+          assignmentId,
+          filterClass,
+        });
+      } else if (reportType === "ATTENDANCE") {
+        if (!sessionId) throw new Error("ไม่พบรหัสรอบการเช็กชื่อ (Session ID)");
+        res = await saveOfficialAttendanceReportAction({
+          sessionId,
+          filterClass,
+        });
+      } else if (reportType === "EVALUATION") {
+        res = await saveOfficialEvaluationReportAction({
+          filterClass,
+        });
+      } else {
+        throw new Error("ประเภทรายงานไม่ถูกต้อง");
+      }
+
+      if (res.success && res.reportCode) {
+        setIsOfficialSaved(true);
+        setOfficialCode(res.reportCode);
+
+        // Update PDF to show official version with QR Code
+        let officialUrl = res.fileUrl;
+        if (!officialUrl && pdfApiUrl) {
+          officialUrl = pdfApiUrl.includes("mode=")
+            ? pdfApiUrl.replace(/mode=[^&]+/, "mode=official")
+            : `${pdfApiUrl}${pdfApiUrl.includes("?") ? "&" : "?"}mode=official`;
+        }
+
+        if (officialUrl) {
+          setCurrentFetchUrl(officialUrl);
+          fetchPdf(officialUrl);
+        }
+
+        onSavedOfficial?.(res.reportCode, res.fileUrl);
+
+        await showCozySuccess({
+          title: "บันทึกรายงานฉบับสมบูรณ์สำเร็จ!",
+          html: `
+            <div class="text-left text-sm space-y-2 text-[#5C4D3C] mt-2">
+              <p>ระบบได้ออกรหัสเอกสารทางการและบันทึกข้อมูลเรียบร้อยแล้ว:</p>
+              <div class="p-3 bg-[#FAF0E1] border border-[#EADBCC] rounded-xl flex items-center justify-between">
+                <span class="text-xs text-[#7A6A5C]">รหัสเอกสาร:</span>
+                <span class="font-mono font-bold text-amber-800 text-sm tracking-wider">${res.reportCode}</span>
+              </div>
+              <p class="text-xs text-[#7A6A5C]">
+                เอกสารมี QR Code ตรวจสอบความถูกต้องและจัดเก็บบน Cloud S3 เรียบร้อยแล้ว
+              </p>
+            </div>
+          `,
+        });
+      } else {
+        await showCozyError({
+          title: "ไม่สามารถบันทึกรายงานได้",
+          text: res.message || "เกิดข้อผิดพลาดในการบันทึกรายงานฉบับสมบูรณ์",
+        });
+      }
+    } catch (err: any) {
+      console.error("Save official report error:", err);
+      await showCozyError({
+        title: "เกิดข้อผิดพลาด",
+        text: err?.message || "ไม่สามารถดำเนินการบันทึกรายงานได้",
+      });
+    } finally {
+      setSavingOfficial(false);
+    }
+  };
 
   if (!isOpen) return null;
 
-  // การสั่งพิมพ์
+  // Print handler
   const handlePrint = () => {
     if (pdfBlobUrl && iframeRef.current) {
       try {
@@ -101,18 +256,19 @@ export function PdfReportModal({
     }
   };
 
-  // การดาวน์โหลดไฟล์ PDF
+  // Download handler
   const handleDownload = () => {
     if (!pdfBlobUrl) return;
+    const downloadName = officialCode ? `${officialCode}_${filename}` : filename;
     const a = document.createElement("a");
     a.href = pdfBlobUrl;
-    a.download = filename.endsWith(".pdf") ? filename : `${filename}.pdf`;
+    a.download = downloadName.endsWith(".pdf") ? downloadName : `${downloadName}.pdf`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
   };
 
-  // เปิดในแท็บใหม่
+  // Open in new tab
   const handleOpenNewTab = () => {
     if (pdfBlobUrl) {
       window.open(pdfBlobUrl, "_blank");
@@ -126,27 +282,76 @@ export function PdfReportModal({
       {/* Container Dialog */}
       <div className="relative w-full max-w-6xl h-[94vh] max-h-[94vh] bg-[#FAF6F0] rounded-3xl shadow-2xl border border-[#EADBCC] flex flex-col overflow-hidden">
         {/* Top Control Bar (Fixed) */}
-        <div className="flex items-center justify-between px-5 sm:px-6 py-3.5 bg-white border-b border-[#EADBCC] shadow-2xs shrink-0 z-20">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between px-5 sm:px-6 py-3.5 bg-white border-b border-[#EADBCC] shadow-2xs shrink-0 z-20 gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center font-bold text-xs shadow-xs font-sarabun">
+            <div className="w-9 h-9 rounded-xl bg-[#111111] text-white flex items-center justify-center font-bold text-xs shadow-xs font-sarabun shrink-0">
               PDF
             </div>
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-[#111111] flex items-center gap-2">
-                <span>{title}</span>
-                {pdfApiUrl && (
+              <div className="flex items-center flex-wrap gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-[#111111]">{title}</h2>
+
+                {/* Status Badge: Official vs Preview */}
+                {isOfficialSaved ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-bold border border-emerald-300">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>ฉบับทางการ (Official){officialCode ? `: ${officialCode}` : ""}</span>
+                  </span>
+                ) : reportType ? (
+                  <span className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 font-bold border border-amber-300">
+                    <Clock className="w-3 h-3 text-amber-600" />
+                    <span>ฉบับร่าง (Preview) – ยังไม่บันทึก S3</span>
+                  </span>
+                ) : (
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-medium">
                     PDF Engine
                   </span>
                 )}
-              </h2>
-              <p className="text-[11px] text-[#666666]">
+              </div>
+              <p className="text-[11px] text-[#666666] mt-0.5">
                 เอกสารทางการขาว-ดำ (Font: TH Sarabun New) ขนาด A4 ({isLandscape ? "แนวนอน Landscape" : "แนวตั้ง Portrait"})
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center flex-wrap gap-2">
+            {/* Action: Save Official Report Button (Visible when in preview mode) */}
+            {reportType && !isOfficialSaved && (
+              <button
+                type="button"
+                onClick={handleSaveOfficial}
+                disabled={savingOfficial || loading}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-50 border border-amber-700"
+                title="บันทึกรายงานฉบับสมบูรณ์ลง S3 และออกรหัสรายงานพร้อม QR Code"
+              >
+                {savingOfficial ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>กำลังบันทึก S3...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span>บันทึกรายงานฉบับสมบูรณ์ (ลง S3 & QR Code)</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* Action: Verify Official Report Link */}
+            {isOfficialSaved && officialCode && (
+              <a
+                href={`/verify/${officialCode}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 active:scale-95 transition-all"
+                title="ตรวจสอบ QR Code และสถานะเอกสาร"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">ตรวจสอบ QR Code</span>
+              </a>
+            )}
+
             {/* Download Button */}
             {pdfBlobUrl && !loading && (
               <button
@@ -156,7 +361,7 @@ export function PdfReportModal({
                 title="ดาวน์โหลดไฟล์ PDF เก็บไว้ในเครื่อง"
               >
                 <Download className="w-3.5 h-3.5 text-[#8C5D23]" />
-                <span>ดาวน์โหลด PDF</span>
+                <span className="hidden sm:inline">ดาวน์โหลด</span> PDF
               </button>
             )}
 
@@ -169,7 +374,7 @@ export function PdfReportModal({
                 title="เปิดเอกสาร PDF ในแท็บใหม่เต็มจอ"
               >
                 <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">เปิดแท็บใหม่</span>
+                <span className="hidden md:inline">เปิดแท็บใหม่</span>
               </button>
             )}
 
@@ -178,8 +383,8 @@ export function PdfReportModal({
               <button
                 type="button"
                 onClick={handlePrint}
-                disabled={Boolean(loading || (pdfApiUrl && !pdfBlobUrl))}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#111111] hover:bg-[#333333] active:scale-95 transition-all cursor-pointer shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={Boolean(loading || (currentFetchUrl && !pdfBlobUrl))}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-[#111111] hover:bg-[#333333] active:scale-95 transition-all cursor-pointer shadow-xs disabled:opacity-50 disabled:cursor-not-allowed"
                 title="สั่งพิมพ์เอกสารทันที"
               >
                 <Printer className="w-4 h-4" />
@@ -201,17 +406,17 @@ export function PdfReportModal({
 
         {/* Modal Body Area */}
         <div className="flex-1 min-h-0 w-full p-2 sm:p-4 bg-[#8C867A] flex flex-col items-center justify-center overflow-hidden">
-          {/* กรณี 1: กำลังสร้างเอกสาร (Loading State) */}
+          {/* Loading State */}
           {loading && (
             <div className="flex flex-col items-center justify-center p-8 text-center bg-white/95 rounded-3xl shadow-2xl border border-white/50 max-w-md w-full animate-fadeIn">
               <div className="w-16 h-16 rounded-2xl bg-[#FAF0E1] flex items-center justify-center text-[#8C5D23] mb-4 shadow-xs">
                 <Loader2 className="w-8 h-8 animate-spin" />
               </div>
               <h3 className="text-base font-bold text-[#111111] mb-1">
-                กำลังสร้างเอกสารรายงานทางการ...
+                {savingOfficial ? "กำลังจัดทำรายงานฉบับทางการ..." : "กำลังสร้างตัวอย่างเอกสารรายงาน..."}
               </h3>
               <p className="text-xs text-[#666666] leading-relaxed mb-4">
-                ระบบกำลังจัดเตรียมและประมวลผลเอกสาร PDF ทางการตามมาตรฐานแบบฟอร์ม
+                ระบบกำลังเรนเดอร์เอกสาร PDF ผ่าน Engine ภายในเครื่องตามมาตรฐานแบบฟอร์ม
               </p>
               <div className="w-full bg-[#FAF6F0] rounded-full h-1.5 overflow-hidden">
                 <div className="bg-[#D9A441] h-full w-2/3 animate-pulse rounded-full" />
@@ -219,7 +424,7 @@ export function PdfReportModal({
             </div>
           )}
 
-          {/* กรณี 2: เกิดข้อผิดพลาด (Error State) */}
+          {/* Error State */}
           {!loading && error && (
             <div className="flex flex-col items-center justify-center p-8 text-center bg-white rounded-3xl shadow-2xl border border-rose-200 max-w-md w-full animate-fadeIn">
               <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-3">
@@ -233,7 +438,7 @@ export function PdfReportModal({
               </p>
               <button
                 type="button"
-                onClick={fetchPdf}
+                onClick={() => fetchPdf()}
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white bg-[#111111] hover:bg-[#333333] transition-all cursor-pointer shadow-xs"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
@@ -242,7 +447,7 @@ export function PdfReportModal({
             </div>
           )}
 
-          {/* กรณี 3: แสดงผลเอกสาร PDF ผ่าน <iframe> */}
+          {/* Render PDF via <iframe> */}
           {!loading && !error && pdfBlobUrl && (
             <div className="w-full h-full rounded-2xl overflow-hidden shadow-2xl bg-white flex flex-col">
               <iframe
@@ -254,8 +459,8 @@ export function PdfReportModal({
             </div>
           )}
 
-          {/* กรณี 4: Fallback แสดงผล HTML Paper Sheet เมื่อไม่มี pdfApiUrl */}
-          {!pdfApiUrl && htmlContent && (
+          {/* Fallback HTML paper sheet */}
+          {!currentFetchUrl && htmlContent && (
             <div className="w-full h-full overflow-y-auto overflow-x-auto p-2 sm:p-6 select-text">
               <div className="w-fit mx-auto py-2 sm:py-4">
                 <div
@@ -279,9 +484,16 @@ export function PdfReportModal({
           )}
         </div>
 
-        {/* Bottom Hint Footer (Fixed) */}
-        <div className="px-6 py-2.5 bg-white border-t border-[#EADBCC] text-center text-[11px] sm:text-xs text-[#555555] shrink-0 z-20">
-          💡 <strong>คำแนะนำ:</strong> สามารถซูม, ค้นหา, บันทึกเป็นไฟล์ PDF หรือสั่งพิมพ์ได้จากแถบเครื่องมือของเอกสารในหน้านี้โดยตรง
+        {/* Bottom Hint Footer */}
+        <div className="px-6 py-2.5 bg-white border-t border-[#EADBCC] flex flex-col sm:flex-row items-center justify-between text-[11px] sm:text-xs text-[#555555] shrink-0 z-20 gap-2">
+          <span>
+            💡 <strong>คำแนะนำ:</strong> สามารถซูม, ค้นหา, บันทึกเป็นไฟล์ PDF หรือสั่งพิมพ์ได้จากแถบเครื่องมือของเอกสาร
+          </span>
+          {reportType && !isOfficialSaved && (
+            <span className="text-amber-800 font-semibold bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200">
+              📌 หากต้องการออกรหัสราชการและ QR Code ให้กดปุ่ม <strong>"บันทึกรายงานฉบับสมบูรณ์"</strong> ด้านบน
+            </span>
+          )}
         </div>
       </div>
     </div>
