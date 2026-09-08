@@ -15,12 +15,17 @@ import {
   ArrowUp,
   ArrowDown,
   FileSpreadsheet,
-  FileText,
   Printer,
   Loader2,
+  MoreVertical,
+  Download,
+  Lock,
+  Globe,
+  RotateCcw,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import {
   toggleAssignmentStatusAction,
   deleteAssignmentAction,
@@ -179,30 +184,33 @@ export function AdminAssignmentsClient({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <a
-            href="/api/export/gradebook"
-            download
-            title="ส่งออกสมุดคะแนนรวมทุกการบ้านเป็นไฟล์ Excel/CSV"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition-all shadow-2xs"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Export สมุดคะแนน (.csv)</span>
-          </a>
-
-          <button
-            type="button"
-            onClick={handleOpenEvaluationPdf}
-            disabled={isLoadingEvaluationReport}
-            title="พรีวิวและพิมพ์รายงานสรุปผลการเรียนและเวลาเรียน / บันทึกเป็น PDF (A4 แนวนอน)"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2.5 rounded-xl font-semibold text-xs text-[#3F342B] bg-[#FAF0E1] hover:bg-[#3F342B] hover:text-white border border-[#D9CABB] active:scale-95 disabled:opacity-60 transition-all shadow-2xs cursor-pointer"
-          >
-            {isLoadingEvaluationReport ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Printer className="w-4 h-4" />
-            )}
-            <span>พิมพ์รายงานผลการเรียน (Print / PDF)</span>
-          </button>
+          {/* Export & Report Dropdown */}
+          <ActionDropdown
+            label="ส่งออก & รายงาน"
+            icon={Download}
+            menuWidth="w-64"
+            groups={[
+              {
+                title: "รายงานและสมุดคะแนน",
+                items: [
+                  {
+                    label: "พิมพ์รายงานผลการเรียน (Print / PDF)",
+                    subLabel: "พรีวิว/พิมพ์รายงานสรุปเวลาเรียนและคะแนน A4 แนวนอน",
+                    icon: Printer,
+                    onClick: handleOpenEvaluationPdf,
+                    disabled: isLoadingEvaluationReport,
+                  },
+                  {
+                    label: "ส่งออกสมุดคะแนน (.csv)",
+                    subLabel: "ดาวน์โหลดคะแนนรวมทุกการบ้านเป็น Excel/CSV",
+                    icon: FileSpreadsheet,
+                    href: "/api/export/gradebook",
+                    download: true,
+                  },
+                ],
+              },
+            ]}
+          />
 
           <Link
             href="/admin/assignments/new"
@@ -413,59 +421,78 @@ export function AdminAssignmentsClient({
                       </strong>
                     </span>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-2">
                       <Link
                         href={`/admin/assignments/${assignment.id}/submissions`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#FAF0E1] text-[#8C5D23] hover:bg-[#F2DFC6] transition-colors"
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-[#FAF0E1] text-[#8C5D23] hover:bg-[#F2DFC6] transition-colors shadow-2xs"
                       >
                         <FileCheck2 className="w-3.5 h-3.5" />
                         ตรวจงาน ({assignment.submissionsCount})
                       </Link>
 
-                      <Link
-                        href={`/admin/assignments/${assignment.id}/edit`}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#D9CABB] text-[#5A4D41] hover:border-[#D9A441] transition-colors"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        แก้ไข
-                      </Link>
-
-                      {assignment.status === "DRAFT" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(assignment.id, "PUBLISHED")}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
-                        >
-                          เผยแพร่งาน
-                        </button>
-                      ) : assignment.status === "PUBLISHED" ? (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(assignment.id, "CLOSED")}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-stone-50 text-stone-700 border border-stone-200 hover:bg-stone-100 transition-colors cursor-pointer"
-                        >
-                          ปิดรับงาน
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => handleToggleStatus(assignment.id, "PUBLISHED")}
-                          className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
-                        >
-                          เปิดรับงานอีกครั้ง
-                        </button>
-                      )}
-
-                      {assignment.submissionsCount === 0 && (
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(assignment.id, assignment.title)}
-                          className="p-2 rounded-xl text-[#B94E48] hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
-                          title="ลบการบ้านนี้"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <ActionDropdown
+                        align="right"
+                        triggerVariant="icon"
+                        triggerTitle="เมนูจัดการการบ้าน"
+                        groups={[
+                          {
+                            title: "การจัดการการบ้าน",
+                            items: [
+                              {
+                                label: "แก้ไขการบ้าน",
+                                subLabel: "ปรับปรุงหัวข้อ รายละเอียด และเกณฑ์",
+                                icon: <Edit3 className="w-4 h-4 text-[#8C5D23]" />,
+                                href: `/admin/assignments/${assignment.id}/edit`,
+                              },
+                              ...(assignment.status === "DRAFT"
+                                ? [
+                                    {
+                                      label: "เผยแพร่งาน",
+                                      subLabel: "เปิดให้นักเรียนเห็นและส่งงานได้",
+                                      icon: <Globe className="w-4 h-4 text-emerald-600" />,
+                                      variant: "success" as const,
+                                      onClick: () => handleToggleStatus(assignment.id, "PUBLISHED"),
+                                    },
+                                  ]
+                                : assignment.status === "PUBLISHED"
+                                ? [
+                                    {
+                                      label: "ปิดรับงาน",
+                                      subLabel: "ระงับการส่งงานชั่วคราว",
+                                      icon: <Lock className="w-4 h-4 text-amber-600" />,
+                                      variant: "warning" as const,
+                                      onClick: () => handleToggleStatus(assignment.id, "CLOSED"),
+                                    },
+                                  ]
+                                : [
+                                    {
+                                      label: "เปิดรับงานอีกครั้ง",
+                                      subLabel: "เปิดให้นักเรียนส่งงานต่อได้",
+                                      icon: <RotateCcw className="w-4 h-4 text-emerald-600" />,
+                                      variant: "success" as const,
+                                      onClick: () => handleToggleStatus(assignment.id, "PUBLISHED"),
+                                    },
+                                  ]),
+                            ],
+                          },
+                          ...(assignment.submissionsCount === 0
+                            ? [
+                                {
+                                  title: "การจัดการขั้นสูง",
+                                  items: [
+                                    {
+                                      label: "ลบการบ้านนี้",
+                                      subLabel: "ลบการบ้านที่ยังไม่มีผู้ส่งงาน",
+                                      icon: <Trash2 className="w-4 h-4 text-rose-500" />,
+                                      variant: "danger" as const,
+                                      onClick: () => handleDelete(assignment.id, assignment.title),
+                                    },
+                                  ],
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </div>
                   </div>
                 </div>

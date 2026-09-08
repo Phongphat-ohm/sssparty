@@ -15,6 +15,7 @@ import {
   User,
   ShieldCheck,
   FileCheck,
+  MoreVertical,
 } from "lucide-react";
 import {
   GeneratedReportItem,
@@ -23,6 +24,7 @@ import {
 } from "@/actions/reports-history";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { PdfReportModal } from "@/components/admin/PdfReportModal";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 
 interface ReportHistoryClientProps {
@@ -341,43 +343,56 @@ export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
                           type="button"
                           onClick={() => setPreviewReport(report)}
                           title="เปิดดูรายงาน PDF ในหน้าต่างนี้"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-[#FAF0E1] text-[#3F342B] border border-[#EADBCC] hover:bg-[#3F342B] hover:text-white transition-all shadow-2xs cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FAF0E1] text-[#8C5D23] hover:bg-[#F2DFC6] transition-colors shadow-2xs cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span className="hidden sm:inline">ดูตัวอย่าง</span>
+                          <span>ดูตัวอย่าง</span>
                         </button>
 
-                        {/* หน้าตรวจสอบ QR Verify */}
-                        <a
-                          href={`/verify/${report.reportCode}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="เปิดหน้าตรวจความถูกต้องของเอกสาร (QR Verification)"
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs"
-                        >
-                          <ShieldCheck className="w-3.5 h-3.5" />
-                          <span className="hidden md:inline">ตรวจสอบ</span>
-                        </a>
-
-                        {/* ดาวน์โหลดจาก S3 */}
-                        <a
-                          href={report.fileUrl}
-                          download
-                          title="ดาวน์โหลดไฟล์ PDF จาก Cloud Storage (S3)"
-                          className="p-1.5 rounded-lg text-[#7A6A5C] hover:text-[#3F342B] hover:bg-[#FAF0E1] border border-transparent hover:border-[#EADBCC] transition-all cursor-pointer"
-                        >
-                          <Download className="w-4 h-4" />
-                        </a>
-
-                        {/* ลบประวัติรายงาน */}
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(report)}
-                          title="ลบประวัติและไฟล์รายงาน"
-                          className="p-1.5 rounded-lg text-[#A8988B] hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-all cursor-pointer"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
+                        <ActionDropdown
+                          align="right"
+                          triggerVariant="icon"
+                          triggerTitle="เมนูจัดการเอกสาร"
+                          groups={[
+                            {
+                              title: "ตรวจสอบ & ดาวน์โหลด",
+                              items: [
+                                {
+                                  label: "ตรวจสอบเอกสาร (QR Verify)",
+                                  subLabel: "เปิดหน้าตรวจสถานะและความถูกต้องของเอกสาร",
+                                  icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />,
+                                  href: `/verify/${report.reportCode}`,
+                                  target: "_blank",
+                                },
+                                {
+                                  label: "ดาวน์โหลดไฟล์ PDF",
+                                  subLabel: "ดาวน์โหลดไฟล์จาก Cloud S3",
+                                  icon: <Download className="w-4 h-4 text-[#8C5D23]" />,
+                                  href: report.fileUrl,
+                                  download: true,
+                                },
+                                {
+                                  label: "คัดลอกรหัสเอกสาร",
+                                  subLabel: `รหัส: ${report.reportCode}`,
+                                  icon: <Copy className="w-4 h-4 text-[#5A4D41]" />,
+                                  onClick: () => handleCopyCode(report.reportCode),
+                                },
+                              ],
+                            },
+                            {
+                              title: "การจัดการ",
+                              items: [
+                                {
+                                  label: "ลบประวัติรายงานนี้",
+                                  subLabel: "ลบไฟล์และประวัติออกจากระบบถาวร",
+                                  icon: <Trash2 className="w-4 h-4 text-rose-500" />,
+                                  variant: "danger" as const,
+                                  onClick: () => handleDelete(report),
+                                },
+                              ],
+                            },
+                          ]}
+                        />
                       </div>
                     </td>
                   </tr>

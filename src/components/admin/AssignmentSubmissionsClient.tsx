@@ -14,9 +14,11 @@ import {
   FileText,
   Printer,
   RotateCcw,
+  Archive,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { PdfReportModal } from "@/components/admin/PdfReportModal";
 
 export interface StudentSubmissionRow {
@@ -159,38 +161,39 @@ export function AssignmentSubmissionsClient({
 
           {/* Action buttons & Search */}
           <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-            {/* Download Submissions as ZIP */}
-            <a
-              href={`/api/assignments/${assignmentId}/download-zip?className=${selectedClass}`}
-              download
-              title="ดาวน์โหลดไฟล์งานทั้งหมดของนักเรียนในห้องที่เลือกเป็น ZIP"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FAF0E1] text-[#8C5D23] border border-[#EADBCC] hover:bg-[#D9A441] hover:text-white transition-all shadow-2xs"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>ดาวน์โหลด ZIP</span>
-            </a>
-
-            {/* Export Grades as CSV */}
-            <a
-              href={`/api/export/assignments/${assignmentId}?className=${selectedClass}`}
-              download
-              title="ส่งออกคะแนนและสถานะการส่งงานเป็นไฟล์ Excel/CSV"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-600 hover:text-white transition-all shadow-2xs"
-            >
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              <span>Export CSV</span>
-            </a>
-
-            {/* Print / Export Report */}
-            <button
-              type="button"
-              onClick={handlePrintReport}
-              title="เปิดพรีวิวและพิมพ์รายงานการส่งงาน / บันทึกเป็น PDF"
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-[#FAF0E1] text-[#3F342B] border border-[#D9CABB] hover:bg-[#3F342B] hover:text-white transition-all shadow-2xs cursor-pointer"
-            >
-              <Printer className="w-3.5 h-3.5" />
-              <span>พิมพ์รายงาน (Print / PDF)</span>
-            </button>
+            {/* Export & Print Dropdown */}
+            <ActionDropdown
+              label="ส่งออก & รายงาน"
+              icon={Download}
+              menuWidth="w-64"
+              groups={[
+                {
+                  title: "ดาวน์โหลดและรายงานผล",
+                  items: [
+                    {
+                      label: "พิมพ์รายงานผลการส่งงาน (PDF)",
+                      subLabel: "พรีวิว/พิมพ์ใบคะแนนและรายงานสรุป",
+                      icon: Printer,
+                      onClick: handlePrintReport,
+                    },
+                    {
+                      label: "ส่งออกคะแนน (CSV)",
+                      subLabel: "ดาวน์โหลดคะแนนและสถานะเป็นไฟล์ Excel/CSV",
+                      icon: FileSpreadsheet,
+                      href: `/api/export/assignments/${assignmentId}?className=${selectedClass}`,
+                      download: true,
+                    },
+                    {
+                      label: "ดาวน์โหลดไฟล์งานทั้งหมด (ZIP)",
+                      subLabel: "บีบอัดไฟล์ผลงานของนักเรียนในห้องที่เลือก",
+                      icon: Archive,
+                      href: `/api/assignments/${assignmentId}/download-zip?className=${selectedClass}`,
+                      download: true,
+                    },
+                  ],
+                },
+              ]}
+            />
 
             {/* Search */}
             <div className="relative w-full sm:w-52">

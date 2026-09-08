@@ -23,9 +23,12 @@ import {
   FileText,
   Printer,
   Loader2,
+  MoreVertical,
+  Download,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import {
   createAttendanceSessionForDateAction,
   deleteAttendanceSessionAction,
@@ -383,30 +386,33 @@ export function AttendanceSessionsListClient({
         </div>
 
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          <a
-            href="/api/export/attendance"
-            download
-            title="ส่งออกสรุปเวลาเรียนกิจกรรมชุมนุมเป็นไฟล์ Excel/CSV"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl font-semibold text-xs text-emerald-700 bg-emerald-50 hover:bg-emerald-600 hover:text-white border border-emerald-200 transition-all shadow-2xs"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Export สรุปเวลาเรียน (.csv)</span>
-          </a>
-
-          <button
-            type="button"
-            onClick={handleOpenAttendanceSummaryPdf}
-            disabled={isLoadingAttendanceReport}
-            title="พรีวิวและพิมพ์รายงานสรุปเวลาเรียน / บันทึกเป็น PDF"
-            className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-2xl font-semibold text-xs text-[#3F342B] bg-[#FAF0E1] hover:bg-[#3F342B] hover:text-white border border-[#D9CABB] active:scale-95 disabled:opacity-60 transition-all shadow-2xs cursor-pointer"
-          >
-            {isLoadingAttendanceReport ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Printer className="w-4 h-4" />
-            )}
-            <span>พิมพ์สรุปเวลาเรียน (Print / PDF)</span>
-          </button>
+          {/* Export & Report Dropdown */}
+          <ActionDropdown
+            label="ส่งออก & รายงาน"
+            icon={Download}
+            menuWidth="w-64"
+            groups={[
+              {
+                title: "รายงานสรุปเวลาเรียนสะสม",
+                items: [
+                  {
+                    label: "พิมพ์สรุปเวลาเรียน (Print / PDF)",
+                    subLabel: "พรีวิว/พิมพ์รายงานสรุปเวลาเรียนสะสมทั้งเทอม",
+                    icon: Printer,
+                    onClick: handleOpenAttendanceSummaryPdf,
+                    disabled: isLoadingAttendanceReport,
+                  },
+                  {
+                    label: "ส่งออกสรุปเวลาเรียน (.csv)",
+                    subLabel: "ดาวน์โหลดไฟล์ Excel/CSV สรุปเวลาเรียนทั้งหมด",
+                    icon: FileSpreadsheet,
+                    href: "/api/export/attendance",
+                    download: true,
+                  },
+                ],
+              },
+            ]}
+          />
 
           {/* View Toggle */}
           <div className="flex items-center gap-1.5 bg-white p-1 rounded-2xl border border-[#EADBCC] shadow-2xs">
@@ -933,35 +939,53 @@ export function AttendanceSessionsListClient({
                               <span>เช็กชื่อ / แก้ไข</span>
                             </Link>
 
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setSelectedSessionForPdf(s);
-                                setIsSinglePdfModalOpen(true);
-                              }}
-                              title="พิมพ์ใบเช็กชื่อรอบนี้ (PDF)"
-                              className="p-1.5 rounded-lg text-[#8C5D23] hover:bg-[#FAF0E1] transition-colors cursor-pointer"
-                            >
-                              <Printer className="w-3.5 h-3.5" />
-                            </button>
-
-                            <a
-                              href={`/api/export/attendance?sessionId=${s.id}`}
-                              download
-                              title="ส่งออกผลการเช็กชื่อรอบนี้เป็น CSV"
-                              className="p-1.5 rounded-lg text-emerald-700 hover:bg-emerald-50 transition-colors"
-                            >
-                              <FileSpreadsheet className="w-3.5 h-3.5" />
-                            </a>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDelete(s.id, s.title)}
-                              className="p-1.5 rounded-lg text-[#7A6A5C] hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                              title="ลบรอบเช็กชื่อ"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            <ActionDropdown
+                              trigger={
+                                <button
+                                  type="button"
+                                  title="เมนูทำรายการ"
+                                  className="p-1.5 rounded-lg text-[#7A6A5C] hover:text-[#3F342B] hover:bg-[#FAF6F0] border border-transparent hover:border-[#EADBCC] transition-colors cursor-pointer"
+                                >
+                                  <MoreVertical className="w-4 h-4" />
+                                </button>
+                              }
+                              menuWidth="w-56"
+                              groups={[
+                                {
+                                  title: "เอกสารประจำรอบ",
+                                  items: [
+                                    {
+                                      label: "พิมพ์ใบเช็กชื่อ (PDF)",
+                                      subLabel: "พรีวิว/พิมพ์ใบเช็กชื่อรอบนี้",
+                                      icon: Printer,
+                                      onClick: () => {
+                                        setSelectedSessionForPdf(s);
+                                        setIsSinglePdfModalOpen(true);
+                                      },
+                                    },
+                                    {
+                                      label: "ส่งออกไฟล์ (CSV)",
+                                      subLabel: "ดาวน์โหลดผลการเช็กชื่อ",
+                                      icon: FileSpreadsheet,
+                                      href: `/api/export/attendance?sessionId=${s.id}`,
+                                      download: true,
+                                    },
+                                  ],
+                                },
+                                {
+                                  title: "การจัดการ",
+                                  items: [
+                                    {
+                                      label: "ลบรอบเช็กชื่อนี้",
+                                      subLabel: "ลบรอบและข้อมูลการเช็กชื่อ",
+                                      icon: Trash2,
+                                      onClick: () => handleDelete(s.id, s.title),
+                                      variant: "danger",
+                                    },
+                                  ],
+                                },
+                              ]}
+                            />
                           </div>
                         </td>
                       </tr>

@@ -20,12 +20,14 @@ import {
   UserX,
   BookOpen,
   ClipboardCheck,
+  MoreVertical,
 } from "lucide-react";
 import { UserItem, EditUserModal } from "@/components/admin/EditUserModal";
 import { CreateUserModal } from "@/components/admin/CreateUserModal";
 import { ResetUserPasswordModal } from "@/components/admin/ResetUserPasswordModal";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { toggleUserStatusAction, deleteUserAction } from "@/actions/user";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { AdminRoleType } from "@/lib/auth/permissions";
@@ -565,68 +567,62 @@ export function UsersTableClient({
 
                         {/* 6. Action Buttons */}
                         <td className="py-4 px-5 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Reset Password */}
-                            <button
-                              type="button"
-                              onClick={() => setResetPasswordUser(user)}
-                              className="p-2 rounded-xl border border-[#D9CABB] bg-white text-[#5A4D41] hover:border-[#D9A441] hover:text-[#D9A441] transition-colors cursor-pointer"
-                              title="รีเซ็ตรหัสผ่าน"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Edit */}
-                            <button
-                              type="button"
-                              onClick={() => setEditingUser(user)}
-                              className="p-2 rounded-xl border border-[#D9CABB] bg-white text-[#5A4D41] hover:border-[#D9A441] hover:text-[#D9A441] transition-colors cursor-pointer"
-                              title="แก้ไขข้อมูลผู้ใช้"
-                            >
-                              <Edit2 className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Toggle Status */}
-                            <button
-                              type="button"
-                              onClick={() => handleToggleStatus(user)}
-                              disabled={isSelf}
-                              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                                isSelf
-                                  ? "opacity-30 cursor-not-allowed bg-stone-100 border-stone-200 text-stone-400"
-                                  : isActive
-                                  ? "bg-white border-[#D9CABB] text-stone-500 hover:text-amber-700 hover:bg-amber-50"
-                                  : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                              }`}
-                              title={
-                                isSelf
-                                  ? "ไม่สามารถระงับบัญชีตนเองได้"
-                                  : isActive
-                                  ? "ระงับการใช้งาน"
-                                  : "เปิดใช้งานอีกครั้ง"
-                              }
-                            >
-                              <Power className="w-3.5 h-3.5" />
-                            </button>
-
-                            {/* Delete User */}
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteUser(user)}
-                              disabled={isSelf}
-                              className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                                isSelf
-                                  ? "opacity-30 cursor-not-allowed bg-stone-100 border-stone-200 text-stone-400"
-                                  : "bg-white border-[#D9CABB] text-stone-500 hover:text-red-600 hover:bg-red-50 hover:border-red-200"
-                              }`}
-                              title={
-                                isSelf
-                                  ? "ไม่สามารถลบบัญชีตนเองได้"
-                                  : "ลบบัญชีผู้ใช้งาน"
-                              }
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center justify-end">
+                            <ActionDropdown
+                              align="right"
+                              triggerVariant="icon"
+                              triggerTitle="เมนูจัดการผู้ใช้"
+                              groups={[
+                                {
+                                  title: "ข้อมูล & ความปลอดภัย",
+                                  items: [
+                                    {
+                                      label: "แก้ไขข้อมูลผู้ใช้",
+                                      subLabel: "แก้ไขชื่อ นามสกุล หรือบทบาท",
+                                      icon: <Edit2 className="w-4 h-4 text-[#8C5D23]" />,
+                                      onClick: () => setEditingUser(user),
+                                    },
+                                    {
+                                      label: "รีเซ็ตรหัสผ่าน",
+                                      subLabel: "กำหนดรหัสผ่านใหม่ให้ผู้ใช้",
+                                      icon: <KeyRound className="w-4 h-4 text-[#5A4D41]" />,
+                                      onClick: () => setResetPasswordUser(user),
+                                    },
+                                  ],
+                                },
+                                ...(!isSelf
+                                  ? [
+                                      {
+                                        title: "สถานะ & การจัดการ",
+                                        items: [
+                                          {
+                                            label: isActive ? "ระงับการใช้งาน" : "เปิดใช้งานอีกครั้ง",
+                                            subLabel: isActive
+                                              ? "ระงับการเข้าสู่ระบบชั่วคราว"
+                                              : "อนุญาตให้เข้าใช้งานระบบ",
+                                            icon: (
+                                              <Power
+                                                className={`w-4 h-4 ${
+                                                  isActive ? "text-amber-600" : "text-emerald-600"
+                                                }`}
+                                              />
+                                            ),
+                                            variant: isActive ? ("warning" as const) : ("success" as const),
+                                            onClick: () => handleToggleStatus(user),
+                                          },
+                                          {
+                                            label: "ลบบัญชีผู้ใช้งาน",
+                                            subLabel: "ลบบัญชีผู้ใช้นี้ออกจากระบบถาวร",
+                                            icon: <Trash2 className="w-4 h-4 text-rose-500" />,
+                                            variant: "danger" as const,
+                                            onClick: () => handleDeleteUser(user),
+                                          },
+                                        ],
+                                      },
+                                    ]
+                                  : []),
+                              ]}
+                            />
                           </div>
                         </td>
                       </tr>
@@ -711,54 +707,63 @@ export function UsersTableClient({
                       <span>{formatDateThai(user.createdAt)}</span>
                     </div>
 
-                    {/* Action buttons on mobile */}
-                    <div className="flex items-center justify-end gap-1.5 pt-1">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(user)}
-                        disabled={isSelf}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1 ${
-                          isSelf
-                            ? "opacity-30 cursor-not-allowed bg-stone-100 text-stone-400"
-                            : isActive
-                            ? "bg-stone-50 text-stone-600 border-stone-200"
-                            : "bg-emerald-50 text-emerald-700 border-emerald-200"
-                        }`}
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                        <span>{isActive ? "ระงับ" : "เปิดใช้"}</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setResetPasswordUser(user)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-stone-50 text-stone-600 border-stone-200 flex items-center gap-1"
-                      >
-                        <KeyRound className="w-3.5 h-3.5" />
-                        <span>รหัส</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setEditingUser(user)}
-                        className="px-2.5 py-1 rounded-lg text-xs font-semibold border bg-amber-50 text-[#8C5D23] border-amber-200 flex items-center gap-1"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                        <span>แก้ไข</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteUser(user)}
-                        disabled={isSelf}
-                        className={`p-1.5 rounded-lg border ${
-                          isSelf
-                            ? "opacity-30 cursor-not-allowed bg-stone-100 text-stone-400"
-                            : "bg-red-50 text-[#B94E48] border-red-200"
-                        }`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    {/* Action dropdown on mobile */}
+                    <div className="flex items-center justify-end pt-1">
+                      <ActionDropdown
+                        align="right"
+                        triggerVariant="icon"
+                        triggerTitle="เมนูจัดการผู้ใช้"
+                        groups={[
+                          {
+                            title: "ข้อมูล & ความปลอดภัย",
+                            items: [
+                              {
+                                label: "แก้ไขข้อมูลผู้ใช้",
+                                subLabel: "แก้ไขชื่อ นามสกุล หรือบทบาท",
+                                icon: <Edit2 className="w-4 h-4 text-[#8C5D23]" />,
+                                onClick: () => setEditingUser(user),
+                              },
+                              {
+                                label: "รีเซ็ตรหัสผ่าน",
+                                subLabel: "กำหนดรหัสผ่านใหม่ให้ผู้ใช้",
+                                icon: <KeyRound className="w-4 h-4 text-[#5A4D41]" />,
+                                onClick: () => setResetPasswordUser(user),
+                              },
+                            ],
+                          },
+                          ...(!isSelf
+                            ? [
+                                {
+                                  title: "สถานะ & การจัดการ",
+                                  items: [
+                                    {
+                                      label: isActive ? "ระงับการใช้งาน" : "เปิดใช้งานอีกครั้ง",
+                                      subLabel: isActive
+                                        ? "ระงับการเข้าสู่ระบบชั่วคราว"
+                                        : "อนุญาตให้เข้าใช้งานระบบ",
+                                      icon: (
+                                        <Power
+                                          className={`w-4 h-4 ${
+                                            isActive ? "text-amber-600" : "text-emerald-600"
+                                          }`}
+                                        />
+                                      ),
+                                      variant: isActive ? ("warning" as const) : ("success" as const),
+                                      onClick: () => handleToggleStatus(user),
+                                    },
+                                    {
+                                      label: "ลบบัญชีผู้ใช้งาน",
+                                      subLabel: "ลบบัญชีผู้ใช้นี้ออกจากระบบถาวร",
+                                      icon: <Trash2 className="w-4 h-4 text-rose-500" />,
+                                      variant: "danger" as const,
+                                      onClick: () => handleDeleteUser(user),
+                                    },
+                                  ],
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </div>
                   </div>
                 );

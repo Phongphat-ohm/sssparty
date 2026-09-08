@@ -26,6 +26,8 @@ import {
   Map as MapIcon,
   Printer,
   Edit3,
+  SlidersHorizontal,
+  Download,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import {
@@ -37,6 +39,7 @@ import {
 } from "@/actions/attendance";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown, DropdownGroup } from "@/components/ui/ActionDropdown";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
 import { AttendanceLocationAuditTab } from "@/components/admin/attendance/AttendanceLocationAuditTab";
 import { ClassroomMapPickerModal } from "@/components/admin/attendance/ClassroomMapPickerModal";
@@ -500,7 +503,7 @@ export function AttendanceSheetClient({
 
         {/* Top Actions */}
         <div className="flex items-center gap-2 self-start sm:self-auto flex-wrap">
-          {/* ปุ่มเปิดจอโปรเจกเตอร์แยกหน้าใหม่ */}
+          {/* ปุ่มเปิดจอโปรเจกเตอร์แยกหน้าใหม่ (Primary Action) */}
           <button
             type="button"
             onClick={() => {
@@ -514,80 +517,87 @@ export function AttendanceSheetClient({
             }`}
           >
             <ExternalLink className={`w-4 h-4 ${currentIsKeyActive ? "text-emerald-700" : "text-amber-700"}`} />
-            <span>เปิดจอโปรเจกเตอร์ (แยกหน้าใหม่)</span>
+            <span>เปิดจอโปรเจกเตอร์</span>
             {currentIsKeyActive && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-200/80 px-1.5 py-0.5 rounded-full ml-0.5 animate-pulse">
-                กำลังเปิดรับ
+                สด
               </span>
             )}
           </button>
 
-          {/* ปุ่มปักหมุดตำแหน่งห้องเรียนบนแผนที่ */}
-          <button
-            type="button"
-            onClick={() => setIsMapPickerOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
-            title="ตั้งค่าพิกัดห้องเรียนและระยะรัศมีบนแผนที่"
-          >
-            <MapPin className="w-4 h-4 text-amber-600" />
-            <span>พิกัดห้องเรียน (แผนที่)</span>
-          </button>
+          {/* เครื่องมือ & ตั้งค่า Dropdown */}
+          <ActionDropdown
+            label="เครื่องมือ & ตั้งค่า"
+            icon={SlidersHorizontal}
+            menuWidth="w-72"
+            groups={[
+              {
+                title: "การเช็กชื่อ & การจัดการรอบ",
+                items: [
+                  {
+                    label: "เช็กมาครบทุกคน",
+                    subLabel: "ปรับสถานะนักเรียนทุกคนในรอบนี้เป็น 'มาเรียน' ทันที",
+                    icon: CheckCheck,
+                    onClick: handleMarkAllPresent,
+                    disabled: isMarkingAll,
+                    variant: "success",
+                  },
+                  {
+                    label: "กำหนดเวลาเข้าเรียน",
+                    subLabel: sessionCutoff ? `ปัจจุบัน: ก่อน ${sessionCutoff} น.` : "ไม่จำกัดเวลา (ไม่ตัดสาย)",
+                    icon: Clock,
+                    onClick: handleEditSessionCutoff,
+                    badge: sessionCutoff ? `${sessionCutoff} น.` : "ไม่จำกัด",
+                    variant: sessionCutoff ? "warning" : "default",
+                  },
+                ],
+              },
+              {
+                title: "พิกัดและตำแหน่ง (Location)",
+                items: [
+                  {
+                    label: "พิกัดห้องเรียน (แผนที่)",
+                    subLabel: "ตั้งค่าพิกัดห้องเรียนและระยะรัศมีที่อนุญาต",
+                    icon: MapPin,
+                    onClick: () => setIsMapPickerOpen(true),
+                  },
+                  {
+                    label: "แผนที่หมุดนักเรียน",
+                    subLabel: "ดูตำแหน่งที่นักเรียนแต่ละคนกดส่งรหัสเช็กชื่อ",
+                    icon: MapIcon,
+                    onClick: () => setIsStudentMapOpen(true),
+                  },
+                ],
+              },
+            ]}
+          />
 
-          {/* ปุ่มเปิดแผนที่หมุดนักเรียน */}
-          <button
-            type="button"
-            onClick={() => setIsStudentMapOpen(true)}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
-            title="ดูแผนที่หมุดตำแหน่งที่นักเรียนกดเช็กชื่อ"
-          >
-            <MapIcon className="w-4 h-4 text-emerald-600" />
-            <span>แผนที่นักเรียน</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={handleEditSessionCutoff}
-            title="ตั้งเวลากำหนดมาเรียนปกติประจำรอบ (ใครมาช้ากว่านี้จะขึ้นว่ามาสาย)"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
-          >
-            <Clock className="w-4 h-4 text-amber-600" />
-            <span>กำหนดเวลา: {sessionCutoff ? `ก่อน ${sessionCutoff} น.` : "ไม่จำกัด (ไม่ตัดสาย)"}</span>
-            <Edit3 className="w-3 h-3 text-amber-500 opacity-70" />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setIsPdfModalOpen(true)}
-            title="พิมพ์แบบบันทึกการเช็กชื่อประจำรอบนี้ (PDF ทางการ)"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#3F342B] bg-white border border-[#EADBCC] hover:bg-[#FAF0E1] active:scale-95 transition-all shadow-2xs cursor-pointer"
-          >
-            <Printer className="w-4 h-4 text-[#D97706]" />
-            <span>พิมพ์ใบเช็กชื่อ</span>
-          </button>
-
-          <a
-            href={`/api/export/attendance?sessionId=${sessionId}&className=${selectedClass}`}
-            download
-            title="ส่งออกผลการเช็กชื่อของคาบนี้เป็นไฟล์ Excel/CSV"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-600 hover:text-white active:scale-95 transition-all shadow-2xs"
-          >
-            <FileSpreadsheet className="w-4 h-4" />
-            <span>Export CSV</span>
-          </a>
-
-          <button
-            type="button"
-            onClick={handleMarkAllPresent}
-            disabled={isMarkingAll}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#065F46] bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 active:scale-95 disabled:opacity-50 transition-all cursor-pointer shadow-2xs"
-          >
-            {isMarkingAll ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CheckCheck className="w-4 h-4 text-emerald-600" />
-            )}
-            <span>เช็กมาครบทุกคน</span>
-          </button>
+          {/* ส่งออก & พิมพ์ Dropdown */}
+          <ActionDropdown
+            label="ส่งออก & พิมพ์"
+            icon={Download}
+            menuWidth="w-64"
+            groups={[
+              {
+                title: "เอกสารและไฟล์ข้อมูล",
+                items: [
+                  {
+                    label: "พิมพ์ใบเช็กชื่อ (PDF)",
+                    subLabel: "พรีวิวและพิมพ์ใบเช็กชื่อทางการ หรือบันทึก PDF",
+                    icon: Printer,
+                    onClick: () => setIsPdfModalOpen(true),
+                  },
+                  {
+                    label: "ส่งออกผลการเช็กชื่อ (CSV)",
+                    subLabel: "ดาวน์โหลดข้อมูลเป็นไฟล์ Excel/CSV ประจำรอบนี้",
+                    icon: FileSpreadsheet,
+                    href: `/api/export/attendance?sessionId=${sessionId}&className=${selectedClass}`,
+                    download: true,
+                  },
+                ],
+              },
+            ]}
+          />
         </div>
       </div>
 

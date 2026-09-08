@@ -13,11 +13,13 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  MoreVertical,
 } from "lucide-react";
 import { StudentModal, StudentData } from "@/components/admin/StudentModal";
 import { ImportStudentsModal } from "@/components/admin/ImportStudentsModal";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { toggleStudentStatusAction } from "@/actions/student";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 
@@ -345,27 +347,44 @@ export function StudentsTableClient({
 
                     {/* Right: Actions */}
                     <div className="flex items-center gap-2 self-end sm:self-auto">
-                      <button
-                        type="button"
-                        onClick={() => handleOpenEdit(student)}
-                        className="p-2 rounded-xl border border-[#D9CABB] bg-white text-[#5A4D41] hover:border-[#D9A441] hover:text-[#D9A441] transition-colors cursor-pointer"
-                        title="แก้ไขข้อมูลนักเรียน"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => handleToggleStatus(student)}
-                        className={`p-2 rounded-xl border transition-colors cursor-pointer ${
-                          isActive
-                            ? "bg-white border-[#D9CABB] text-stone-500 hover:text-red-600 hover:bg-red-50"
-                            : "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                        }`}
-                        title={isActive ? "ระงับการใช้งาน" : "เปิดใช้งานอีกครั้ง"}
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                      </button>
+                      <ActionDropdown
+                        align="right"
+                        triggerVariant="icon"
+                        triggerTitle="เมนูจัดการนักเรียน"
+                        groups={[
+                          {
+                            title: "ข้อมูลนักเรียน",
+                            items: [
+                              {
+                                label: "แก้ไขข้อมูล",
+                                subLabel: "ชื่อ-สกุล เลขที่ และห้องเรียน",
+                                icon: <Edit2 className="w-4 h-4 text-[#8C5D23]" />,
+                                onClick: () => handleOpenEdit(student),
+                              },
+                            ],
+                          },
+                          {
+                            title: "สถานะบัญชี",
+                            items: [
+                              {
+                                label: isActive ? "ระงับการใช้งาน" : "เปิดใช้งานอีกครั้ง",
+                                subLabel: isActive
+                                  ? "ระงับการเข้าสู่ระบบชั่วคราว"
+                                  : "อนุญาตให้เข้าใช้งานระบบ",
+                                icon: (
+                                  <Power
+                                    className={`w-4 h-4 ${
+                                      isActive ? "text-amber-600" : "text-emerald-600"
+                                    }`}
+                                  />
+                                ),
+                                variant: isActive ? ("warning" as const) : ("success" as const),
+                                onClick: () => handleToggleStatus(student),
+                              },
+                            ],
+                          },
+                        ]}
+                      />
                     </div>
                   </div>
                 );

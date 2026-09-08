@@ -29,6 +29,7 @@ import {
 import { markAllAttendanceStatusAction } from "@/actions/attendance";
 import { generateDynamicKey } from "@/lib/attendance/dynamic-key";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 
 interface ProjectorModalProps {
   isOpen: boolean;
@@ -462,66 +463,81 @@ export function DynamicKeyProjectorModal({
 
         {/* Toolbar Controls */}
         <div className="flex items-center gap-2">
-          {/* ปักหมุดห้องเรียน */}
-          <button
-            type="button"
-            disabled={isPinningLocation}
-            onClick={handlePinCurrentLocation}
-            title={
-              centerCoords
-                ? `ปักหมุดแล้ว (${centerCoords.latitude.toFixed(4)}, ${centerCoords.longitude.toFixed(4)})`
-                : "ปักหมุดพิกัดห้องเรียนปัจจุบันเพื่อตรวจย้อนหลัง"
-            }
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all ${
-              centerCoords
-                ? "bg-emerald-950/60 text-emerald-300 border border-emerald-500/40"
-                : "bg-stone-800 hover:bg-stone-700 text-stone-300"
-            }`}
-          >
-            {isPinningLocation ? (
-              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            ) : (
-              <MapPin className="w-3.5 h-3.5" />
-            )}
-            <span className="hidden sm:inline">
-              {centerCoords ? "ปักหมุดห้องเรียนแล้ว" : "ปักหมุดพิกัด"}
-            </span>
-          </button>
-
-          {/* ปิด/เปิดเสียง */}
-          <button
-            type="button"
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 transition-colors"
-            title={soundEnabled ? "ปิดเสียงแจ้งเตือน" : "เปิดเสียงแจ้งเตือน"}
-          >
-            {soundEnabled ? (
-              <Volume2 className="w-4 h-4 text-amber-400" />
-            ) : (
-              <VolumeX className="w-4 h-4 text-stone-500" />
-            )}
-          </button>
-
-          {/* Fullscreen */}
-          <button
-            type="button"
-            onClick={toggleFullscreen}
-            className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 transition-colors"
-            title="เต็มจอ"
-          >
-            {isFullscreen ? (
-              <Minimize2 className="w-4 h-4" />
-            ) : (
-              <Maximize2 className="w-4 h-4" />
-            )}
-          </button>
+          {/* Action Dropdown for Projector Studio */}
+          <ActionDropdown
+            align="right"
+            label="เครื่องมือห้องเรียน"
+            variant="secondary"
+            menuWidth="w-64 sm:w-72"
+            groups={[
+              {
+                title: "การแสดงผล & พิกัด",
+                items: [
+                  {
+                    label: centerCoords ? "ปักหมุดห้องเรียนแล้ว" : "ปักหมุดพิกัดห้องเรียน",
+                    subLabel: centerCoords
+                      ? `พิกัด (${centerCoords.latitude.toFixed(4)}, ${centerCoords.longitude.toFixed(4)})`
+                      : "บันทึกตำแหน่งห้องเรียนเพื่อตรวจสอบย้อนหลัง",
+                    icon: isPinningLocation ? (
+                      <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+                    ) : (
+                      <MapPin className="w-4 h-4 text-emerald-600" />
+                    ),
+                    badge: centerCoords ? "บันทึกแล้ว" : undefined,
+                    disabled: isPinningLocation,
+                    onClick: handlePinCurrentLocation,
+                  },
+                  {
+                    label: soundEnabled ? "ปิดเสียงแจ้งเตือน" : "เปิดเสียงแจ้งเตือน",
+                    subLabel: "เสียง Ding เมื่อมีนักเรียนเช็กชื่อสำเร็จ",
+                    icon: soundEnabled ? (
+                      <VolumeX className="w-4 h-4 text-stone-500" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 text-amber-600" />
+                    ),
+                    onClick: () => setSoundEnabled(!soundEnabled),
+                  },
+                  {
+                    label: isFullscreen ? "ออกจากโหมดเต็มจอ" : "โหมดเต็มจอ (Fullscreen)",
+                    subLabel: "ขยายหน้าจอให้เหมาะสมกับโปรเจกเตอร์",
+                    icon: isFullscreen ? (
+                      <Minimize2 className="w-4 h-4 text-stone-600" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4 text-blue-600" />
+                    ),
+                    onClick: toggleFullscreen,
+                  },
+                ],
+              },
+              {
+                title: "การจัดการนักเรียน",
+                items: [
+                  {
+                    label: "ปรับคนค้างเป็นขาดเรียน",
+                    subLabel: "เปลี่ยนสถานะนักเรียนที่ยังไม่ได้เช็กชื่อเป็นขาด",
+                    icon: <UserX className="w-4 h-4 text-rose-500" />,
+                    disabled: isBusy,
+                    onClick: handleMarkUncheckedAbsent,
+                  },
+                  {
+                    label: "รีเซ็ตทุกคนเริ่มนับใหม่",
+                    subLabel: "ปรับทุกคนเป็นขาดเรียนเพื่อให้นักเรียนเริ่มเช็กชื่อใหม่",
+                    icon: <RotateCcw className="w-4 h-4 text-amber-600" />,
+                    variant: "danger" as const,
+                    disabled: isBusy,
+                    onClick: handleResetAllAbsent,
+                  },
+                ],
+              },
+            ]}
+          />
 
           {/* ปุ่มเริ่ม/หยุด */}
           <button
             type="button"
             disabled={isBusy}
             onClick={handleToggleActive}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 ${
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer ${
               isActive
                 ? "bg-rose-600 hover:bg-rose-700 text-white"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white"
@@ -546,7 +562,8 @@ export function DynamicKeyProjectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition-colors ml-2"
+            className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition-colors ml-1 cursor-pointer"
+            title="ปิดหน้าต่างฉายจอ"
           >
             <X className="w-5 h-5" />
           </button>

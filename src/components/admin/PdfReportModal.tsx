@@ -22,6 +22,7 @@ import {
   saveOfficialAttendanceSummaryReportAction,
   saveOfficialEvaluationReportAction,
 } from "@/actions/report-actions";
+import { ActionDropdown } from "@/components/ui/ActionDropdown";
 
 export interface PdfReportModalProps {
   isOpen: boolean;
@@ -325,68 +326,81 @@ export function PdfReportModal({
           </div>
 
           <div className="flex items-center flex-wrap gap-2">
-            {/* Action: Save Official Report Button (Visible when in preview mode) */}
-            {reportType && !isOfficialSaved && (
-              <button
-                type="button"
-                onClick={handleSaveOfficial}
-                disabled={savingOfficial || loading}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-700 hover:to-amber-800 active:scale-95 transition-all shadow-xs cursor-pointer disabled:opacity-50 border border-amber-700"
-                title="บันทึกรายงานฉบับสมบูรณ์ลง S3 และออกรหัสรายงานพร้อม QR Code"
-              >
-                {savingOfficial ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>กำลังบันทึก S3...</span>
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-3.5 h-3.5" />
-                    <span>บันทึกรายงานฉบับสมบูรณ์ (ลง S3 & QR Code)</span>
-                  </>
-                )}
-              </button>
-            )}
-
-            {/* Action: Verify Official Report Link */}
-            {isOfficialSaved && officialCode && (
-              <a
-                href={`/verify/${officialCode}`}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 active:scale-95 transition-all"
-                title="ตรวจสอบ QR Code และสถานะเอกสาร"
-              >
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="hidden sm:inline">ตรวจสอบ QR Code</span>
-              </a>
-            )}
-
-            {/* Download Button */}
-            {pdfBlobUrl && !loading && (
-              <button
-                type="button"
-                onClick={handleDownload}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#3F342B] bg-[#FAF0E1] hover:bg-[#EADBCC] active:scale-95 transition-all cursor-pointer border border-[#D9CABB]"
-                title="ดาวน์โหลดไฟล์ PDF เก็บไว้ในเครื่อง"
-              >
-                <Download className="w-3.5 h-3.5 text-[#8C5D23]" />
-                <span className="hidden sm:inline">ดาวน์โหลด</span> PDF
-              </button>
-            )}
-
-            {/* Open in New Tab Button */}
-            {pdfBlobUrl && !loading && (
-              <button
-                type="button"
-                onClick={handleOpenNewTab}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-[#555555] bg-stone-100 hover:bg-stone-200 active:scale-95 transition-all cursor-pointer"
-                title="เปิดเอกสาร PDF ในแท็บใหม่เต็มจอ"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">เปิดแท็บใหม่</span>
-              </button>
-            )}
+            {/* Modal Options Dropdown */}
+            <ActionDropdown
+              align="right"
+              label="ตัวเลือกรายงาน"
+              variant="outline"
+              menuWidth="w-64 sm:w-72"
+              groups={[
+                ...(reportType
+                  ? [
+                      {
+                        title: "การจัดเก็บเอกสาร",
+                        items: [
+                          ...(!isOfficialSaved
+                            ? [
+                                {
+                                  label: savingOfficial
+                                    ? "กำลังบันทึก S3..."
+                                    : "บันทึกฉบับสมบูรณ์ (S3)",
+                                  subLabel: "ออกรหัสเอกสารทางการพร้อม QR Code",
+                                  icon: savingOfficial ? (
+                                    <Loader2 className="w-4 h-4 text-amber-600 animate-spin" />
+                                  ) : (
+                                    <Save className="w-4 h-4 text-amber-600" />
+                                  ),
+                                  variant: "warning" as const,
+                                  disabled: savingOfficial || loading,
+                                  onClick: handleSaveOfficial,
+                                },
+                              ]
+                            : officialCode
+                            ? [
+                                {
+                                  label: "ตรวจสอบเอกสารทางการ (QR)",
+                                  subLabel: `รหัสเอกสาร: ${officialCode}`,
+                                  icon: <ShieldCheck className="w-4 h-4 text-emerald-600" />,
+                                  variant: "success" as const,
+                                  href: `/verify/${officialCode}`,
+                                  target: "_blank",
+                                },
+                              ]
+                            : []),
+                        ],
+                      },
+                    ]
+                  : []),
+                {
+                  title: "ดาวน์โหลด & แสดงผล",
+                  items: [
+                    {
+                      label: "ดาวน์โหลดไฟล์ PDF",
+                      subLabel: officialCode
+                        ? `บันทึกไฟล์ ${officialCode}.pdf`
+                        : "บันทึกเอกสาร PDF ลงในเครื่อง",
+                      icon: <Download className="w-4 h-4 text-[#8C5D23]" />,
+                      disabled: !pdfBlobUrl || loading,
+                      onClick: handleDownload,
+                    },
+                    {
+                      label: "เปิดเอกสารในแท็บใหม่",
+                      subLabel: "เปิดดูไฟล์ PDF เต็มจอในเบราว์เซอร์",
+                      icon: <ExternalLink className="w-4 h-4 text-blue-600" />,
+                      disabled: !pdfBlobUrl || loading,
+                      onClick: handleOpenNewTab,
+                    },
+                    {
+                      label: "โหลดเอกสารใหม่อีกครั้ง",
+                      subLabel: "รีเฟรชการสร้างไฟล์ PDF",
+                      icon: <RefreshCw className="w-4 h-4 text-stone-500" />,
+                      disabled: loading,
+                      onClick: () => fetchPdf(),
+                    },
+                  ],
+                },
+              ]}
+            />
 
             {/* Primary Print Button */}
             {(!loading || htmlContent) && (
