@@ -15,6 +15,7 @@ const createSessionSchema = z.object({
   date: z.date(),
   academicTerm: z.string().default("1/2569"),
   note: z.string().optional(),
+  onTimeCutoffTime: z.string().optional(),
 });
 
 export interface AttendanceActionResult {
@@ -56,12 +57,14 @@ export async function createAttendanceSessionAction(
     const defaultTerm = await getSystemSetting("academic_term");
     const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
     const note = (formData.get("note") as string)?.trim() || undefined;
+    const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || undefined;
 
     const parsed = createSessionSchema.safeParse({
       title: rawTitle || undefined,
       date: new Date(dateStr),
       academicTerm,
       note,
+      onTimeCutoffTime,
     });
 
     if (!parsed.success) {
@@ -84,6 +87,7 @@ export async function createAttendanceSessionAction(
         date: parsed.data.date,
         academicTerm: parsed.data.academicTerm,
         note: parsed.data.note,
+        onTimeCutoffTime: parsed.data.onTimeCutoffTime,
         createdById: currentUser.id,
         records: {
           create: activeStudents.map((s) => ({
@@ -124,7 +128,8 @@ export async function createAttendanceSessionAction(
  */
 export async function createAttendanceSessionForDateAction(
   dateStr: string,
-  academicTerm: string = "1/2569"
+  academicTerm: string = "1/2569",
+  cutoffTime?: string
 ): Promise<AttendanceActionResult> {
   try {
     const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
@@ -150,6 +155,7 @@ export async function createAttendanceSessionForDateAction(
         title: finalTitle,
         date: targetDate,
         academicTerm,
+        onTimeCutoffTime: cutoffTime && cutoffTime.trim() !== "" ? cutoffTime.trim() : null,
         createdById: currentUser.id,
         records: {
           create: activeStudents.map((s) => ({
@@ -204,6 +210,7 @@ export async function updateAttendanceSessionInfoAction(
     const defaultTerm = await getSystemSetting("academic_term");
     const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
     const note = (formData.get("note") as string)?.trim() || undefined;
+    const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || null;
 
     await prisma.attendanceSession.update({
       where: { id: sessionId },
@@ -212,6 +219,7 @@ export async function updateAttendanceSessionInfoAction(
         date: new Date(dateStr),
         academicTerm,
         note,
+        onTimeCutoffTime,
       },
     });
 
@@ -222,7 +230,7 @@ export async function updateAttendanceSessionInfoAction(
       action: "UPDATE_ATTENDANCE_SESSION",
       targetType: "ATTENDANCE",
       targetId: sessionId,
-      details: `แก้ไขข้อมูลรอบเช็กชื่อ "${title}"`,
+      details: `แก้ไขข้อมูลรอบเช็กชื่อ "${title}" (เวลากำหนด: ${onTimeCutoffTime || "ไม่ระบุ"})`,
     });
 
     revalidatePath("/admin/attendance");
@@ -237,6 +245,109 @@ export async function updateAttendanceSessionInfoAction(
   } catch (error) {
     console.error("updateAttendanceSessionInfoAction error:", error);
     return { success: false, message: "เกิดข้อผิดพลาดในการแก้ไขข้อมูล" };
+  }
+}
+
+/**
+ * Server Action สำหรับครูปรับเปลี่ยนเวลา Cutoff ของรอบเช็กชื่อโดยตรง
+ */
+export async function updateSessionCutoffTimeAction(
+  sessionId: string,
+  onTimeCutoffTime: string | null
+): Promise<AttendanceActionResult> {
+  try {
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
+    }
+    const { user: currentUser } = authCheck;
+
+    const cleanCutoff = onTimeCutoffTime?.trim() || null;
+
+    await prisma.attendanceSession.update({
+      where: { id: sessionId },
+      data: { onTimeCutoffTime: cleanCutoff },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_ATTENDANCE_SESSION",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `ตั้งเวลาเช็กชื่อปกติประจำรอบเป็น: ${cleanCutoff ? `${cleanCutoff} น.` : "ไม่จำกัดเวลา"}`,
+    });
+
+    revalidatePath("/admin/attendance");
+    revalidatePath(`/admin/attendance/${sessionId}`);
+
+    return {
+      success: true,
+      message: cleanCutoff
+        ? `ตั้งเวลากำหนดมาเรียนปกติเป็นก่อน ${cleanCutoff} น.`
+        : "ยกเลิกการกำหนดเวลาเช็กชื่อประจำรอบแล้ว",
+      sessionId,
+    };
+  } catch (error) {
+    console.error("updateSessionCutoffTimeAction error:", error);
+    return { success: false, message: "เกิดข้อผิดพลาดในการบันทึกเวลา" };
+  }
+}
+
+/**
+ * Server Action สำหรับครูกำหนดเวลาเช็กชื่อเฉพาะบุคคล (Custom Cutoff Time)
+ */
+export async function updateStudentCustomCutoffTimeAction(
+  sessionId: string,
+  studentId: string,
+  customCutoffTime: string | null
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
+    }
+    const { user: currentUser } = authCheck;
+
+    const cleanCutoff = customCutoffTime?.trim() || null;
+
+    const updated = await prisma.attendanceRecord.update({
+      where: {
+        sessionId_studentId: {
+          sessionId,
+          studentId,
+        },
+      },
+      data: {
+        customCutoffTime: cleanCutoff,
+      },
+      include: {
+        student: true,
+      },
+    });
+
+    await createAuditLog({
+      userId: currentUser.id,
+      username: currentUser.username,
+      role: "ADMIN",
+      action: "UPDATE_ATTENDANCE_RECORD",
+      targetType: "ATTENDANCE",
+      targetId: sessionId,
+      details: `กำหนดเวลาเช็กชื่อเฉพาะบุคคลของ ${updated.student.firstName} ${updated.student.lastName}: ${cleanCutoff ? `${cleanCutoff} น.` : "ใช้เวลาตามรอบ"}`,
+    });
+
+    revalidatePath(`/admin/attendance/${sessionId}`);
+
+    return {
+      success: true,
+      message: cleanCutoff
+        ? `กำหนดเวลาสำหรับ ${updated.student.firstName} เป็น ${cleanCutoff} น. เรียบร้อย`
+        : `รีเซ็ตเวลาสำหรับ ${updated.student.firstName} เป็นเวลามาตรฐานของรอบแล้ว`,
+    };
+  } catch (error) {
+    console.error("updateStudentCustomCutoffTimeAction error:", error);
+    return { success: false, message: "เกิดข้อผิดพลาดในการกำหนดเวลารายบุคคล" };
   }
 }
 

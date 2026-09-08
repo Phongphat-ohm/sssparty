@@ -54,6 +54,7 @@ export default async function StudentCheckInPage(props: PageProps) {
         date: true,
         academicTerm: true,
         note: true,
+        onTimeCutoffTime: true,
         isKeyActive: true,
       },
     });
@@ -70,6 +71,7 @@ export default async function StudentCheckInPage(props: PageProps) {
         date: true,
         academicTerm: true,
         note: true,
+        onTimeCutoffTime: true,
         isKeyActive: true,
       },
     });
@@ -91,13 +93,19 @@ export default async function StudentCheckInPage(props: PageProps) {
         status: true,
         checkedAt: true,
         checkInMethod: true,
+        customCutoffTime: true,
       },
     });
   }
 
   const isCheckedIn =
     myRecord?.checkInMethod === "DYNAMIC_KEY" ||
-    myRecord?.checkInMethod === "DYNAMIC_QR";
+    myRecord?.checkInMethod === "DYNAMIC_QR" ||
+    myRecord?.status === "PRESENT" ||
+    myRecord?.status === "LATE";
+
+  const effectiveCutoffTime =
+    myRecord?.customCutoffTime || activeSession?.onTimeCutoffTime || null;
 
   return (
     <div className="py-2 sm:py-6">
@@ -110,6 +118,7 @@ export default async function StudentCheckInPage(props: PageProps) {
                 date: activeSession.date.toISOString(),
                 academicTerm: activeSession.academicTerm,
                 note: activeSession.note,
+                cutoffTime: effectiveCutoffTime,
               }
             : null
         }
@@ -117,7 +126,7 @@ export default async function StudentCheckInPage(props: PageProps) {
           isCheckedIn && myRecord
             ? {
                 status: myRecord.status,
-                checkedAt: myRecord.checkedAt.toISOString(),
+                checkedAt: myRecord.checkedAt ? myRecord.checkedAt.toISOString() : new Date().toISOString(),
                 checkInMethod: myRecord.checkInMethod,
               }
             : null

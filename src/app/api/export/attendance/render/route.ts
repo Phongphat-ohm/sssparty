@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
-import { generateAttendanceSessionReportPdf } from "@/lib/export/report-api-service";
+import {
+  generateAttendanceSessionReportPdf,
+  generateAttendanceSummaryReportPdf,
+} from "@/lib/export/report-api-service";
 
 export const dynamic = "force-dynamic";
 
@@ -41,26 +44,32 @@ export async function GET(req: NextRequest) {
     const filterClass = searchParams.get("className") || "ALL";
     const mode = searchParams.get("mode") || "preview";
     const isOfficial = mode === "official";
+    const sessionId = searchParams.get("sessionId");
+    const reportType = searchParams.get("type"); // "summary" หรือ "session"
 
-    let targetSessionId = searchParams.get("sessionId");
-    if (!targetSessionId) {
-      const latestSession = await prisma.attendanceSession.findFirst({
-        orderBy: { date: "desc" },
-        select: { id: true },
+    // กรณีที่ 1: รายงานเช็กชื่อประจำวัน/ประจำรอบ (เมื่อระบุ sessionId และไม่ได้ระบุ type=summary)
+    if (sessionId && reportType !== "summary") {
+      const { pdfBuffer, fileName } =
+        await generateAttendanceSessionReportPdf({
+          sessionId,
+          filterClass,
+          isOfficial,
+          user: { id: user.id, username: user.username },
+        });
+
+      return new NextResponse(new Uint8Array(pdfBuffer), {
+        status: 200,
+        headers: {
+          "Content-Type": "application/pdf",
+          "Content-Disposition": `inline; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+          "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
       });
-      targetSessionId = latestSession?.id || null;
     }
 
-    if (!targetSessionId) {
-      return NextResponse.json(
-        { error: "ไม่พบข้อมูลรอบการเช็กชื่อในระบบ" },
-        { status: 404 }
-      );
-    }
-
+    // กรณีที่ 2: รายงานสรุปเวลาเรียนสะสมรวมทุกวันตลอดภาคเรียน (เมื่อไม่มี sessionId หรือระบุ type=summary)
     const { pdfBuffer, fileName } =
-      await generateAttendanceSessionReportPdf({
-        sessionId: targetSessionId,
+      await generateAttendanceSummaryReportPdf({
         filterClass,
         isOfficial,
         user: { id: user.id, username: user.username },

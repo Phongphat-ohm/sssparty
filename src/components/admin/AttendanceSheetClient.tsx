@@ -24,11 +24,16 @@ import {
   ShieldCheck,
   ExternalLink,
   Map as MapIcon,
+  Printer,
+  Edit3,
 } from "lucide-react";
+import Swal from "sweetalert2";
 import {
   AttendanceStatusType,
   updateAttendanceBatchAction,
   markAllAttendanceStatusAction,
+  updateSessionCutoffTimeAction,
+  updateStudentCustomCutoffTimeAction,
 } from "@/actions/attendance";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
@@ -36,6 +41,7 @@ import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
 import { AttendanceLocationAuditTab } from "@/components/admin/attendance/AttendanceLocationAuditTab";
 import { ClassroomMapPickerModal } from "@/components/admin/attendance/ClassroomMapPickerModal";
 import { StudentAttendanceMapModal } from "@/components/admin/attendance/StudentAttendanceMapModal";
+import { PdfReportModal } from "@/components/admin/PdfReportModal";
 
 export interface StudentAttendanceRow {
   studentId: string;
@@ -46,6 +52,7 @@ export interface StudentAttendanceRow {
   studentNumber: number;
   status: AttendanceStatusType;
   note?: string | null;
+  customCutoffTime?: string | null;
   checkInMethod?: string | null;
   checkedAt?: string | null;
   latitude?: number | null;
@@ -62,6 +69,7 @@ interface AttendanceSheetClientProps {
   sessionDate: string;
   academicTerm: string;
   sessionNote?: string | null;
+  onTimeCutoffTime?: string | null;
   isKeyActive?: boolean;
   keySecret?: string | null;
   centerCoords?: { latitude: number; longitude: number; expectedRadius?: number } | null;
@@ -75,6 +83,7 @@ export function AttendanceSheetClient({
   sessionDate,
   academicTerm,
   sessionNote,
+  onTimeCutoffTime = null,
   isKeyActive = false,
   keySecret = null,
   centerCoords = null,
@@ -82,6 +91,9 @@ export function AttendanceSheetClient({
   classList,
 }: AttendanceSheetClientProps) {
   const router = useRouter();
+
+  const [sessionCutoff, setSessionCutoff] = useState<string | null>(onTimeCutoffTime || null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
 
   // Records state (map studentId -> { status, note })
   const [records, setRecords] = useState<StudentAttendanceRow[]>(initialRecords);
@@ -288,6 +300,134 @@ export function AttendanceSheetClient({
     }
   };
 
+  // Handle session cutoff time editing
+  const handleEditSessionCutoff = async () => {
+    const isCurrentlySet = !!sessionCutoff;
+    const { value: timeInput, isConfirmed } = await Swal.fire({
+      title: "กำหนดเวลาเช็กชื่อประจำรอบ",
+      html: `
+        <div class="text-left text-xs space-y-3 text-[#5C4D3C] mt-2 mb-2">
+          <p>คุณสามารถเลือกว่าจะกำหนดเวลาตัดสายสำหรับรอบนี้หรือไม่:</p>
+          <div class="p-3.5 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC] space-y-2.5">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-xs select-none">
+              <input
+                type="checkbox"
+                id="swal-cutoff-toggle"
+                ${isCurrentlySet ? "checked" : ""}
+                onchange="
+                  var wrap = document.getElementById('swal-time-wrapper');
+                  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+                "
+                class="w-4 h-4 rounded text-[#D9A441] accent-[#D9A441]"
+              />
+              <span>เปิดใช้งานการกำหนดเวลาเช็กชื่อ (ตัดสายอัตโนมัติ)</span>
+            </label>
+            <div id="swal-time-wrapper" style="display: ${isCurrentlySet ? "block" : "none"};" class="pt-1 space-y-1">
+              <input
+                type="time"
+                id="swal-cutoff-time"
+                value="${sessionCutoff || "08:30"}"
+                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+              />
+              <span class="text-[11px] text-[#7A6A5C] block">
+                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะขึ้นสถานะว่า 'มาสาย' อัตโนมัติ (หากไม่ติ๊กเลือก จะเช็กชื่อได้ตลอดเวลา ไม่ตัดสาย)
+              </span>
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "บันทึกการตั้งค่า",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#5C4A3A",
+      preConfirm: () => {
+        const isEnabled = (document.getElementById("swal-cutoff-toggle") as HTMLInputElement)?.checked;
+        if (!isEnabled) return null;
+        const input = (document.getElementById("swal-cutoff-time") as HTMLInputElement)?.value;
+        return input || "08:30";
+      },
+    });
+
+    if (!isConfirmed) return;
+
+    const newCutoff = timeInput || null;
+    const res = await updateSessionCutoffTimeAction(sessionId, newCutoff);
+    if (res.success) {
+      setSessionCutoff(newCutoff);
+      await showCozySuccess("สำเร็จ", res.message);
+    } else {
+      await showCozyError("เกิดข้อผิดพลาด", res.message);
+    }
+  };
+
+  // Handle per-student custom cutoff editing
+  const handleEditStudentCutoff = async (
+    studentId: string,
+    studentName: string,
+    currentCutoff?: string | null
+  ) => {
+    const isCustomSet = !!currentCutoff;
+    const { value: timeInput, isConfirmed } = await Swal.fire({
+      title: `เวลาเช็กชื่อเฉพาะบุคคล: ${studentName}`,
+      html: `
+        <div class="text-left text-xs space-y-3 text-[#5C4D3C] mt-2 mb-2">
+          <p>กำหนดเวลาสำหรับนักเรียนคนนี้โดยเฉพาะ (ข้อยกเว้น / Override จากเวลาของรอบ):</p>
+          <div class="p-3.5 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC] space-y-2.5">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-xs select-none">
+              <input
+                type="checkbox"
+                id="swal-student-cutoff-toggle"
+                ${isCustomSet ? "checked" : ""}
+                onchange="
+                  var wrap = document.getElementById('swal-student-time-wrapper');
+                  if (wrap) wrap.style.display = this.checked ? 'block' : 'none';
+                "
+                class="w-4 h-4 rounded text-[#D9A441] accent-[#D9A441]"
+              />
+              <span>กำหนดเวลาเฉพาะบุคคลนี้</span>
+            </label>
+            <div id="swal-student-time-wrapper" style="display: ${isCustomSet ? "block" : "none"};" class="pt-1 space-y-1">
+              <input
+                type="time"
+                id="swal-student-cutoff-time"
+                value="${currentCutoff || sessionCutoff || "08:30"}"
+                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+              />
+              <span class="text-[11px] text-[#7A6A5C] block">
+                หากนักเรียนคนนี้เช็กชื่อหลังเวลานี้ จะถูกบันทึกเป็น 'มาสาย' (หากไม่ติ๊กเลือก จะใช้เวลาตามรอบปกติ)
+              </span>
+            </div>
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: "บันทึก",
+      cancelButtonText: "ยกเลิก",
+      confirmButtonColor: "#5C4A3A",
+      preConfirm: () => {
+        const isEnabled = (document.getElementById("swal-student-cutoff-toggle") as HTMLInputElement)?.checked;
+        if (!isEnabled) return null;
+        const input = (document.getElementById("swal-student-cutoff-time") as HTMLInputElement)?.value;
+        return input || sessionCutoff || "08:30";
+      },
+    });
+
+    if (!isConfirmed) return;
+
+    const cleanTime = timeInput || null;
+    const res = await updateStudentCustomCutoffTimeAction(sessionId, studentId, cleanTime);
+    if (res.success) {
+      setRecords((prev) =>
+        prev.map((r) =>
+          r.studentId === studentId ? { ...r, customCutoffTime: cleanTime } : r
+        )
+      );
+      await showCozySuccess("สำเร็จ", res.message);
+    } else {
+      await showCozyError("เกิดข้อผิดพลาด", res.message);
+    }
+  };
+
   // Sort handler
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -402,6 +542,27 @@ export function AttendanceSheetClient({
           >
             <MapIcon className="w-4 h-4 text-emerald-600" />
             <span>แผนที่นักเรียน</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={handleEditSessionCutoff}
+            title="ตั้งเวลากำหนดมาเรียนปกติประจำรอบ (ใครมาช้ากว่านี้จะขึ้นว่ามาสาย)"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-amber-900 bg-amber-50 hover:bg-amber-100 border border-amber-200 active:scale-95 transition-all shadow-2xs cursor-pointer"
+          >
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span>กำหนดเวลา: {sessionCutoff ? `ก่อน ${sessionCutoff} น.` : "ไม่จำกัด (ไม่ตัดสาย)"}</span>
+            <Edit3 className="w-3 h-3 text-amber-500 opacity-70" />
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setIsPdfModalOpen(true)}
+            title="พิมพ์แบบบันทึกการเช็กชื่อประจำรอบนี้ (PDF ทางการ)"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#3F342B] bg-white border border-[#EADBCC] hover:bg-[#FAF0E1] active:scale-95 transition-all shadow-2xs cursor-pointer"
+          >
+            <Printer className="w-4 h-4 text-[#D97706]" />
+            <span>พิมพ์ใบเช็กชื่อ</span>
           </button>
 
           <a
@@ -692,8 +853,11 @@ export function AttendanceSheetClient({
                     currentSortField={sortField}
                     currentSortOrder={sortOrder}
                     onSort={handleSort}
-                    className="w-24"
+                    className="w-20"
                   />
+                  <th className="p-3 text-xs font-bold text-[#5A4D41] text-center w-36">
+                    เวลากำหนด / เช็กชื่อ
+                  </th>
                   <th className="p-3 text-xs font-bold text-[#5A4D41] text-center w-72">
                     สถานะการเข้าเรียน
                   </th>
@@ -711,6 +875,48 @@ export function AttendanceSheetClient({
                       {r.firstName} {r.lastName}
                     </td>
                     <td className="p-3 text-[#5A4D41]">{r.className}</td>
+                    <td className="p-3 text-center">
+                      <div className="flex flex-col items-center gap-0.5">
+                        <button
+                          type="button"
+                          onClick={() =>
+                            handleEditStudentCutoff(
+                              r.studentId,
+                              `${r.firstName} ${r.lastName}`,
+                              r.customCutoffTime
+                            )
+                          }
+                          title="คลิกเพื่อกำหนดหรือแก้ไขเวลาเฉพาะบุคคลนี้"
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold border transition-all cursor-pointer bg-amber-50/70 hover:bg-amber-100 border-amber-200 text-amber-900"
+                        >
+                          <Clock className="w-2.5 h-2.5 text-amber-600" />
+                          <span>
+                            {r.customCutoffTime
+                              ? `${r.customCutoffTime} น.*`
+                              : sessionCutoff
+                              ? `${sessionCutoff} น.`
+                              : "ไม่จำกัด"}
+                          </span>
+                          <Edit3 className="w-2 h-2 opacity-50 ml-0.5" />
+                        </button>
+                        {r.checkedAt && (
+                          <span className="text-[10px] text-[#7A6A5C] flex items-center gap-1 mt-0.5">
+                            <span>
+                              {new Date(r.checkedAt).toLocaleTimeString("th-TH", {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}{" "}
+                              น.
+                            </span>
+                            {r.status === "LATE" && (
+                              <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
+                                สาย
+                              </span>
+                            )}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 text-center">
                       {/* Touch Pills Group */}
                       <div className="inline-flex rounded-xl bg-[#FAF6F0] p-1 border border-[#EADBCC] gap-1">
@@ -972,6 +1178,19 @@ export function AttendanceSheetClient({
           hasLocation: !!r.hasLocation,
         }))}
         centerCoords={currentCenterCoords}
+      />
+
+      {/* Daily Attendance Sheet PDF Modal */}
+      <PdfReportModal
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        title={`แบบบันทึกการเช็กชื่อ: ${sessionTitle}`}
+        filename={`ใบเช็กชื่อ_${sessionTitle}_${selectedClass === "ALL" ? "ทุกห้อง" : `ห้อง_${selectedClass}`}`}
+        orientation="portrait"
+        pdfApiUrl={`/api/export/attendance/render?sessionId=${sessionId}&className=${selectedClass}&mode=preview`}
+        reportType="ATTENDANCE"
+        sessionId={sessionId}
+        filterClass={selectedClass}
       />
     </div>
   );

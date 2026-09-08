@@ -4,6 +4,7 @@ import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import {
   generateAssignmentReportPdf,
   generateAttendanceSessionReportPdf,
+  generateAttendanceSummaryReportPdf,
   generateEvaluationReportPdf,
 } from "@/lib/export/report-api-service";
 import { revalidatePath } from "next/cache";
@@ -142,3 +143,44 @@ export async function saveOfficialEvaluationReportAction(params: {
     };
   }
 }
+
+/**
+ * ครูยืนยันบันทึกรายงานสรุปเวลาเรียนสะสมรวมทุกคาบฉบับสมบูรณ์ (Official) ลง S3 และออกรหัสรายงานพร้อม QR Code
+ */
+export async function saveOfficialAttendanceSummaryReportAction(params: {
+  filterClass?: string;
+}) {
+  try {
+    const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
+    if (!authCheck.ok) {
+      return { success: false, message: authCheck.error };
+    }
+    const { user: currentUser } = authCheck;
+    const baseUrl = await getRequestBaseUrl();
+
+    const result = await generateAttendanceSummaryReportPdf({
+      filterClass: params.filterClass || "ALL",
+      isOfficial: true,
+      user: { id: currentUser.id, username: currentUser.username },
+      baseUrl,
+    });
+
+    revalidatePath("/admin/reports");
+    revalidatePath("/admin/attendance");
+
+    return {
+      success: true,
+      message: `บันทึกรายงานฉบับสมบูรณ์สำเร็จ (รหัสเอกสาร: ${result.reportCode})`,
+      reportCode: result.reportCode,
+      fileUrl: result.fileUrl,
+      fileName: result.fileName,
+    };
+  } catch (error: any) {
+    console.error("saveOfficialAttendanceSummaryReportAction error:", error);
+    return {
+      success: false,
+      message: error.message || "เกิดข้อผิดพลาดในการบันทึกรายงานฉบับสมบูรณ์",
+    };
+  }
+}
+

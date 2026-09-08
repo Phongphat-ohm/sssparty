@@ -19,6 +19,7 @@ import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import {
   saveOfficialAssignmentReportAction,
   saveOfficialAttendanceReportAction,
+  saveOfficialAttendanceSummaryReportAction,
   saveOfficialEvaluationReportAction,
 } from "@/actions/report-actions";
 
@@ -30,7 +31,7 @@ export interface PdfReportModalProps {
   orientation?: "portrait" | "landscape";
   pdfApiUrl?: string;
   htmlContent?: string;
-  reportType?: "ASSIGNMENT" | "ATTENDANCE" | "EVALUATION";
+  reportType?: "ASSIGNMENT" | "ATTENDANCE" | "ATTENDANCE_SUMMARY" | "EVALUATION";
   assignmentId?: string;
   sessionId?: string;
   filterClass?: string;
@@ -171,9 +172,18 @@ export function PdfReportModal({
           filterClass,
         });
       } else if (reportType === "ATTENDANCE") {
-        if (!sessionId) throw new Error("ไม่พบรหัสรอบการเช็กชื่อ (Session ID)");
-        res = await saveOfficialAttendanceReportAction({
-          sessionId,
+        if (!sessionId) {
+          res = await saveOfficialAttendanceSummaryReportAction({
+            filterClass,
+          });
+        } else {
+          res = await saveOfficialAttendanceReportAction({
+            sessionId,
+            filterClass,
+          });
+        }
+      } else if (reportType === "ATTENDANCE_SUMMARY") {
+        res = await saveOfficialAttendanceSummaryReportAction({
           filterClass,
         });
       } else if (reportType === "EVALUATION") {

@@ -7,7 +7,9 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
-import { registerThaiFonts } from "../comprehensive-evaluation-pdf";
+import { registerThaiFonts } from "../fonts";
+
+registerThaiFonts();
 
 export interface AttendanceSessionPdfData {
   reportCode: string;

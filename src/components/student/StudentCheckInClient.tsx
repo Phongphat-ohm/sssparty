@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   CheckCircle2,
   AlertCircle,
+  Clock,
   Loader2,
   Delete,
   RotateCcw,
@@ -39,6 +40,7 @@ interface ActiveSessionData {
   date: string;
   academicTerm: string;
   note?: string | null;
+  cutoffTime?: string | null;
 }
 
 interface MyRecordData {
@@ -79,6 +81,8 @@ export function StudentCheckInClient({
     checkedAt: string;
     distanceMeters?: number | null;
     hasLocation: boolean;
+    status?: string;
+    isLate?: boolean;
   } | null>(
     initialRecord
       ? {
@@ -86,6 +90,8 @@ export function StudentCheckInClient({
           studentName,
           checkedAt: initialRecord.checkedAt,
           hasLocation: false,
+          status: initialRecord.status,
+          isLate: initialRecord.status === "LATE",
         }
       : null
   );
@@ -170,6 +176,8 @@ export function StudentCheckInClient({
           checkedAt: res.checkedAt || new Date().toISOString(),
           distanceMeters: res.distanceMeters,
           hasLocation: res.hasLocation || false,
+          status: res.status || "PRESENT",
+          isLate: res.isLate ?? (res.status === "LATE"),
         });
         // Haptic feedback (ถ้าอุปกรณ์รองรับ)
         if (typeof window !== "undefined" && window.navigator.vibrate) {
@@ -325,20 +333,45 @@ export function StudentCheckInClient({
       hour: "2-digit",
       minute: "2-digit",
     });
+    const isLateCheckIn = checkInResult.isLate || checkInResult.status === "LATE";
 
     return (
       <div className="max-w-md mx-auto p-4 sm:p-6 space-y-6 animate-in fade-in zoom-in-95 duration-300">
-        <div className="bg-white rounded-3xl p-8 border-2 border-emerald-300 shadow-sm text-center space-y-5 relative overflow-hidden">
-          <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-50 rounded-full blur-xl pointer-events-none" />
-          
-          <div className="w-20 h-20 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-inner">
-            <CheckCircle2 className="w-12 h-12" />
+        <div
+          className={`bg-white rounded-3xl p-8 border-2 shadow-sm text-center space-y-5 relative overflow-hidden ${
+            isLateCheckIn ? "border-amber-300" : "border-emerald-300"
+          }`}
+        >
+          <div
+            className={`absolute -top-12 -right-12 w-32 h-32 rounded-full blur-xl pointer-events-none ${
+              isLateCheckIn ? "bg-amber-100/60" : "bg-emerald-50"
+            }`}
+          />
+
+          <div
+            className={`w-20 h-20 rounded-full flex items-center justify-center mx-auto shadow-inner ${
+              isLateCheckIn
+                ? "bg-amber-100 text-amber-600"
+                : "bg-emerald-100 text-emerald-600"
+            }`}
+          >
+            {isLateCheckIn ? (
+              <Clock className="w-12 h-12" />
+            ) : (
+              <CheckCircle2 className="w-12 h-12" />
+            )}
           </div>
 
           <div className="space-y-1">
-            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${
+                isLateCheckIn
+                  ? "bg-amber-50 text-amber-800 border-amber-200"
+                  : "bg-emerald-50 text-emerald-700 border-emerald-200"
+              }`}
+            >
               <Sparkles className="w-3.5 h-3.5" />
-              เช็กชื่อสำเร็จเรียบร้อยแล้ว
+              {isLateCheckIn ? "เช็กชื่อสำเร็จ (มาสาย)" : "เช็กชื่อสำเร็จเรียบร้อยแล้ว"}
             </span>
             <h2 className="text-2xl font-bold text-[#3F342B] pt-1">
               {checkInResult.studentName}
@@ -348,7 +381,7 @@ export function StudentCheckInClient({
             </p>
           </div>
 
-          <div className="bg-[#FAF7F2] rounded-2xl p-4 text-xs space-y-2 border border-[#EBE3D5]/80 text-left">
+          <div className="bg-[#FAF7F2] rounded-2xl p-4 text-xs space-y-2.5 border border-[#EBE3D5]/80 text-left">
             <div className="flex justify-between items-center">
               <span className="text-[#7A6A5C]">รอบเช็กชื่อ:</span>
               <span className="font-bold text-[#3F342B]">{initialSession.title}</span>
@@ -359,10 +392,28 @@ export function StudentCheckInClient({
             </div>
             <div className="flex justify-between items-center">
               <span className="text-[#7A6A5C]">สถานะการเข้าเรียน:</span>
-              <span className="font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md">
-                มาเรียน (PRESENT)
-              </span>
+              {isLateCheckIn ? (
+                <span className="font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5 text-amber-700" />
+                  มาสาย (LATE)
+                </span>
+              ) : (
+                <span className="font-bold text-emerald-700 bg-emerald-100/60 px-2 py-0.5 rounded-md flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                  มาเรียน (PRESENT)
+                </span>
+              )}
             </div>
+
+            {isLateCheckIn && (
+              <div className="p-2 bg-amber-50/80 rounded-xl border border-amber-200/60 text-[11px] text-amber-800 flex items-start gap-1.5">
+                <Info className="w-3.5 h-3.5 shrink-0 mt-0.5 text-amber-600" />
+                <span>
+                  เช็กชื่อหลังกำหนดเวลา {initialSession.cutoffTime ? `(${initialSession.cutoffTime} น.)` : ""} ระบบจึงลงบันทึกเป็น <strong>มาสาย</strong>
+                </span>
+              </div>
+            )}
+
             {checkInResult.hasLocation && checkInResult.distanceMeters !== undefined && (
               <div className="flex justify-between items-center pt-1 border-t border-stone-200/60">
                 <span className="text-[#7A6A5C] flex items-center gap-1">
@@ -400,17 +451,37 @@ export function StudentCheckInClient({
   return (
     <div className="max-w-md mx-auto p-4 sm:p-6 space-y-4">
       {/* ส่วนหัวระบุรอบที่เปิดอยู่ */}
-      <div className="bg-gradient-to-r from-amber-50 to-orange-50/60 rounded-3xl p-5 border border-amber-200/80 shadow-2xs">
-        <div className="flex items-center gap-2 text-xs font-bold text-amber-800 mb-1">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span>รอบเช็กชื่อสดที่กำลังเปิดรับ</span>
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50/60 rounded-3xl p-5 border border-amber-200/80 shadow-2xs space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2 text-xs font-bold text-amber-800">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span>รอบเช็กชื่อสดที่กำลังเปิดรับ</span>
+          </div>
+          {initialSession.cutoffTime && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-300/80 shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-amber-700" />
+              <span>ก่อน {initialSession.cutoffTime} น.</span>
+            </span>
+          )}
         </div>
-        <h1 className="text-lg font-bold text-[#3F342B] tracking-tight">
-          {initialSession.title}
-        </h1>
-        <p className="text-xs text-[#7A6A5C] mt-0.5">
-          ภาคเรียน {initialSession.academicTerm} • รหัสนักเรียน {studentCode} ({studentName})
-        </p>
+
+        <div>
+          <h1 className="text-lg font-bold text-[#3F342B] tracking-tight">
+            {initialSession.title}
+          </h1>
+          <p className="text-xs text-[#7A6A5C] mt-0.5">
+            ภาคเรียน {initialSession.academicTerm} • รหัสนักเรียน {studentCode} ({studentName})
+          </p>
+        </div>
+
+        {initialSession.cutoffTime && (
+          <div className="flex items-center gap-2 text-[11px] text-amber-900 bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/70">
+            <Info className="w-4 h-4 text-amber-700 shrink-0" />
+            <span>
+              กรุณาเช็กชื่อก่อน <strong>{initialSession.cutoffTime} น.</strong> หากมาช้ากว่านี้ระบบจะขึ้นว่า <strong>"มาสาย"</strong>
+            </span>
+          </div>
+        )}
       </div>
 
       {/* แถบสลับโหมด: แป้นตัวเลข vs กล้องสแกน QR */}

@@ -35,6 +35,7 @@ export default async function AdminAttendancePage() {
       date: s.date.toISOString(),
       academicTerm: s.academicTerm,
       note: s.note,
+      onTimeCutoffTime: s.onTimeCutoffTime,
       totalStudents: total,
       presentCount: present,
       lateCount: late,

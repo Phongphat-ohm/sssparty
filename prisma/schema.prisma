@@ -272,8 +272,9 @@ model AttendanceSession {
   isKeyActive     Boolean            @default(false)
   centerLatitude  Float?
   centerLongitude Float?
-  expectedRadius  Float?             @default(100)
-  createdById     String
+  expectedRadius   Float?             @default(100)
+  onTimeCutoffTime String?
+  createdById      String
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 
@@ -291,6 +292,7 @@ model AttendanceRecord {
   studentId           String
   status              AttendanceStatus @default(PRESENT)
   note                String?          @db.Text
+  customCutoffTime    String?
   checkedAt           DateTime         @default(now())
   checkInMethod       String?          @default("MANUAL")
   latitude            Float?

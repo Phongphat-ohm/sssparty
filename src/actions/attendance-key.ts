@@ -12,6 +12,7 @@ import {
 } from "@/lib/attendance/dynamic-key";
 import { calculateHaversineDistance } from "@/lib/attendance/geo-utils";
 import { attendanceEventBus } from "@/lib/attendance/attendance-events";
+import { isTimePastCutoff, formatThaiTime } from "@/lib/attendance/time-utils";
 
 export interface StudentCheckInParams {
   sessionId: string;
@@ -172,6 +173,7 @@ export async function getActiveAttendanceSessionForStudentAction() {
         date: true,
         academicTerm: true,
         note: true,
+        onTimeCutoffTime: true,
       },
     });
 
@@ -191,8 +193,11 @@ export async function getActiveAttendanceSessionForStudentAction() {
         status: true,
         checkedAt: true,
         checkInMethod: true,
+        customCutoffTime: true,
       },
     });
+
+    const effectiveCutoffTime = myRecord?.customCutoffTime || activeSession.onTimeCutoffTime || null;
 
     return {
       success: true,
@@ -200,9 +205,10 @@ export async function getActiveAttendanceSessionForStudentAction() {
         ...activeSession,
         date: activeSession.date.toISOString(),
       },
+      effectiveCutoffTime,
       alreadyCheckedIn:
-        myRecord?.checkInMethod === "DYNAMIC_KEY" ||
-        myRecord?.checkInMethod === "DYNAMIC_QR",
+        (myRecord?.status === "PRESENT" || myRecord?.status === "LATE") &&
+        (myRecord?.checkInMethod === "DYNAMIC_KEY" || myRecord?.checkInMethod === "DYNAMIC_QR"),
       myRecord: myRecord
         ? {
             ...myRecord,
@@ -294,13 +300,18 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
 
     if (
       existingRecord &&
-      existingRecord.status === "PRESENT" &&
+      (existingRecord.status === "PRESENT" || existingRecord.status === "LATE") &&
       (existingRecord.checkInMethod === "DYNAMIC_KEY" || existingRecord.checkInMethod === "DYNAMIC_QR")
     ) {
+      const isLateStatus = existingRecord.status === "LATE";
       return {
         success: true,
         alreadyCheckedIn: true,
-        message: "คุณได้เช็กชื่อเข้าเรียนในรอบนี้เรียบร้อยแล้ว!",
+        status: existingRecord.status,
+        isLate: isLateStatus,
+        message: isLateStatus
+          ? "คุณได้เช็กชื่อเข้าเรียนในรอบนี้เรียบร้อยแล้ว (สถานะ: มาสาย)"
+          : "คุณได้เช็กชื่อเข้าเรียนในรอบนี้เรียบร้อยแล้ว!",
         studentName: `${student.firstName} ${student.lastName}`,
         checkedAt: existingRecord.checkedAt.toISOString(),
         distanceMeters: existingRecord.distanceFromSession,
@@ -330,6 +341,21 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
 
     const now = new Date();
 
+    // 4.1 ตรวจสอบเวลา Cutoff (รายบุคคล หรือ ประจำรอบ)
+    const effectiveCutoff = existingRecord?.customCutoffTime || attendanceSession.onTimeCutoffTime;
+    let isLate = false;
+    let finalStatus: "PRESENT" | "LATE" = "PRESENT";
+    let autoNote = existingRecord?.note || null;
+
+    if (effectiveCutoff) {
+      isLate = isTimePastCutoff(now, effectiveCutoff);
+      if (isLate) {
+        finalStatus = "LATE";
+        const thaiTime = formatThaiTime(now);
+        autoNote = `เช็กชื่อเวลา ${thaiTime} (เกินกำหนด ${effectiveCutoff} น.)`;
+      }
+    }
+
     // 5. บันทึก/อัปเดต AttendanceRecord
     const record = await prisma.attendanceRecord.upsert({
       where: {
@@ -339,7 +365,8 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
         },
       },
       update: {
-        status: "PRESENT",
+        status: finalStatus,
+        note: autoNote,
         checkedAt: now,
         checkInMethod: method,
         latitude: coords?.latitude ?? null,
@@ -353,7 +380,8 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
       create: {
         sessionId: attendanceSession.id,
         studentId: student.id,
-        status: "PRESENT",
+        status: finalStatus,
+        note: autoNote,
         checkedAt: now,
         checkInMethod: method,
         latitude: coords?.latitude ?? null,
@@ -412,9 +440,13 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
 
     return {
       success: true,
-      message: "เช็กชื่อเข้าเรียนเรียบร้อยแล้ว!",
+      status: finalStatus,
+      isLate,
+      message: isLate
+        ? `เช็กชื่อสำเร็จ แต่เลยเวลาที่กำหนด (${effectiveCutoff} น.) ระบบบันทึกเป็น "มาสาย"`
+        : "เช็กชื่อเข้าเรียนเรียบร้อยแล้ว!",
       studentName: `${student.firstName} ${student.lastName}`,
-      checkedAt: now.toISOString(),
+      checkedAt: record.checkedAt.toISOString(),
       distanceMeters,
       hasLocation,
     };

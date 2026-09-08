@@ -58,6 +58,7 @@ export default async function AdminAttendanceDetailPage({ params }: Props) {
       note: existing?.note || null,
       checkInMethod: existing?.checkInMethod || null,
       checkedAt: existing?.checkedAt ? existing.checkedAt.toISOString() : null,
+      customCutoffTime: existing?.customCutoffTime || null,
       latitude: existing?.latitude || null,
       longitude: existing?.longitude || null,
       locationAccuracy: existing?.locationAccuracy || null,
@@ -86,6 +87,7 @@ export default async function AdminAttendanceDetailPage({ params }: Props) {
         sessionDate={attendanceSession.date.toISOString()}
         academicTerm={attendanceSession.academicTerm}
         sessionNote={attendanceSession.note}
+        onTimeCutoffTime={attendanceSession.onTimeCutoffTime}
         isKeyActive={attendanceSession.isKeyActive}
         keySecret={attendanceSession.keySecret}
         centerCoords={centerCoords}

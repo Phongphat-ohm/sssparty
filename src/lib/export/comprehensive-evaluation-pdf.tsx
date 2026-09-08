@@ -11,27 +11,10 @@ import {
 } from "@react-pdf/renderer";
 import path from "path";
 import { ComprehensiveEvaluationReportData } from "@/actions/reports";
+import { registerThaiFonts } from "./fonts";
 
-// ลงทะเบียนฟอนต์ Sarabun เพื่อรองรับภาษาไทยคมชัด ถูกต้องตามแบบฟอร์มเอกสารทางการ
-let fontRegistered = false;
-export function registerThaiFonts() {
-  if (fontRegistered) return;
-  try {
-    const regularFontPath = path.join(process.cwd(), "public", "fonts", "Sarabun-Regular.ttf");
-    const boldFontPath = path.join(process.cwd(), "public", "fonts", "Sarabun-Bold.ttf");
-
-    Font.register({
-      family: "Sarabun",
-      fonts: [
-        { src: regularFontPath, fontWeight: "normal" },
-        { src: boldFontPath, fontWeight: "bold" },
-      ],
-    });
-    fontRegistered = true;
-  } catch (err) {
-    console.warn("Font registration notice:", err);
-  }
-}
+export { registerThaiFonts };
+registerThaiFonts();
 
 // กำหนด Stylesheet สำหรับเอกสารทางการ A4 แนวนอน (Landscape)
 const styles = StyleSheet.create({
@@ -254,6 +237,7 @@ export const ComprehensiveEvaluationPdfDocument: React.FC<Props> = ({
   qrDataUrl,
   printedByName,
 }) => {
+  registerThaiFonts();
   const {
     academicTerm,
     clubName,

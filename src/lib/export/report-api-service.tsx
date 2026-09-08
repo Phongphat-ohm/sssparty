@@ -15,9 +15,20 @@ import {
   AttendanceSessionPdfData,
 } from "./pdf-templates/AttendanceSessionPdf";
 import {
+  AttendanceSummaryPdf,
+  AttendanceSummaryPdfData,
+} from "./pdf-templates/AttendanceSummaryPdf";
+import {
   ComprehensiveEvaluationPdfDocument,
 } from "./comprehensive-evaluation-pdf";
-import { getComprehensiveEvaluationReportDataAction } from "@/actions/reports";
+import {
+  getComprehensiveEvaluationReportDataAction,
+  getAttendanceSummaryReportDataAction,
+} from "@/actions/reports";
+import { registerThaiFonts } from "./fonts";
+
+// ตรวจสอบและลงทะเบียนฟอนต์ไทยทันที
+registerThaiFonts();
 
 interface ReportResult {
   pdfBuffer: Buffer;
@@ -192,6 +203,7 @@ export async function generateAssignmentReportPdf(params: {
   };
 
   // 5. Render In-Memory PDF ผ่าน @react-pdf/renderer
+  registerThaiFonts();
   const pdfBuffer = await renderToBuffer(<AssignmentSubmissionsPdf data={templateData} />);
 
   const cleanTitle = assignment.title.replace(/[/\\?%*:|"<>]/g, "_").slice(0, 30);
@@ -420,6 +432,7 @@ export async function generateAttendanceSessionReportPdf(params: {
     students: mappedStudents,
   };
 
+  registerThaiFonts();
   const pdfBuffer = await renderToBuffer(<AttendanceSessionPdf data={templateData} />);
 
   const cleanTitle = session.title.replace(/[/\\?%*:|"<>]/g, "_").slice(0, 30);
@@ -533,6 +546,7 @@ export async function generateEvaluationReportPdf(params: {
     });
   }
 
+  registerThaiFonts();
   const pdfBuffer = await renderToBuffer(
     <ComprehensiveEvaluationPdfDocument
       data={reportData}
@@ -618,3 +632,145 @@ export async function generateEvaluationReportPdf(params: {
     fileUrl,
   };
 }
+
+/**
+ * 4. สร้างเอกสารรายงานสรุปเวลาเรียนรวมทุกคาบตลอดภาคเรียน (Cumulative Attendance Summary Report)
+ */
+export async function generateAttendanceSummaryReportPdf(params: {
+  filterClass?: string;
+  isOfficial?: boolean;
+  user?: { id: string; username: string };
+  baseUrl?: string;
+}): Promise<ReportResult> {
+  const { filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
+
+  const result = await getAttendanceSummaryReportDataAction(filterClass);
+  if (!result.success || !result.data) {
+    throw new Error(result.message || "ไม่สามารถดึงข้อมูลรายงานสรุปเวลาเรียนรวมได้");
+  }
+
+  const reportData = result.data;
+  const academicTerm = reportData.academicTerm || "1/2569";
+  const clubName =
+    (await getSystemSetting("site_name")) ||
+    "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
+
+  let reportCode = "PREVIEW-DRAFT";
+  let qrDataUrl: string | null = null;
+  const siteOrigin = baseUrl || process.env.NEXTAUTH_URL || "https://sssparty.vercel.app";
+
+  if (isOfficial) {
+    reportCode = await getNextReportCode(academicTerm);
+    const verifyUrl = `${siteOrigin}/verify/${reportCode}`;
+    qrDataUrl = await QRCode.toDataURL(verifyUrl, {
+      margin: 1,
+      width: 200,
+      errorCorrectionLevel: "M",
+    });
+  }
+
+  const printDateStr = new Intl.DateTimeFormat("th-TH", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date());
+
+  const templateData: AttendanceSummaryPdfData = {
+    reportCode,
+    isOfficial,
+    qrDataUrl,
+    verifyUrl: isOfficial ? `${siteOrigin}/verify/${reportCode}` : null,
+    clubName,
+    academicTerm,
+    targetClass: filterClass,
+    printDateStr,
+    printedByName: user?.username || "ผู้ดูแลระบบ",
+    totalSessions: reportData.totalSessions,
+    totalStudents: reportData.totalStudents,
+    passedCount: reportData.stats.passedCount,
+    failedCount: reportData.stats.failedCount,
+    avgPercentage: reportData.stats.avgPercentage,
+    sessions: reportData.sessions,
+    students: reportData.students,
+  };
+
+  registerThaiFonts();
+  const pdfBuffer = await renderToBuffer(<AttendanceSummaryPdf data={templateData} />);
+
+  const fileName = `${reportCode}_รายงานสรุปเวลาเรียน_${filterClass}.pdf`;
+
+  let s3Key: string | null = null;
+  let fileUrl: string | null = null;
+
+  if (isOfficial) {
+    const s3Folder = `reports/${academicTerm.replace("/", "-")}/attendance-summary`;
+    s3Key = `${s3Folder}/${fileName}`;
+
+    if (S3_BUCKET) {
+      await s3Client.send(
+        new PutObjectCommand({
+          Bucket: S3_BUCKET,
+          Key: s3Key,
+          Body: pdfBuffer,
+          ContentType: "application/pdf",
+          ContentDisposition: `inline; filename="${encodeURIComponent(fileName)}"`,
+        })
+      );
+      fileUrl = `/api/files/${s3Key}`;
+    } else {
+      fileUrl = `/api/export/attendance/render?type=summary&className=${filterClass}&mode=preview`;
+    }
+
+    const metadataObj = {
+      totalStudents: reportData.totalStudents,
+      totalSessions: reportData.totalSessions,
+      passedCount: reportData.stats.passedCount,
+      failedCount: reportData.stats.failedCount,
+      avgPercentage: reportData.stats.avgPercentage,
+    };
+
+    if (user?.id) {
+      await prisma.generatedReport.create({
+        data: {
+          reportCode,
+          reportType: "ATTENDANCE_SUMMARY_REPORT",
+          title: `รายงานสรุปเวลาเรียนสะสม (${filterClass === "ALL" ? "ทุกห้อง" : filterClass})`,
+          academicTerm,
+          targetClass: filterClass,
+          fileKey: s3Key,
+          fileUrl: fileUrl || "",
+          fileSize: pdfBuffer.length,
+          printedById: user.id,
+          printedByName: user.username,
+          metadata: JSON.stringify(metadataObj),
+        },
+      });
+
+      await createAuditLog({
+        userId: user.id,
+        username: user.username,
+        role: "ADMIN",
+        action: "SAVE_OFFICIAL_REPORT",
+        targetType: "ATTENDANCE",
+        targetId: null,
+        details: JSON.stringify({
+          reportCode,
+          targetClass: filterClass,
+          s3Key,
+        }),
+      });
+    }
+  }
+
+  return {
+    pdfBuffer,
+    fileName,
+    reportCode,
+    isOfficial,
+    s3Key,
+    fileUrl,
+  };
+}
+

@@ -45,6 +45,7 @@ export interface SessionItem {
   date: string;
   academicTerm: string;
   note?: string | null;
+  onTimeCutoffTime?: string | null;
   totalStudents: number;
   presentCount: number;
   lateCount: number;
@@ -109,6 +110,8 @@ export function AttendanceSessionsListClient({
   const [attendanceReportData, setAttendanceReportData] = useState<AttendanceSummaryReportData | null>(null);
   const [isLoadingAttendanceReport, setIsLoadingAttendanceReport] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [selectedSessionForPdf, setSelectedSessionForPdf] = useState<SessionItem | null>(null);
+  const [isSinglePdfModalOpen, setIsSinglePdfModalOpen] = useState(false);
 
   const handleOpenAttendanceSummaryPdf = () => {
     setIsPdfModalOpen(true);
@@ -225,7 +228,7 @@ export function AttendanceSessionsListClient({
     const confirmed = await showCozyConfirm({
       title: "สร้างรอบเช็กชื่อกิจกรรม?",
       html: `
-        <div class="space-y-2 text-left text-xs text-[#5A4D41]">
+        <div class="space-y-3 text-left text-xs text-[#5A4D41]">
           <p>คุณต้องการสร้างรอบเช็กชื่อสำหรับวันที่:</p>
           <p class="font-bold text-sm text-[#B94E48] bg-[#FAF0E1] p-2.5 rounded-xl border border-[#EADBCC] text-center">
             📅 ${thaiFormatted}
@@ -238,6 +241,32 @@ export function AttendanceSessionsListClient({
                 </div>`
               : ""
           }
+          <div class="space-y-2 p-3 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC]">
+            <label class="flex items-center gap-2 cursor-pointer font-bold text-[#3F342B] text-xs select-none">
+              <input
+                id="swal-cutoff-enable"
+                type="checkbox"
+                class="w-4 h-4 rounded text-[#D9A441] accent-[#D9A441]"
+                onchange="
+                  var box = document.getElementById('swal-cutoff-box');
+                  if (box) box.style.display = this.checked ? 'block' : 'none';
+                "
+              />
+              <span>⏰ กำหนดเวลาเช็กชื่อทันเวลา (ตัดสายอัตโนมัติ)</span>
+            </label>
+            <div id="swal-cutoff-box" style="display: none;" class="space-y-1 pt-1">
+              <input
+                id="swal-cutoff-input"
+                type="time"
+                defaultValue="08:30"
+                value="08:30"
+                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+              />
+              <span class="text-[11px] text-[#7A6A5C] block">
+                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะบันทึกเป็น "มาสาย" อัตโนมัติ (หากไม่ติ๊กเลือก จะเช็กชื่อได้ตลอดเวลา ไม่ตัดสาย)
+              </span>
+            </div>
+          </div>
           <p class="text-[11px] text-[#7A6A5C]">
             ⚡ <strong>ความสะดวกรวดเร็ว:</strong> ระบบจะตั้งชื่อหัวข้อกิจกรรมให้อัตโนมัติ (เช่น "กิจกรรมชุมนุม ครั้งที่...") และเตรียมรายชื่อนักเรียนทุกคนให้พร้อมเช็กชื่อทันที
           </p>
@@ -246,13 +275,20 @@ export function AttendanceSessionsListClient({
       confirmText: "สร้างและเริ่มเช็กชื่อ",
       cancelText: "ยกเลิก",
       icon: "question",
+      preConfirm: () => {
+        const isEnabled = (document.getElementById("swal-cutoff-enable") as HTMLInputElement)?.checked;
+        if (!isEnabled) return null;
+        const input = document.getElementById("swal-cutoff-input") as HTMLInputElement;
+        return input?.value || "08:30";
+      },
     });
 
     if (!confirmed.isConfirmed) return;
+    const cutoffTime = confirmed.value ? (confirmed.value as string) : undefined;
 
     setIsCreating(true);
     try {
-      const res = await createAttendanceSessionForDateAction(dateKey);
+      const res = await createAttendanceSessionForDateAction(dateKey, "1/2569", cutoffTime);
       if (res.success && res.sessionId) {
         await showCozySuccess("สำเร็จ!", res.message);
         router.push(`/admin/attendance/${res.sessionId}`);
@@ -614,6 +650,24 @@ export function AttendanceSessionsListClient({
                     </p>
                   </div>
 
+                  {/* Cutoff Time Info */}
+                  <div className="flex items-center gap-2 text-xs bg-[#FAF0E1] text-[#8C5D23] px-3 py-2 rounded-xl border border-[#EADBCC]">
+                    <Clock className="w-4 h-4 text-[#D9A441] shrink-0" />
+                    <div>
+                      {selectedSession.onTimeCutoffTime ? (
+                        <>
+                          <span className="font-bold">เช็กชื่อทันเวลาก่อน: {selectedSession.onTimeCutoffTime} น.</span>
+                          <span className="block text-[10px] text-[#7A6A5C]">มาช้ากว่านี้ระบบจะขึ้นสถานะ "มาสาย" อัตโนมัติ</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-bold text-[#5A4D41]">ไม่กำหนดเวลาเช็กชื่อ</span>
+                          <span className="block text-[10px] text-[#7A6A5C]">เช็กชื่อได้ตลอดเวลา ไม่ตัดสายอัตโนมัติ</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   {/* Attendance Stats Cards */}
                   <div className="p-4 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC] space-y-3">
                     <div className="flex items-center justify-between">
@@ -661,6 +715,18 @@ export function AttendanceSessionsListClient({
                       <ExternalLink className="w-4 h-4" />
                       <span>เปิดห้องเช็กชื่อ / แก้ไขข้อมูล</span>
                     </Link>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedSessionForPdf(selectedSession);
+                        setIsSinglePdfModalOpen(true);
+                      }}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-xs font-bold text-[#3F342B] bg-[#FAF0E1] hover:bg-[#EADBCC] active:scale-98 transition-all border border-[#D9CABB] cursor-pointer"
+                    >
+                      <Printer className="w-4 h-4 text-[#8C5D23]" />
+                      <span>พิมพ์ใบเช็กชื่อรอบนี้ (PDF)</span>
+                    </button>
 
                     <button
                       type="button"
@@ -867,6 +933,18 @@ export function AttendanceSessionsListClient({
                               <span>เช็กชื่อ / แก้ไข</span>
                             </Link>
 
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedSessionForPdf(s);
+                                setIsSinglePdfModalOpen(true);
+                              }}
+                              title="พิมพ์ใบเช็กชื่อรอบนี้ (PDF)"
+                              className="p-1.5 rounded-lg text-[#8C5D23] hover:bg-[#FAF0E1] transition-colors cursor-pointer"
+                            >
+                              <Printer className="w-3.5 h-3.5" />
+                            </button>
+
                             <a
                               href={`/api/export/attendance?sessionId=${s.id}`}
                               download
@@ -906,18 +984,35 @@ export function AttendanceSessionsListClient({
         </div>
       )}
 
-      {/* Printable Attendance Summary Modal */}
+      {/* Printable Attendance Summary Modal (Cumulative across all sessions) */}
       <PdfReportModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
         title="แบบรายงานสรุปเวลาเรียนกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
-        filename="แบบรายงานสรุปเวลาเรียนกิจกรรมชุมนุม_ทั้งหมด"
+        filename="แบบรายงานสรุปเวลาเรียนสะสม_กิจกรรมชุมนุม"
         orientation="portrait"
-        pdfApiUrl={`/api/export/attendance/render?className=ALL&mode=preview${sessionsByDate.get(selectedDateKey)?.id || sessions[0]?.id ? `&sessionId=${sessionsByDate.get(selectedDateKey)?.id || sessions[0]?.id}` : ""}`}
-        reportType="ATTENDANCE"
-        sessionId={sessionsByDate.get(selectedDateKey)?.id || sessions[0]?.id}
+        pdfApiUrl="/api/export/attendance/render?type=summary&className=ALL&mode=preview"
+        reportType="ATTENDANCE_SUMMARY"
         filterClass="ALL"
       />
+
+      {/* Printable Single Session Daily Modal */}
+      {selectedSessionForPdf && (
+        <PdfReportModal
+          isOpen={isSinglePdfModalOpen}
+          onClose={() => {
+            setIsSinglePdfModalOpen(false);
+            setSelectedSessionForPdf(null);
+          }}
+          title={`แบบบันทึกการเช็กชื่อ: ${selectedSessionForPdf.title}`}
+          filename={`ใบเช็กชื่อ_${selectedSessionForPdf.title.replace(/\s+/g, "_")}`}
+          orientation="portrait"
+          pdfApiUrl={`/api/export/attendance/render?sessionId=${selectedSessionForPdf.id}&className=ALL&mode=preview`}
+          reportType="ATTENDANCE"
+          sessionId={selectedSessionForPdf.id}
+          filterClass="ALL"
+        />
+      )}
     </div>
   );
 }
