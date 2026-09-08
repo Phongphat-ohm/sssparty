@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { createAuditLog } from "@/lib/audit/logger";
+import { isTermLocked } from "@/lib/terms/term-service";
 
 export interface QuestionAnswerInput {
   questionId: string;
@@ -70,6 +71,10 @@ export async function submitAssignmentAction(
 
     if (!assignment) {
       return { success: false, message: "ไม่พบการบ้านที่ระบุในระบบ" };
+    }
+
+    if (await isTermLocked(assignment.academicTerm)) {
+      return { success: false, message: "ภาคเรียนนี้ถูกล็อกแล้ว ไม่สามารถส่งงานได้" };
     }
 
     if (assignment.status === "DRAFT") {

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getCurrentSystemTerm } from "@/lib/terms/term-service";
 import {
   StudentAssignmentsClient,
   StudentAssignmentItem,
@@ -12,8 +13,10 @@ export default async function StudentAssignmentsPage() {
     redirect("/student-login");
   }
 
+  const currentTerm = await getCurrentSystemTerm();
+
   const assignments = await prisma.assignment.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", academicTerm: currentTerm },
     include: {
       rubrics: { select: { id: true } },
       submissions: {

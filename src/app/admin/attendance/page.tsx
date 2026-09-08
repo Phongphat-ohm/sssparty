@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 import {
   AttendanceSessionsListClient,
   SessionItem,
@@ -12,7 +13,10 @@ export default async function AdminAttendancePage() {
     redirect("/admin-login");
   }
 
+  const selectedTerm = await getAdminSelectedTerm();
+
   const dbSessions = await prisma.attendanceSession.findMany({
+    where: { academicTerm: selectedTerm },
     include: {
       records: {
         select: { status: true },

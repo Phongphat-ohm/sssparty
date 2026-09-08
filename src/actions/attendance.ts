@@ -7,6 +7,7 @@ import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSetting } from "@/lib/settings/system-settings";
 import { attendanceEventBus } from "@/lib/attendance/attendance-events";
+import { checkTermCanEdit } from "@/lib/terms/term-service";
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "LEAVE" | "ABSENT";
 
@@ -58,6 +59,11 @@ export async function createAttendanceSessionAction(
     const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
     const note = (formData.get("note") as string)?.trim() || undefined;
     const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || undefined;
+
+    const termCheck = await checkTermCanEdit(academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
 
     const parsed = createSessionSchema.safeParse({
       title: rawTitle || undefined,
@@ -212,6 +218,26 @@ export async function updateAttendanceSessionInfoAction(
     const note = (formData.get("note") as string)?.trim() || undefined;
     const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || null;
 
+    const existing = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { academicTerm: true },
+    });
+    if (!existing) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อที่ต้องการแก้ไข" };
+    }
+
+    const termCheck = await checkTermCanEdit(existing.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
+
+    if (academicTerm !== existing.academicTerm) {
+      const newTermCheck = await checkTermCanEdit(academicTerm, currentUser);
+      if (!newTermCheck.canEdit) {
+        return { success: false, message: newTermCheck.reason };
+      }
+    }
+
     await prisma.attendanceSession.update({
       where: { id: sessionId },
       data: {
@@ -264,6 +290,18 @@ export async function updateSessionCutoffTimeAction(
 
     const cleanCutoff = onTimeCutoffTime?.trim() || null;
 
+    const existingSession = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { academicTerm: true },
+    });
+    if (!existingSession) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อ" };
+    }
+    const termCheck = await checkTermCanEdit(existingSession.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
+
     await prisma.attendanceSession.update({
       where: { id: sessionId },
       data: { onTimeCutoffTime: cleanCutoff },
@@ -309,6 +347,18 @@ export async function updateStudentCustomCutoffTimeAction(
       return { success: false, message: authCheck.error };
     }
     const { user: currentUser } = authCheck;
+
+    const existingSession = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { academicTerm: true },
+    });
+    if (!existingSession) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อ" };
+    }
+    const termCheck = await checkTermCanEdit(existingSession.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
 
     const cleanCutoff = customCutoffTime?.trim() || null;
 
@@ -367,6 +417,18 @@ export async function updateAttendanceBatchAction(
       return { success: false, message: authCheck.error };
     }
     const { user: currentUser } = authCheck;
+
+    const currentSession = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { academicTerm: true },
+    });
+    if (!currentSession) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อ" };
+    }
+    const termCheck = await checkTermCanEdit(currentSession.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
 
     // 1. ดึงข้อมูลเดิมทั้งหมดเพื่อตรวจสอบความเปลี่ยนแปลง และรักษา Timestamp สแกนเดิมไว้
     const existingRecords = await prisma.attendanceRecord.findMany({
@@ -487,6 +549,18 @@ export async function markAllAttendanceStatusAction(
     }
     const { user: currentUser } = authCheck;
 
+    const currentSession = await prisma.attendanceSession.findUnique({
+      where: { id: sessionId },
+      select: { academicTerm: true },
+    });
+    if (!currentSession) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อ" };
+    }
+    const termCheck = await checkTermCanEdit(currentSession.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
+
     const now = new Date();
 
     if (status === "ABSENT") {
@@ -570,8 +644,17 @@ export async function deleteAttendanceSessionAction(
 
     const sessionToDelete = await prisma.attendanceSession.findUnique({
       where: { id: sessionId },
-      select: { title: true },
+      select: { title: true, academicTerm: true },
     });
+
+    if (!sessionToDelete) {
+      return { success: false, message: "ไม่พบรอบเช็กชื่อที่ต้องการลบ" };
+    }
+
+    const termCheck = await checkTermCanEdit(sessionToDelete.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
 
     await prisma.attendanceSession.delete({
       where: { id: sessionId },

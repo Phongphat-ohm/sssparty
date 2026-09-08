@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getCurrentSystemTerm } from "@/lib/terms/term-service";
 import {
   StudentAttendanceCalendar,
   StudentAttendanceItem,
@@ -12,10 +13,17 @@ export default async function StudentAttendancePage() {
     redirect("/student-login");
   }
 
+  const currentTerm = await getCurrentSystemTerm();
+
   const student = await prisma.student.findUnique({
     where: { id: session.studentId },
     include: {
       attendanceRecords: {
+        where: {
+          session: {
+            academicTerm: currentTerm,
+          },
+        },
         include: {
           session: true,
         },

@@ -13,6 +13,7 @@ import {
 import { calculateHaversineDistance } from "@/lib/attendance/geo-utils";
 import { attendanceEventBus } from "@/lib/attendance/attendance-events";
 import { isTimePastCutoff, formatThaiTime } from "@/lib/attendance/time-utils";
+import { checkTermCanEdit, isTermLocked } from "@/lib/terms/term-service";
 
 export interface StudentCheckInParams {
   sessionId: string;
@@ -44,6 +45,11 @@ export async function startDynamicKeySessionAction(
     });
     if (!existingSession) {
       return { success: false, message: "ไม่พบข้อมูลรอบเช็กชื่อ" };
+    }
+
+    const termCheck = await checkTermCanEdit(existingSession.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
     }
 
     // สร้าง secret สุ่มใหม่ หรือใช้ secret เดิมถ้ามีอยู่แล้ว
@@ -243,6 +249,13 @@ export async function studentCheckInAction(params: StudentCheckInParams) {
 
     if (!attendanceSession) {
       return { success: false, message: "ไม่พบข้อมูลรอบเช็กชื่อนี้ในระบบ" };
+    }
+
+    if (await isTermLocked(attendanceSession.academicTerm)) {
+      return {
+        success: false,
+        message: "ภาคเรียนนี้ถูกล็อกแล้ว ไม่สามารถเช็กชื่อได้",
+      };
     }
 
     if (!attendanceSession.isKeyActive || !attendanceSession.keySecret) {

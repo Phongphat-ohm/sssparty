@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 import {
   AdminAssignmentsClient,
   AssignmentItem,
@@ -12,9 +13,11 @@ export default async function AdminAssignmentsPage() {
     redirect("/admin-login");
   }
 
+  const selectedTerm = await getAdminSelectedTerm();
   const totalStudents = await prisma.student.count({ where: { status: "ACTIVE" } });
 
   const assignments = await prisma.assignment.findMany({
+    where: { academicTerm: selectedTerm },
     include: {
       rubrics: { select: { id: true } },
       submissions: {

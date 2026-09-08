@@ -54,11 +54,13 @@ export function ActionDropdown({
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [coords, setCoords] = useState<{
-    top: number;
+    top?: number;
+    bottom?: number;
     left?: number;
     right?: number;
+    maxHeight: number;
     placement: "bottom" | "top";
-  }>({ top: 0, placement: "bottom" });
+  }>({ maxHeight: 350, placement: "bottom" });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -70,19 +72,51 @@ export function ActionDropdown({
   const updatePosition = () => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    const spaceBelow = window.innerHeight - rect.bottom;
-    const spaceAbove = rect.top;
-    // Estimate menu height ~ 240px; if space below is tight, flip upwards
-    const placement = spaceBelow < 250 && spaceAbove > spaceBelow ? "top" : "bottom";
-    const top = placement === "bottom" ? rect.bottom + 6 : rect.top - 6;
+    const viewportHeight = window.innerHeight;
+    const viewportWidth = window.innerWidth;
+    const spaceBelow = viewportHeight - rect.bottom - 16;
+    const spaceAbove = rect.top - 16;
+
+    // Prefer bottom placement unless spaceBelow is tight and spaceAbove is larger
+    const placement = spaceBelow < 240 && spaceAbove > spaceBelow ? "top" : "bottom";
+    const availableHeight = placement === "bottom" ? spaceBelow : spaceAbove;
+    const maxHeight = Math.max(160, Math.min(availableHeight, 520));
+
+    const menuW = menuRef.current?.offsetWidth || 260;
+
+    let left: number | undefined = undefined;
+    let right: number | undefined = undefined;
 
     if (align === "left") {
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 270));
-      setCoords({ top, left, placement });
+      left = Math.max(8, Math.min(rect.left, viewportWidth - menuW - 8));
     } else {
-      const right = Math.max(8, window.innerWidth - rect.right);
-      setCoords({ top, right, placement });
+      right = Math.max(8, Math.min(viewportWidth - rect.right, viewportWidth - menuW - 8));
     }
+
+    if (placement === "bottom") {
+      setCoords({
+        top: Math.round(rect.bottom + 6),
+        left,
+        right,
+        maxHeight: Math.round(maxHeight),
+        placement: "bottom",
+      });
+    } else {
+      setCoords({
+        bottom: Math.round(viewportHeight - rect.top + 6),
+        left,
+        right,
+        maxHeight: Math.round(maxHeight),
+        placement: "top",
+      });
+    }
+  };
+
+  const handleToggle = () => {
+    if (!isOpen) {
+      updatePosition();
+    }
+    setIsOpen((prev) => !prev);
   };
 
   useEffect(() => {
@@ -175,13 +209,13 @@ export function ActionDropdown({
     <div className={`relative inline-block text-left ${className}`} ref={containerRef}>
       {/* Trigger */}
       {trigger ? (
-        <div onClick={() => setIsOpen((prev) => !prev)} className="cursor-pointer">
+        <div onClick={handleToggle} className="cursor-pointer">
           {trigger}
         </div>
       ) : triggerVariant === "icon" ? (
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={handleToggle}
           title={triggerTitle}
           className={`p-2 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
             isOpen
@@ -198,7 +232,7 @@ export function ActionDropdown({
       ) : (
         <button
           type="button"
-          onClick={() => setIsOpen((prev) => !prev)}
+          onClick={handleToggle}
           className={`inline-flex items-center justify-center font-bold transition-all cursor-pointer select-none ${getVariantButtonClass()} ${getSizeButtonClass()}`}
         >
           {renderTriggerIcon()}
@@ -218,13 +252,18 @@ export function ActionDropdown({
               ref={menuRef}
               style={{
                 position: "fixed",
-                top: coords.top,
+                ...(coords.placement === "bottom" && coords.top !== undefined
+                  ? { top: coords.top }
+                  : {}),
+                ...(coords.placement === "top" && coords.bottom !== undefined
+                  ? { bottom: coords.bottom }
+                  : {}),
+                maxHeight: `${coords.maxHeight}px`,
                 ...(coords.left !== undefined ? { left: coords.left } : {}),
                 ...(coords.right !== undefined ? { right: coords.right } : {}),
-                transform: coords.placement === "top" ? "translateY(-100%)" : "none",
                 zIndex: 99999,
               }}
-              className={`${menuWidth} max-w-[calc(100vw-16px)] max-h-[85vh] overflow-y-auto rounded-2xl bg-white border border-[#EADBCC] shadow-2xl ring-1 ring-black/10 animate-in fade-in zoom-in-95 duration-150`}
+              className={`${menuWidth} max-w-[calc(100vw-16px)] overflow-y-auto rounded-2xl bg-white border border-[#EADBCC] shadow-2xl ring-1 ring-black/10 animate-in fade-in zoom-in-95 duration-150 custom-scrollbar`}
             >
               <div className="py-1.5 divide-y divide-[#F2E8DC]/80">
                 {groups.map((group, groupIdx) => (

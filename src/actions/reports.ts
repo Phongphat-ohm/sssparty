@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma/client";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { getSystemSetting } from "@/lib/settings/system-settings";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 
 export interface GradebookReportData {
   academicTerm: string;
@@ -107,7 +108,8 @@ export interface ComprehensiveEvaluationReportData {
  * ดึงข้อมูลรายงานสมุดคะแนนรวม (Gradebook Report)
  */
 export async function getGradebookReportDataAction(
-  filterClass: string = "ALL"
+  filterClass: string = "ALL",
+  overrideTerm?: string
 ): Promise<{ success: boolean; data?: GradebookReportData; message?: string }> {
   try {
     const authCheck = await requireAdminPermission("GRADE_SUBMISSIONS");
@@ -118,10 +120,10 @@ export async function getGradebookReportDataAction(
       }
     }
 
-    const academicTerm = (await getSystemSetting("academic_term")) || "1/2569";
+    const academicTerm = overrideTerm || (await getAdminSelectedTerm());
 
     const assignments = await prisma.assignment.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", academicTerm },
       orderBy: { createdAt: "asc" },
       include: {
         submissions: {
@@ -224,7 +226,8 @@ export async function getGradebookReportDataAction(
  * ดึงข้อมูลรายงานสรุปเวลาเรียนรวมทุกคาบ (Overall Attendance Summary Report)
  */
 export async function getAttendanceSummaryReportDataAction(
-  filterClass: string = "ALL"
+  filterClass: string = "ALL",
+  overrideTerm?: string
 ): Promise<{ success: boolean; data?: AttendanceSummaryReportData; message?: string }> {
   try {
     const authCheck = await requireAdminPermission("MANAGE_ATTENDANCE");
@@ -232,9 +235,10 @@ export async function getAttendanceSummaryReportDataAction(
       return { success: false, message: authCheck.error };
     }
 
-    const academicTerm = (await getSystemSetting("academic_term")) || "1/2569";
+    const academicTerm = overrideTerm || (await getAdminSelectedTerm());
 
     const sessions = await prisma.attendanceSession.findMany({
+      where: { academicTerm },
       orderBy: { date: "asc" },
       include: { records: true },
     });
@@ -330,7 +334,8 @@ export async function getAttendanceSummaryReportDataAction(
  * ดึงข้อมูลรายงานผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (รวมส่งงาน & เวลาเรียน)
  */
 export async function getComprehensiveEvaluationReportDataAction(
-  filterClass: string = "ALL"
+  filterClass: string = "ALL",
+  overrideTerm?: string
 ): Promise<{ success: boolean; data?: ComprehensiveEvaluationReportData; message?: string }> {
   try {
     const authCheck = await requireAdminPermission("GRADE_SUBMISSIONS");
@@ -341,14 +346,14 @@ export async function getComprehensiveEvaluationReportDataAction(
       }
     }
 
-    const academicTerm = (await getSystemSetting("academic_term")) || "1/2569";
+    const academicTerm = overrideTerm || (await getAdminSelectedTerm());
     const clubName =
       (await getSystemSetting("site_name")) ||
       "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
 
-    // 1. ดึงภาระงานทั้งหมด
+    // 1. ดึงภาระงานทั้งหมดในเทอมที่กำหนด
     const assignments = await prisma.assignment.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", academicTerm },
       orderBy: { createdAt: "asc" },
       include: {
         submissions: {

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma/client";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { createAuditLog } from "@/lib/audit/logger";
+import { checkTermCanEdit } from "@/lib/terms/term-service";
 
 export interface RubricScoreInput {
   rubricId: string;
@@ -54,6 +55,11 @@ export async function saveGradeAction(
 
     if (!submission) {
       return { success: false, message: "ไม่พบข้อมูลชิ้นงานที่ต้องการตรวจ" };
+    }
+
+    const termCheck = await checkTermCanEdit(submission.assignment.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
     }
 
     const previousGrade = submission.grade;
@@ -218,6 +224,11 @@ export async function returnSubmissionAction(
 
     if (!submission) {
       return { success: false, message: "ไม่พบข้อมูลชิ้นงานในระบบ" };
+    }
+
+    const termCheck = await checkTermCanEdit(submission.assignment.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
     }
 
     if (submission.status === "DRAFT") {

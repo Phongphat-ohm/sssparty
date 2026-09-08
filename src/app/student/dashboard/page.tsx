@@ -16,6 +16,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
+import { getCurrentSystemTerm } from "@/lib/terms/term-service";
 import Link from "next/link";
 import { StudentProgressChart } from "@/components/charts/StudentProgressChart";
 
@@ -25,8 +26,10 @@ export default async function StudentDashboardPage() {
     redirect("/student-login");
   }
 
+  const currentTerm = await getCurrentSystemTerm();
+
   const activeAttendance = await prisma.attendanceSession.findFirst({
-    where: { isKeyActive: true },
+    where: { isKeyActive: true, academicTerm: currentTerm },
     select: { id: true, title: true, academicTerm: true },
   });
 
@@ -45,7 +48,7 @@ export default async function StudentDashboardPage() {
   }
 
   const assignments = await prisma.assignment.findMany({
-    where: { status: "PUBLISHED" },
+    where: { status: "PUBLISHED", academicTerm: currentTerm },
     include: {
       rubrics: { orderBy: { sortOrder: "asc" } },
       submissions: {

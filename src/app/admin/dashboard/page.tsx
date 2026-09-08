@@ -16,6 +16,7 @@ import {
   UserCog,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 import Link from "next/link";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { AssignmentCompletionBarChart } from "@/components/charts/AssignmentCompletionBarChart";
@@ -27,7 +28,9 @@ export default async function AdminDashboardPage() {
     redirect("/admin-login");
   }
 
-  // ดึงข้อมูลสถิติทั้งหมดแบบขนาน
+  const selectedTerm = await getAdminSelectedTerm();
+
+  // ดึงข้อมูลสถิติทั้งหมดแบบขนานของภาคเรียนที่เลือก
   const [
     activeStudentsCount,
     totalAssignmentsCount,
@@ -41,15 +44,26 @@ export default async function AdminDashboardPage() {
     gradedSubmissionsSample,
   ] = await Promise.all([
     prisma.student.count({ where: { status: "ACTIVE" } }),
-    prisma.assignment.count(),
-    prisma.assignment.count({ where: { status: "PUBLISHED" } }),
+    prisma.assignment.count({ where: { academicTerm: selectedTerm } }),
+    prisma.assignment.count({ where: { academicTerm: selectedTerm, status: "PUBLISHED" } }),
     prisma.submission.count({
-      where: { status: { in: ["SUBMITTED", "LATE"] } },
+      where: {
+        assignment: { academicTerm: selectedTerm },
+        status: { in: ["SUBMITTED", "LATE"] },
+      },
     }),
-    prisma.submission.count({ where: { status: "GRADED" } }),
-    // งานที่รอการตรวจ 4 ชิ้นล่าสุด
+    prisma.submission.count({
+      where: {
+        assignment: { academicTerm: selectedTerm },
+        status: "GRADED",
+      },
+    }),
+    // งานที่รอการตรวจ 4 ชิ้นล่าสุดในเทอมนี้
     prisma.submission.findMany({
-      where: { status: { in: ["SUBMITTED", "LATE"] } },
+      where: {
+        assignment: { academicTerm: selectedTerm },
+        status: { in: ["SUBMITTED", "LATE"] },
+      },
       include: {
         student: true,
         assignment: { select: { title: true, maxScore: true } },
@@ -63,9 +77,9 @@ export default async function AdminDashboardPage() {
       _count: { id: true },
       where: { status: "ACTIVE" },
     }),
-    // การบ้านทั้งหมดที่เปิดรับส่ง
+    // การบ้านทั้งหมดที่เปิดรับส่งในเทอมนี้
     prisma.assignment.findMany({
-      where: { status: "PUBLISHED" },
+      where: { academicTerm: selectedTerm, status: "PUBLISHED" },
       select: {
         id: true,
         title: true,
@@ -74,9 +88,10 @@ export default async function AdminDashboardPage() {
       },
       orderBy: { createdAt: "desc" },
     }),
-    // ชิ้นงานที่ส่งเข้ามาในช่วง 7 วันล่าสุดเพื่อคำนวณแนวโน้ม
+    // ชิ้นงานที่ส่งเข้ามาในช่วง 7 วันล่าสุดในเทอมนี้เพื่อคำนวณแนวโน้ม
     prisma.submission.findMany({
       where: {
+        assignment: { academicTerm: selectedTerm },
         submittedAt: {
           gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000),
         },
@@ -86,9 +101,10 @@ export default async function AdminDashboardPage() {
       },
       orderBy: { submittedAt: "asc" },
     }),
-    // สรุปคะแนนชิ้นงานที่ตรวจแล้วล่าสุด 100 ชิ้น
+    // สรุปคะแนนชิ้นงานที่ตรวจแล้วล่าสุด 100 ชิ้นในเทอมนี้
     prisma.submission.findMany({
       where: {
+        assignment: { academicTerm: selectedTerm },
         status: "GRADED",
         grade: { isNot: null },
       },

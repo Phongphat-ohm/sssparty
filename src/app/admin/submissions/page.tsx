@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 import {
   GradingQueueClient,
   GradingQueueItem,
@@ -12,7 +13,12 @@ export default async function AdminSubmissionsListPage() {
     redirect("/admin-login");
   }
 
+  const selectedTerm = await getAdminSelectedTerm();
+
   const submissions = await prisma.submission.findMany({
+    where: {
+      assignment: { academicTerm: selectedTerm },
+    },
     include: {
       student: true,
       assignment: {
@@ -30,6 +36,7 @@ export default async function AdminSubmissionsListPage() {
   });
 
   const assignmentsList = await prisma.assignment.findMany({
+    where: { academicTerm: selectedTerm },
     select: { id: true, title: true },
     orderBy: { title: "asc" },
   });

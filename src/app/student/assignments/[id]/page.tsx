@@ -1,6 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { getAuthSession } from "@/lib/auth/session";
 import { prisma } from "@/lib/prisma/client";
+import { getCurrentSystemTerm } from "@/lib/terms/term-service";
 import { StudentAssignmentViewClient } from "@/components/student/StudentAssignmentViewClient";
 
 export default async function StudentAssignmentDetailPage({
@@ -13,7 +14,10 @@ export default async function StudentAssignmentDetailPage({
     redirect("/student-login");
   }
 
-  const resolvedParams = await params;
+  const [resolvedParams, currentTerm] = await Promise.all([
+    params,
+    getCurrentSystemTerm(),
+  ]);
   const assignmentId = resolvedParams.id;
 
   const assignment = await prisma.assignment.findUnique({
@@ -34,7 +38,7 @@ export default async function StudentAssignmentDetailPage({
     },
   });
 
-  if (!assignment || assignment.status === "DRAFT") {
+  if (!assignment || assignment.status === "DRAFT" || assignment.academicTerm !== currentTerm) {
     notFound();
   }
 

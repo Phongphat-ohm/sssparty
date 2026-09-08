@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { createAuditLog } from "@/lib/audit/logger";
+import { getAdminSelectedTerm, checkTermCanEdit } from "@/lib/terms/term-service";
 
 const rubricItemSchema = z.object({
   id: z.string().optional(),
@@ -59,6 +60,13 @@ export async function createAssignmentAction(
     const rubricsJson = formData.get("rubricsJson") as string;
     const attachmentsJson = formData.get("attachmentsJson") as string;
     const questionsJson = formData.get("questionsJson") as string;
+    const termInput = (formData.get("academicTerm") as string)?.trim();
+    const academicTerm = termInput || (await getAdminSelectedTerm());
+
+    const termCheck = await checkTermCanEdit(academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
 
     let parsedRubrics: z.infer<typeof rubricItemSchema>[] = [];
     try {
@@ -138,6 +146,7 @@ export async function createAssignmentAction(
           dueDate: validData.dueDate,
           status: validData.status,
           submissionType: validData.submissionType,
+          academicTerm,
           createdById: currentUser.id,
           rubrics: {
             create: validData.rubrics.map((r, idx) => ({
@@ -226,6 +235,20 @@ export async function updateAssignmentAction(
     const description = formData.get("description") as string;
     const dueDateStr = formData.get("dueDate") as string;
     const status = (formData.get("status") as "DRAFT" | "PUBLISHED" | "CLOSED") || existing.status;
+    const termInput = (formData.get("academicTerm") as string)?.trim();
+    const academicTerm = termInput || existing.academicTerm;
+
+    const existingTermCheck = await checkTermCanEdit(existing.academicTerm, currentUser);
+    if (!existingTermCheck.canEdit) {
+      return { success: false, message: existingTermCheck.reason };
+    }
+
+    if (academicTerm !== existing.academicTerm) {
+      const newTermCheck = await checkTermCanEdit(academicTerm, currentUser);
+      if (!newTermCheck.canEdit) {
+        return { success: false, message: newTermCheck.reason };
+      }
+    }
 
     if (!title || !description || !dueDateStr) {
       return { success: false, message: "กรุณากรอกข้อมูลให้ครบถ้วน" };
@@ -253,6 +276,7 @@ export async function updateAssignmentAction(
             description,
             dueDate: new Date(dueDateStr),
             status,
+            academicTerm,
           },
         });
 
@@ -372,6 +396,7 @@ export async function updateAssignmentAction(
           dueDate: validData.dueDate,
           status: validData.status,
           submissionType: validData.submissionType,
+          academicTerm,
           rubrics: {
             create: validData.rubrics.map((r, idx) => ({
               name: r.name,
@@ -441,6 +466,20 @@ export async function toggleAssignmentStatusAction(
     }
     const { user: currentUser } = authCheck;
 
+    const existing = await prisma.assignment.findUnique({
+      where: { id: assignmentId },
+      select: { title: true, academicTerm: true },
+    });
+
+    if (!existing) {
+      return { success: false, message: "ไม่พบข้อมูลการบ้านที่ต้องการเปลี่ยนสถานะ" };
+    }
+
+    const termCheck = await checkTermCanEdit(existing.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
+    }
+
     const updated = await prisma.assignment.update({
       where: { id: assignmentId },
       data: { status: newStatus },
@@ -487,6 +526,11 @@ export async function deleteAssignmentAction(
 
     if (!assignment) {
       return { success: false, message: "ไม่พบการบ้านที่ต้องการลบ" };
+    }
+
+    const termCheck = await checkTermCanEdit(assignment.academicTerm, currentUser);
+    if (!termCheck.canEdit) {
+      return { success: false, message: termCheck.reason };
     }
 
     if (assignment.submissions.length > 0) {

@@ -110,6 +110,7 @@ model Assignment {
   id             String           @id @default(cuid())
   title          String
   description    String           @db.Text
+  academicTerm   String           @default("1/2569")
   maxScore       Float
   dueDate        DateTime
   status         AssignmentStatus @default(DRAFT)
@@ -124,6 +125,7 @@ model Assignment {
   attachments AssignmentAttachment[]
   questions   AssignmentQuestion[]
 
+  @@index([academicTerm])
   @@index([status])
   @@index([dueDate])
   @@map("assignments")
@@ -371,5 +373,22 @@ model GeneratedReport {
   @@index([printedById])
   @@index([createdAt])
   @@map("generated_reports")
+}
+
+model AcademicTerm {
+  id          String    @id @default(cuid())
+  termCode    String    @unique
+  name        String
+  isCurrent   Boolean   @default(false)
+  isLocked    Boolean   @default(false)
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([isCurrent])
+  @@index([isLocked])
+  @@map("academic_terms")
 }
 

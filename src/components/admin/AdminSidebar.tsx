@@ -20,6 +20,7 @@ import {
   History,
   UserCheck,
   FileText,
+  CalendarDays,
 } from "lucide-react";
 import { logoutAction } from "@/actions/auth";
 import {
@@ -112,6 +113,12 @@ export function AdminSidebar({
       name: "ข้อมูลส่วนตัว (Profile)",
       href: "/admin/profile",
       icon: UserCheck,
+    },
+    {
+      name: "จัดการภาคเรียน (Terms)",
+      href: "/admin/terms",
+      icon: CalendarDays,
+      permission: "MANAGE_SETTINGS",
     },
     {
       name: "ตั้งค่าระบบ (Settings)",

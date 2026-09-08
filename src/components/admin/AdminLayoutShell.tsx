@@ -4,13 +4,17 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminNavbar } from "@/components/admin/AdminNavbar";
+import { PastTermBanner } from "@/components/admin/PastTermBanner";
 import { Wrench, ArrowRight } from "lucide-react";
 
 interface AdminLayoutShellProps {
   adminName: string;
   adminRole: any;
   permissions: any;
-  academicTerm: string;
+  currentTerm: string;
+  selectedTerm: string;
+  availableTerms: string[];
+  isViewingPastTerm: boolean;
   maintenanceMode: boolean;
   children: React.ReactNode;
 }
@@ -19,7 +23,10 @@ export function AdminLayoutShell({
   adminName,
   adminRole,
   permissions,
-  academicTerm,
+  currentTerm,
+  selectedTerm,
+  availableTerms,
+  isViewingPastTerm,
   maintenanceMode,
   children,
 }: AdminLayoutShellProps) {
@@ -39,7 +46,15 @@ export function AdminLayoutShell({
         permissions={permissions}
       />
       <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
-        <AdminNavbar adminName={adminName} academicTerm={academicTerm} />
+        <AdminNavbar
+          adminName={adminName}
+          currentTerm={currentTerm}
+          selectedTerm={selectedTerm}
+          availableTerms={availableTerms}
+        />
+        {isViewingPastTerm && (
+          <PastTermBanner selectedTerm={selectedTerm} currentTerm={currentTerm} />
+        )}
         {maintenanceMode && (
           <div className="bg-amber-500 text-white px-4 py-2 text-xs font-medium flex items-center justify-between shadow-xs z-10 shrink-0">
             <div className="flex items-center gap-2">
