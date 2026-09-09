@@ -21,6 +21,7 @@ export default async function AdminLayout({
     prisma.user.findUnique({
       where: { id: session.userId },
       select: {
+        name: true,
         adminRole: true,
         permissions: true,
         status: true,
@@ -36,7 +37,7 @@ export default async function AdminLayout({
 
   return (
     <AdminLayoutShell
-      adminName={session.username}
+      adminName={adminUser.name || session.name || session.username}
       adminRole={adminUser.adminRole}
       permissions={adminUser.permissions}
       currentTerm={termContext.currentTerm}

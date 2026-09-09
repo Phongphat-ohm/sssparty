@@ -21,6 +21,7 @@ import Link from "next/link";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { AssignmentCompletionBarChart } from "@/components/charts/AssignmentCompletionBarChart";
 import { ScoreDistributionChart } from "@/components/charts/ScoreDistributionChart";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export default async function AdminDashboardPage() {
   const session = await getAuthSession();
@@ -122,7 +123,11 @@ export default async function AdminDashboardPage() {
     const d = new Date();
     d.setDate(d.getDate() - i);
     const dateStr = d.toISOString().split("T")[0];
-    const label = d.toLocaleDateString("th-TH", { day: "numeric", month: "short" });
+    const label = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
+      day: "numeric",
+      month: "short",
+      timeZone: "Asia/Bangkok",
+    }).format(d);
     last7Days.push({ label, dateStr, value: 0 });
   }
 
@@ -371,12 +376,7 @@ export default async function AdminDashboardPage() {
                       <p className="text-[11px] text-[#7A6A5C] truncate">
                         ภาระงาน: <span className="font-semibold text-[#5A4D41]">{sub.assignment.title}</span> •{" "}
                         ส่งเมื่อ:{" "}
-                        {new Date(sub.submittedAt).toLocaleDateString("th-TH", {
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatThaiDateTime(sub.submittedAt)}
                       </p>
                     </div>
 

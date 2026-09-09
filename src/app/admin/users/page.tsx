@@ -29,7 +29,9 @@ export default async function AdminUsersPage() {
 
   const formattedUsers: UserItem[] = users.map((u) => {
     const displayName =
-      u.id === currentAdmin.id
+      u.name
+        ? u.name
+        : u.id === currentAdmin.id
         ? "คุณ (ผู้ใช้งานปัจจุบัน)"
         : u.adminRole === "SUPER_ADMIN"
         ? "ผู้ดูแลระบบสูงสุด (Super Admin)"
@@ -42,6 +44,7 @@ export default async function AdminUsersPage() {
     return {
       id: u.id,
       username: u.username,
+      name: u.name,
       role: u.role,
       adminRole: u.adminRole,
       permissions: u.permissions as any,

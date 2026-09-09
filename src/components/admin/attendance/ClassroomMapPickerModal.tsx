@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { updateSessionClassroomLocationAction } from "@/actions/attendance-key";
 import { showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import { DEFAULT_MAP_CENTER, DEFAULT_ATTENDANCE_RADIUS } from "@/lib/constants/defaults";
 import "leaflet/dist/leaflet.css";
 
 interface ClassroomMapPickerModalProps {
@@ -27,10 +28,6 @@ interface ClassroomMapPickerModalProps {
   onSaved?: (coords: { latitude: number; longitude: number; expectedRadius: number }) => void;
 }
 
-// พิกัดเริ่มต้น (กรุงเทพฯ ประเทศไทย กรณีไม่มีพิกัดเดิม)
-const DEFAULT_LAT = 13.7563;
-const DEFAULT_LNG = 100.5018;
-
 export function ClassroomMapPickerModal({
   isOpen,
   onClose,
@@ -38,9 +35,9 @@ export function ClassroomMapPickerModal({
   initialCoords,
   onSaved,
 }: ClassroomMapPickerModalProps) {
-  const [lat, setLat] = useState<number>(initialCoords?.latitude || DEFAULT_LAT);
-  const [lng, setLng] = useState<number>(initialCoords?.longitude || DEFAULT_LNG);
-  const [radius, setRadius] = useState<number>(initialCoords?.expectedRadius || 100);
+  const [lat, setLat] = useState<number>(initialCoords?.latitude || DEFAULT_MAP_CENTER.lat);
+  const [lng, setLng] = useState<number>(initialCoords?.longitude || DEFAULT_MAP_CENTER.lng);
+  const [radius, setRadius] = useState<number>(initialCoords?.expectedRadius || DEFAULT_ATTENDANCE_RADIUS);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [isSearching, setIsSearching] = useState(false);
@@ -56,9 +53,9 @@ export function ClassroomMapPickerModal({
   // ซิงก์ค่าเริ่มต้น
   useEffect(() => {
     if (isOpen) {
-      const initLat = initialCoords?.latitude || DEFAULT_LAT;
-      const initLng = initialCoords?.longitude || DEFAULT_LNG;
-      const initRad = initialCoords?.expectedRadius || 100;
+      const initLat = initialCoords?.latitude || DEFAULT_MAP_CENTER.lat;
+      const initLng = initialCoords?.longitude || DEFAULT_MAP_CENTER.lng;
+      const initRad = initialCoords?.expectedRadius || DEFAULT_ATTENDANCE_RADIUS;
       setLat(initLat);
       setLng(initLng);
       setRadius(initRad);

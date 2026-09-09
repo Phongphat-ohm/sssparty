@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StudentSubmissionRow } from "../AssignmentSubmissionsClient";
+import { formatThaiDate, formatThaiDateTime } from "@/lib/utils/date-thai";
 
 interface AssignmentReportViewProps {
   assignmentTitle: string;
@@ -12,29 +13,19 @@ interface AssignmentReportViewProps {
   rows: StudentSubmissionRow[];
 }
 
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
+
 export function AssignmentReportView({
   assignmentTitle,
   maxScore,
   dueDate,
-  academicTerm = "1/2569",
+  academicTerm = DEFAULT_ACADEMIC_TERM,
   selectedClass = "ALL",
   rows,
 }: AssignmentReportViewProps) {
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const formattedDueDate = dueDate
-    ? new Date(dueDate).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }) + " น."
-    : "-";
+  const formattedDueDate = formatThaiDateTime(dueDate);
 
   // Calculate stats
   const totalStudents = rows.length;
@@ -175,14 +166,7 @@ export function AssignmentReportView({
                 statusStyle = "text-amber-800 bg-amber-50 border border-amber-200";
               }
 
-              const submittedTimeStr = row.submittedAt
-                ? new Date(row.submittedAt).toLocaleDateString("th-TH", {
-                    day: "numeric",
-                    month: "short",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })
-                : "-";
+              const submittedTimeStr = formatThaiDateTime(row.submittedAt);
 
               return (
                 <tr

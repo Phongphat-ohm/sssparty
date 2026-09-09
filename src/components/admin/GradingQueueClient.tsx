@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface GradingQueueItem {
   id: string;
@@ -318,13 +319,7 @@ export function GradingQueueClient({
                           ? "ส่งแบบตอบคำถาม • "
                           : ""}
                         ส่งเมื่อ{" "}
-                        {new Date(sub.submittedAt).toLocaleDateString("th-TH", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
+                        {formatThaiDateTime(sub.submittedAt)}
                       </p>
                     </div>
 

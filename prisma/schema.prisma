@@ -68,6 +68,7 @@ enum AttendanceStatus {
 model User {
   id           String            @id @default(cuid())
   username     String            @unique
+  name         String?
   passwordHash String?
   role         Role              @default(ADMIN)
   adminRole    AdminRole?        @default(TEACHER)
@@ -112,12 +113,14 @@ model Assignment {
   description    String           @db.Text
   academicTerm   String           @default("1/2569")
   maxScore       Float
-  dueDate        DateTime
-  status         AssignmentStatus @default(DRAFT)
-  submissionType SubmissionType   @default(FILE)
-  createdById    String
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  dueDate             DateTime
+  allowLateSubmission Boolean          @default(true)
+  lateDueDate         DateTime?
+  status              AssignmentStatus @default(DRAFT)
+  submissionType      SubmissionType   @default(FILE)
+  createdById         String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
 
   creator     User                   @relation("AssignmentCreator", fields: [createdById], references: [id], onDelete: Restrict)
   rubrics     AssignmentRubric[]
@@ -128,6 +131,7 @@ model Assignment {
   @@index([academicTerm])
   @@index([status])
   @@index([dueDate])
+  @@index([lateDueDate])
   @@map("assignments")
 }
 

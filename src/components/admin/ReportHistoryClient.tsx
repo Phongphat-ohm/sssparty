@@ -26,6 +26,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { PdfReportModal } from "@/components/admin/PdfReportModal";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 interface ReportHistoryClientProps {
   initialData: {
@@ -123,18 +124,7 @@ export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
   };
 
   const formatDate = (isoString: string) => {
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleDateString("th-TH", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } catch {
-      return isoString;
-    }
+    return formatThaiDateTime(isoString);
   };
 
   const formatFileSize = (bytes?: number | null) => {

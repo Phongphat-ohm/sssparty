@@ -21,6 +21,7 @@ import {
   Edit3,
 } from "lucide-react";
 import { evaluateLocationStatus, formatDistance } from "@/lib/attendance/geo-utils";
+import { formatThaiTime } from "@/lib/utils/date-thai";
 import { StudentAttendanceMap } from "./StudentAttendanceMap";
 import { ClassroomMapPickerModal } from "./ClassroomMapPickerModal";
 
@@ -357,12 +358,7 @@ export function AttendanceLocationAuditTab({
                       ? `https://www.google.com/maps?q=${row.latitude},${row.longitude}`
                       : null;
 
-                    const timeStr = row.checkedAt
-                      ? new Date(row.checkedAt).toLocaleTimeString("th-TH", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })
-                      : "-";
+                    const timeStr = formatThaiTime(row.checkedAt, { fallback: "-" });
 
                     return (
                       <tr

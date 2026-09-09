@@ -10,6 +10,8 @@ import {
   AdminPermissionType,
 } from "@/lib/auth/permissions";
 import { AdminPasswordForm } from "@/components/admin/AdminPasswordForm";
+import { AdminProfileForm } from "@/components/admin/AdminProfileForm";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +26,7 @@ export default async function AdminProfilePage() {
     select: {
       id: true,
       username: true,
+      name: true,
       role: true,
       adminRole: true,
       status: true,
@@ -40,11 +43,7 @@ export default async function AdminProfilePage() {
   const roleMeta = ROLE_LABELS[user.adminRole || "TEACHER"] || ROLE_LABELS.TEACHER;
   const canManageSettings = hasAdminPermission(user, "MANAGE_SETTINGS");
 
-  const thaiCreatedDate = new Date(user.createdAt).toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const thaiCreatedDate = formatThaiDate(user.createdAt, { variant: "long" });
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-4xl w-full mx-auto">
@@ -83,8 +82,13 @@ export default async function AdminProfilePage() {
             <div className="space-y-1">
               <div className="flex items-center gap-2.5 flex-wrap">
                 <h2 className="text-xl font-extrabold text-[#3F342B] tracking-tight">
-                  {user.username}
+                  {user.name || user.username}
                 </h2>
+                {user.name && (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-lg bg-neutral-100 text-neutral-600 border border-neutral-200">
+                    @{user.username}
+                  </span>
+                )}
                 <span
                   className={`text-[11px] font-bold px-3 py-0.5 rounded-full border ${roleMeta.badgeColor}`}
                 >
@@ -158,7 +162,10 @@ export default async function AdminProfilePage() {
         </div>
       </div>
 
-      {/* 2. Personal Password Change Form */}
+      {/* 2. Teacher Name Management Form */}
+      <AdminProfileForm initialName={user.name} username={user.username} />
+
+      {/* 3. Personal Password Change Form */}
       <div className="space-y-3">
         <div className="border-b border-[#F2E8DC] pb-2">
           <h2 className="font-bold text-base text-[#3F342B] flex items-center gap-2">

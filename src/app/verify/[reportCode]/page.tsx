@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   ShieldCheck,
 } from "lucide-react";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export const dynamic = "force-dynamic";
 
@@ -46,15 +47,7 @@ export default async function VerifyReportPage({ params }: VerifyPageProps) {
     } catch {}
   }
 
-  const formattedDate = report?.createdAt
-    ? new Date(report.createdAt).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }) + " น."
-    : "-";
+  const formattedDate = formatThaiDateTime(report?.createdAt, { variant: "long" });
 
   return (
     <div className="min-h-screen bg-[#FFF9F0] py-8 px-4 sm:px-6 flex flex-col justify-between">

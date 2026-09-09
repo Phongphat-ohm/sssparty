@@ -1,10 +1,12 @@
+import { DEFAULT_MAX_UPLOAD_SIZE_MB } from "@/lib/constants/defaults";
+
 /**
  * File Validation Layer สำหรับระบบส่งงานชุมนุมสื่อสร้างสรรค์ (SSSParty)
  * รองรับไฟล์ทุกรูปแบบที่จำเป็นต่อการเรียนและการส่งงาน: รูปภาพ, PDF, Word, Excel, PowerPoint, มัลติมีเดีย, ZIP
  */
 
-// จำกัดขนาดไฟล์สูงสุด 50MB (50 * 1024 * 1024 Bytes) เพื่อรองรับไฟล์เอกสาร รูปภาพความละเอียดสูง และสไลด์นำเสนอ
-export const MAX_UPLOAD_SIZE = 50 * 1024 * 1024;
+// จำกัดขนาดไฟล์สูงสุดตามค่ามาตรฐาน (Bytes)
+export const MAX_UPLOAD_SIZE = DEFAULT_MAX_UPLOAD_SIZE_MB * 1024 * 1024;
 
 // Whitelist นามสกุลไฟล์ที่อนุญาต
 export const ALLOWED_EXTENSIONS = new Set([

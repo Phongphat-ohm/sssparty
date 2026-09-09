@@ -2,17 +2,14 @@
 
 import React from "react";
 import { AttendanceSummaryReportData } from "@/actions/reports";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 interface AttendanceSummaryReportViewProps {
   data: AttendanceSummaryReportData;
 }
 
 export function AttendanceSummaryReportView({ data }: AttendanceSummaryReportViewProps) {
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const {
     academicTerm,

@@ -20,6 +20,7 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { getThaiHolidaysMap, ThaiHolidayInfo } from "@/lib/utils/holidays";
+import { formatThaiDate, formatThaiTime, formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface StudentAttendanceItem {
   sessionId: string;
@@ -549,11 +550,7 @@ export function StudentAttendanceCalendar({
 
                 {selectedDateKey && (
                   <span className="text-xs font-semibold text-[#7A6A5C] bg-[#FAF6F0] px-2.5 py-1 rounded-lg">
-                    {new Date(selectedDateKey).toLocaleDateString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
+                    {formatThaiDate(selectedDateKey)}
                   </span>
                 )}
               </div>
@@ -574,12 +571,7 @@ export function StudentAttendanceCalendar({
                   <div>
                     <span className="text-[11px] text-[#7A6A5C] block">วันที่</span>
                     <strong className="text-sm font-bold text-[#3F342B]">
-                      {new Date(selectedRecord.sessionDate).toLocaleDateString("th-TH", {
-                        weekday: "long",
-                        day: "numeric",
-                        month: "long",
-                        year: "numeric",
-                      })}
+                      {formatThaiDate(selectedRecord.sessionDate, { variant: "withWeekday" })}
                     </strong>
                   </div>
 
@@ -647,11 +639,7 @@ export function StudentAttendanceCalendar({
 
                   <div>
                     <span className="text-[10px] text-[#A8988B] block">
-                      บันทึกเมื่อ:{" "}
-                      {new Date(selectedRecord.checkedAt).toLocaleDateString("th-TH", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      บันทึกเมื่อ: {formatThaiDateTime(selectedRecord.checkedAt)}
                     </span>
                   </div>
                 </div>
@@ -765,11 +753,7 @@ export function StudentAttendanceCalendar({
                       className="hover:bg-[#FAF6F0]/50 transition-colors"
                     >
                       <td className="p-3 pl-5 font-semibold text-[#3F342B]">
-                        {new Date(item.sessionDate).toLocaleDateString("th-TH", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {formatThaiDate(item.sessionDate)}
                       </td>
                       <td className="p-3">
                         <span className="font-bold text-[#3F342B] block">

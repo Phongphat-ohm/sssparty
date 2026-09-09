@@ -20,12 +20,61 @@ export interface AcademicTermWithStats {
   reportsCount: number;
 }
 
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
+
 /**
  * ดึงเทอมปัจจุบันของระบบส่วนกลาง (Active Current Term)
+ * โดยตรวจสอบจากตาราง academic_terms ในฐานข้อมูลจริงเป็นอันดับแรกเสมอ (Single Source of Truth)
  */
 export async function getCurrentSystemTerm(): Promise<string> {
-  const current = await getSystemSetting("academic_term");
-  return current || "1/2569";
+  try {
+    // 1. ตรวจสอบในตาราง academic_terms ว่ามีเทอมที่ถูกตั้งเป็น isCurrent: true อยู่จริงหรือไม่
+    const activeTerm = await prisma.academicTerm.findFirst({
+      where: { isCurrent: true },
+      select: { termCode: true },
+    });
+
+    if (activeTerm?.termCode) {
+      return activeTerm.termCode;
+    }
+
+    // 2. หากยังไม่มีเทอมใดถูกตั้งเป็น isCurrent: true ให้ตรวจสอบว่ามีเทอมใดๆ ในตารางหรือไม่
+    const anyTermInDb = await prisma.academicTerm.findFirst({
+      orderBy: [{ termCode: "desc" }],
+      select: { id: true, termCode: true },
+    });
+
+    if (anyTermInDb?.termCode) {
+      // ตรวจสอบว่าใน system_settings มีการระบุเทอมไว้ และตรงกับเทอมในตารางหรือไม่
+      const settingTerm = await getSystemSetting("academic_term");
+      let termToActivate = anyTermInDb;
+      if (settingTerm) {
+        const matchingSetting = await prisma.academicTerm.findUnique({
+          where: { termCode: settingTerm },
+          select: { id: true, termCode: true },
+        });
+        if (matchingSetting) {
+          termToActivate = matchingSetting;
+        }
+      }
+
+      // ปรับปรุงในตาราง academic_terms ให้เทอมที่มีอยู่จริงนี้เป็น isCurrent: true
+      await prisma.academicTerm.update({
+        where: { id: termToActivate.id },
+        data: { isCurrent: true },
+      });
+
+      return termToActivate.termCode;
+    }
+
+    // 3. หากในตาราง academic_terms ว่างเปล่าจริง ๆ จึง fallback ไปยัง system_settings หรือ DEFAULT_ACADEMIC_TERM
+    const fallbackSetting = await getSystemSetting("academic_term");
+    return fallbackSetting || DEFAULT_ACADEMIC_TERM;
+  } catch (error) {
+    console.warn("[TermService] Error querying current academic term from DB:", error);
+    const fallbackSetting = await getSystemSetting("academic_term");
+    return fallbackSetting || DEFAULT_ACADEMIC_TERM;
+  }
 }
 
 /**
@@ -34,7 +83,6 @@ export async function getCurrentSystemTerm(): Promise<string> {
 export async function syncAcademicTerms(): Promise<void> {
   try {
     const count = await prisma.academicTerm.count();
-    const currentTerm = await getCurrentSystemTerm();
 
     if (count === 0) {
       // ดึงเทอมที่มีอยู่เดิมในตาราง AttendanceSession, Assignment, GeneratedReport
@@ -54,13 +102,16 @@ export async function syncAcademicTerms(): Promise<void> {
       ]);
 
       const set = new Set<string>();
-      if (currentTerm) set.add(currentTerm);
       attendanceTerms.forEach((t) => t.academicTerm && set.add(t.academicTerm));
       assignmentTerms.forEach((t) => t.academicTerm && set.add(t.academicTerm));
       reportTerms.forEach((t) => t.academicTerm && set.add(t.academicTerm));
 
+      const settingTerm = await getSystemSetting("academic_term");
+      const initialCurrent = settingTerm || (set.size > 0 ? Array.from(set)[0] : DEFAULT_ACADEMIC_TERM);
+      set.add(initialCurrent);
+
       for (const code of set) {
-        const isCurrent = code === currentTerm;
+        const isCurrent = code === initialCurrent;
         const [termNumber, year] = code.split("/");
         const termName = termNumber && year 
           ? `ภาคเรียนที่ ${termNumber} ปีการศึกษา ${year}`
@@ -78,11 +129,30 @@ export async function syncAcademicTerms(): Promise<void> {
         });
       }
     } else {
-      // ตรวจสอบว่าเทอม current ใน DB ตรงกับ system_settings หรือไม่
-      await prisma.academicTerm.updateMany({
-        where: { termCode: currentTerm, isCurrent: false },
-        data: { isCurrent: true },
+      // ตรวจสอบว่ามีเทอมที่เป็น isCurrent: true ในตาราง academic_terms หรือยัง
+      const currentInDb = await prisma.academicTerm.findFirst({
+        where: { isCurrent: true },
       });
+
+      if (!currentInDb) {
+        const settingTerm = await getSystemSetting("academic_term");
+        let target = settingTerm
+          ? await prisma.academicTerm.findUnique({ where: { termCode: settingTerm } })
+          : null;
+
+        if (!target) {
+          target = await prisma.academicTerm.findFirst({
+            orderBy: [{ termCode: "desc" }],
+          });
+        }
+
+        if (target) {
+          await prisma.academicTerm.update({
+            where: { id: target.id },
+            data: { isCurrent: true },
+          });
+        }
+      }
     }
   } catch (error) {
     console.warn("[TermService] Notice: Error during syncAcademicTerms:", error);
@@ -164,7 +234,6 @@ export async function getAdminSelectedTerm(): Promise<string> {
  */
 export async function getAllRegisteredTerms(): Promise<string[]> {
   await syncAcademicTerms();
-  const currentTerm = await getCurrentSystemTerm();
 
   try {
     const terms = await prisma.academicTerm.findMany({
@@ -172,19 +241,23 @@ export async function getAllRegisteredTerms(): Promise<string[]> {
       orderBy: [{ isCurrent: "desc" }, { termCode: "desc" }],
     });
 
-    const set = new Set<string>();
-    if (currentTerm) set.add(currentTerm);
-    terms.forEach((t) => set.add(t.termCode));
+    if (terms.length === 0) {
+      const currentTerm = await getCurrentSystemTerm();
+      return [currentTerm];
+    }
 
-    // เรียงลำดับเทอม เช่น 2/2569, 1/2569, 2/2568, 1/2568
-    return Array.from(set).sort((a, b) => {
-      const [termA, yearA] = a.split("/").map((v) => parseInt(v, 10) || 0);
-      const [termB, yearB] = b.split("/").map((v) => parseInt(v, 10) || 0);
-      if (yearA !== yearB) return yearB - yearA;
-      return termB - termA;
-    });
+    // เรียงลำดับเทอมเฉพาะที่มีอยู่ในตาราง academic_terms จริงเท่านั้น
+    return terms
+      .map((t) => t.termCode)
+      .sort((a, b) => {
+        const [termA, yearA] = a.split("/").map((v) => parseInt(v, 10) || 0);
+        const [termB, yearB] = b.split("/").map((v) => parseInt(v, 10) || 0);
+        if (yearA !== yearB) return yearB - yearA;
+        return termB - termA;
+      });
   } catch (error) {
     console.warn("[TermService] Error fetching registered terms:", error);
+    const currentTerm = await getCurrentSystemTerm();
     return [currentTerm];
   }
 }
@@ -243,11 +316,25 @@ export async function getAdminTermContext(): Promise<{
   isSelectedTermLocked: boolean;
   availableTerms: string[];
 }> {
-  const [currentTerm, selectedTerm, availableTerms] = await Promise.all([
+  await syncAcademicTerms();
+
+  const [rawCurrentTerm, rawSelectedTerm, availableTerms] = await Promise.all([
     getCurrentSystemTerm(),
     getAdminSelectedTerm(),
     getAllRegisteredTerms(),
   ]);
+
+  // ตรวจสอบความถูกต้องว่า currentTerm มีอยู่ใน availableTerms หรือไม่
+  let currentTerm = rawCurrentTerm;
+  if (availableTerms.length > 0 && !availableTerms.includes(currentTerm)) {
+    currentTerm = availableTerms[0];
+  }
+
+  // ตรวจสอบว่า selectedTerm มีอยู่ใน availableTerms หรือไม่
+  let selectedTerm = rawSelectedTerm;
+  if (availableTerms.length > 0 && !availableTerms.includes(selectedTerm)) {
+    selectedTerm = currentTerm;
+  }
 
   const [isCurrentTermLocked, isSelectedTermLocked] = await Promise.all([
     isTermLocked(currentTerm),

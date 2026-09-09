@@ -31,6 +31,7 @@ import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { toggleUserStatusAction, deleteUserAction } from "@/actions/user";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { AdminRoleType } from "@/lib/auth/permissions";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 interface UsersTableClientProps {
   initialUsers: UserItem[];
@@ -91,6 +92,7 @@ export function UsersTableClient({
       !q ||
       u.username.toLowerCase().includes(q) ||
       u.displayName.toLowerCase().includes(q) ||
+      (u.name && u.name.toLowerCase().includes(q)) ||
       (u.studentInfo &&
         (u.studentInfo.studentCode.toLowerCase().includes(q) ||
           u.studentInfo.className.toLowerCase().includes(q) ||
@@ -176,16 +178,7 @@ export function UsersTableClient({
   };
 
   const formatDateThai = (isoDate: string) => {
-    try {
-      const d = new Date(isoDate);
-      return d.toLocaleDateString("th-TH", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      });
-    } catch {
-      return isoDate;
-    }
+    return formatThaiDate(isoDate);
   };
 
   const renderRoleBadge = (user: UserItem, isSmall: boolean = false) => {
@@ -502,12 +495,12 @@ export function UsersTableClient({
                                   : "bg-[#FAF0E1] text-[#8C5D23] border-[#EADBCC]"
                               }`}
                             >
-                              {user.username.charAt(0).toUpperCase()}
+                              {(user.name || user.username).charAt(0).toUpperCase()}
                             </div>
                             <div className="space-y-0.5">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-bold text-sm text-[#3F342B]">
-                                  {user.username}
+                                  {user.name || user.username}
                                 </span>
                                 {isSelf && (
                                   <span className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-[#D9A441]/20 text-[#8C5D23] border border-[#D9A441]/30">
@@ -515,8 +508,16 @@ export function UsersTableClient({
                                   </span>
                                 )}
                               </div>
-                              <p className="text-[11px] text-[#7A6A5C] truncate max-w-[200px]">
-                                {user.displayName}
+                              <p className="text-[11px] text-[#7A6A5C] truncate max-w-[220px]">
+                                {user.name ? (
+                                  <>
+                                    <span className="font-mono text-stone-500">@{user.username}</span>
+                                    {" • "}
+                                    <span>{user.displayName}</span>
+                                  </>
+                                ) : (
+                                  user.displayName
+                                )}
                               </p>
                             </div>
                           </div>

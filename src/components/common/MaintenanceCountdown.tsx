@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Clock, RefreshCw, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 interface MaintenanceCountdownProps {
   targetTime?: string;
@@ -39,18 +40,7 @@ function calculateTimeRemaining(targetTimeStr?: string): TimeRemaining | null {
 
   const diff = targetDate.getTime() - Date.now();
 
-  const thaiFormattedDate =
-    targetDate.toLocaleDateString("th-TH", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    }) +
-    " เวลา " +
-    targetDate.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    }) +
-    " น.";
+  const thaiFormattedDate = formatThaiDateTime(targetDate, { variant: "long" });
 
   if (diff <= 0) {
     return {
@@ -107,7 +97,7 @@ export function MaintenanceCountdown({
     setIsRefreshing(true);
     router.refresh();
     setTimeout(() => {
-      window.location.reload();
+      setIsRefreshing(false);
     }, 600);
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { Calendar, ChevronDown, Check, RotateCcw, History, Search, CalendarRange, Loader2 } from "lucide-react";
@@ -18,6 +19,7 @@ export function AcademicTermSelector({
   selectedTerm,
   availableTerms,
 }: AcademicTermSelectorProps) {
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [isSwitching, setIsSwitching] = useState(false);
@@ -33,7 +35,18 @@ export function AcademicTermSelector({
     placement: "bottom" | "top";
   }>({ maxHeight: 420, placement: "bottom" });
 
-  const isPastTerm = selectedTerm !== currentTerm;
+  // ตรวจสอบความถูกต้องว่า currentTerm และ selectedTerm มีอยู่ใน availableTerms ที่ลงทะเบียนไว้จริงหรือไม่
+  const effectiveCurrentTerm =
+    availableTerms.length > 0 && availableTerms.includes(currentTerm)
+      ? currentTerm
+      : (availableTerms[0] || currentTerm);
+
+  const effectiveSelectedTerm =
+    availableTerms.length > 0 && availableTerms.includes(selectedTerm)
+      ? selectedTerm
+      : effectiveCurrentTerm;
+
+  const isPastTerm = effectiveSelectedTerm !== effectiveCurrentTerm;
 
   useEffect(() => {
     setMounted(true);
@@ -137,13 +150,13 @@ export function AcademicTermSelector({
 
   const handleSelectTerm = async (term: string) => {
     // หากเป็นเทอมเดิมที่กำลังดูอยู่ ให้ปิด Dropdown ทันที ไม่ต้องรีโหลดซ้ำ
-    if (term === selectedTerm) {
+    if (term === effectiveSelectedTerm) {
       setIsOpen(false);
       return;
     }
 
     // ป้องกันการสลับไปยังเทอมที่ไม่มีอยู่ในระบบอย่างเด็ดขาด
-    if (!availableTerms.includes(term) && term !== currentTerm) {
+    if (!availableTerms.includes(term)) {
       showCozyError("ไม่สามารถเลือกภาคเรียนนี้ได้", "ภาคเรียนนี้ไม่มีอยู่ในระบบ ต้องสร้างผ่านศูนย์จัดการภาคเรียนก่อนเท่านั้น");
       return;
     }
@@ -158,13 +171,14 @@ export function AcademicTermSelector({
       });
       const data = await res.json();
       if (data.success) {
-        window.location.reload();
+        router.refresh();
       } else {
-        setIsSwitching(false);
         await showCozyError("ไม่สามารถสลับภาคเรียนได้", data.message);
       }
     } catch {
-      window.location.reload();
+      router.refresh();
+    } finally {
+      setIsSwitching(false);
     }
   };
 
@@ -175,17 +189,18 @@ export function AcademicTermSelector({
       const res = await fetch("/api/terms/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ term: "RESET" }),
+        body: JSON.stringify({ term: effectiveCurrentTerm }),
       });
       const data = await res.json();
       if (data.success) {
-        window.location.reload();
+        router.refresh();
       } else {
-        setIsSwitching(false);
         await showCozyError("ไม่สามารถสลับภาคเรียนได้", data.message);
       }
     } catch {
-      window.location.reload();
+      router.refresh();
+    } finally {
+      setIsSwitching(false);
     }
   };
 
@@ -215,7 +230,7 @@ export function AcademicTermSelector({
           <Calendar className="w-3.5 h-3.5 text-[#D9A441]" />
         )}
         <span className="text-[11px] sm:text-xs">
-          ภาคเรียน <strong className="font-bold">{selectedTerm}</strong>
+          ภาคเรียน <strong className="font-bold">{effectiveSelectedTerm}</strong>
         </span>
         {isPastTerm && (
           <span className="hidden xl:inline-block px-1.5 py-0.2 rounded text-[10px] bg-amber-200 text-amber-800 font-bold">
@@ -248,7 +263,7 @@ export function AcademicTermSelector({
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-[#3F342B]">เลือกภาคเรียน</span>
                   <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FAF0E1] text-[#A26D14] font-medium">
-                    ปัจจุบัน: {currentTerm}
+                    ปัจจุบัน: {effectiveCurrentTerm}
                   </span>
                 </div>
                 <p className="text-[11px] text-[#7A6A5C] mt-0.5">
@@ -265,7 +280,7 @@ export function AcademicTermSelector({
                   className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 mb-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
                 >
                   <RotateCcw className={`w-3.5 h-3.5 ${isSwitching ? "animate-spin" : ""}`} />
-                  <span>กลับสู่ภาคเรียนปัจจุบัน ({currentTerm})</span>
+                  <span>กลับสู่ภาคเรียนปัจจุบัน ({effectiveCurrentTerm})</span>
                 </button>
               )}
 
@@ -287,8 +302,8 @@ export function AcademicTermSelector({
               <div className="max-h-48 overflow-y-auto space-y-1 pr-1 custom-scrollbar">
                 {filteredTerms.length > 0 ? (
                   filteredTerms.map((term) => {
-                    const isSelected = term === selectedTerm;
-                    const isCurrent = term === currentTerm;
+                    const isSelected = term === effectiveSelectedTerm;
+                    const isCurrent = term === effectiveCurrentTerm;
                     return (
                       <button
                         key={term}

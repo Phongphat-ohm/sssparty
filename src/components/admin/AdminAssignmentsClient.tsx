@@ -26,6 +26,7 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 import {
   toggleAssignmentStatusAction,
   deleteAssignmentAction,
@@ -44,6 +45,8 @@ export interface AssignmentItem {
   description: string;
   maxScore: number;
   dueDate: string;
+  allowLateSubmission?: boolean;
+  lateDueDate?: string | null;
   status: "DRAFT" | "PUBLISHED" | "CLOSED";
   rubricCount: number;
   submissionsCount: number;
@@ -360,9 +363,19 @@ export function AdminAssignmentsClient({
                         </span>
 
                         {isDuePassed && assignment.status === "PUBLISHED" && (
-                          <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
-                            ครบกำหนดแล้ว
-                          </span>
+                          !assignment.allowLateSubmission ? (
+                            <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                              เลยกำหนด (ปิดรับแล้ว)
+                            </span>
+                          ) : assignment.lateDueDate && new Date(assignment.lateDueDate).getTime() < Date.now() ? (
+                            <span className="text-[10px] font-bold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full">
+                              หมดเขตส่งล่าช้าแล้ว
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                              เปิดรับส่งล่าช้า
+                            </span>
+                          )
                         )}
                       </div>
 
@@ -407,19 +420,25 @@ export function AdminAssignmentsClient({
 
                   {/* Bottom Row: Due date & Actions */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-[#F2E8DC]">
-                    <span className="text-xs text-[#7A6A5C] flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-[#C96B4B]" />
-                      กำหนดส่ง:{" "}
-                      <strong className="text-[#3F342B]">
-                        {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </strong>
-                    </span>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 flex-wrap">
+                      <span className="text-xs text-[#7A6A5C] flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5 text-[#C96B4B]" />
+                        กำหนดส่ง:{" "}
+                        <strong className="text-[#3F342B]">
+                          {formatThaiDateTime(assignment.dueDate)}
+                        </strong>
+                      </span>
+                      {assignment.allowLateSubmission && assignment.lateDueDate && (
+                        <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg">
+                          ปิดรับงานล่าช้า: {formatThaiDateTime(assignment.lateDueDate)}
+                        </span>
+                      )}
+                      {assignment.allowLateSubmission === false && (
+                        <span className="text-[10px] text-stone-600 bg-stone-100 border border-stone-200 px-2 py-0.5 rounded-lg">
+                          ไม่อนุญาตให้ส่งล่าช้า
+                        </span>
+                      )}
+                    </div>
 
                     <div className="flex items-center gap-2">
                       <Link

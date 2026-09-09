@@ -19,6 +19,7 @@ import {
   Info,
 } from "lucide-react";
 import { studentCheckInAction } from "@/actions/attendance-key";
+import { formatThaiTime } from "@/lib/utils/date-thai";
 
 // โหลด @yudiel/react-qr-scanner แบบ dynamic ป้องกัน SSR error
 const QrScanner = dynamic(
@@ -54,6 +55,8 @@ interface Props {
   initialRecord: MyRecordData | null;
   studentName: string;
   studentCode: string;
+  initialKey?: string;
+  initialSessionId?: string;
 }
 
 export function StudentCheckInClient({
@@ -61,6 +64,8 @@ export function StudentCheckInClient({
   initialRecord,
   studentName,
   studentCode,
+  initialKey,
+  initialSessionId,
 }: Props) {
   // Mode: "numpad" | "scanner"
   const [activeTab, setActiveTab] = useState<"numpad" | "scanner">("numpad");
@@ -199,13 +204,10 @@ export function StudentCheckInClient({
     }
   };
 
-  // ตรวจสอบ URL Search Params เผื่อสแกน QR Code จากกล้องมือถือแล้วเปิดเว็บพร้อมรหัส
+  // ตรวจสอบ Parameter เผื่อสแกน QR Code จากกล้องมือถือแล้วเปิดเว็บพร้อมรหัส
   useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlKey = urlParams.get("key");
-    const urlSessionId = urlParams.get("sessionId");
+    const urlKey = initialKey;
+    const urlSessionId = initialSessionId;
 
     if (urlKey && /^\d{6}$/.test(urlKey)) {
       setKeyDigits(urlKey.split(""));
@@ -222,7 +224,7 @@ export function StudentCheckInClient({
         return () => clearTimeout(submitTimer);
       }
     }
-  }, [checkInResult]);
+  }, [checkInResult, initialKey, initialSessionId]);
 
   // แป้นกดตัวเลขบนหน้าจอ (Custom On-Screen Numpad)
   const handleNumpadPress = (num: string) => {
@@ -329,10 +331,7 @@ export function StudentCheckInClient({
 
   // กรณีเช็กชื่อสำเร็จแล้ว
   if (checkInResult) {
-    const formattedTime = new Date(checkInResult.checkedAt).toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const formattedTime = formatThaiTime(checkInResult.checkedAt);
     const isLateCheckIn = checkInResult.isLate || checkInResult.status === "LATE";
 
     return (

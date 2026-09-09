@@ -28,6 +28,7 @@ import {
   stopDynamicKeySessionAction,
   batchMarkUncheckedAbsentAction,
 } from "@/actions/attendance-key";
+import { formatThaiTime } from "@/lib/utils/date-thai";
 import { generateDynamicKey } from "@/lib/attendance/dynamic-key";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
 import { ClassroomMapPickerModal } from "./ClassroomMapPickerModal";
@@ -641,11 +642,7 @@ export function DynamicKeyProjectorScreen({
                 </div>
               ) : (
                 recentCheckins.map((item, idx) => {
-                  const checkTime = new Date(item.checkedAt).toLocaleTimeString("th-TH", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  });
+                  const checkTime = formatThaiTime(item.checkedAt, { showSeconds: true });
 
                   return (
                     <div

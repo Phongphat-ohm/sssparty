@@ -234,3 +234,63 @@ export async function changeAdminPasswordAction(
     }
   );
 }
+
+const adminProfileSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "กรุณากรอกชื่อ-นามสกุล หรือชื่อคุณครูผู้สอน")
+    .max(100, "ชื่อต้องไม่เกิน 100 ตัวอักษร"),
+});
+
+/**
+ * Server Action สำหรับครู/ผู้ดูแลระบบบันทึกหรือแก้ไขชื่อ-นามสกุลของตนเอง
+ */
+export async function updateAdminProfileSelfAction(
+  formData: FormData
+): Promise<ProfileActionResult> {
+  return auditAction(
+    {
+      action: "UPDATE_USER",
+      targetType: "USER",
+      getDetails: (result, ctx) =>
+        result.success
+          ? `ผู้ดูแลระบบ/ครู "${ctx.session?.username}" บันทึกชื่อ-นามสกุลสำเร็จ`
+          : `ผู้ดูแลระบบ/ครู "${ctx.session?.username}" บันทึกชื่อ-นามสกุลไม่สำเร็จ: ${result.message}`,
+    },
+    async (ctx) => {
+      const session = ctx.session;
+      if (!session || session.role !== "ADMIN" || !session.userId) {
+        return { success: false, message: "ไม่มีสิทธิ์ในการแก้ไขข้อมูลนี้" };
+      }
+
+      const name = (formData.get("name") as string)?.trim() || "";
+
+      const parsed = adminProfileSchema.safeParse({ name });
+      if (!parsed.success) {
+        return {
+          success: false,
+          message: parsed.error.issues[0]?.message || "ข้อมูลชื่อไม่ถูกต้อง",
+        };
+      }
+
+      await prisma.user.update({
+        where: { id: session.userId },
+        data: {
+          name: parsed.data.name,
+        },
+      });
+
+      revalidatePath("/admin/profile");
+      revalidatePath("/admin/settings");
+      revalidatePath("/admin/users");
+      revalidatePath("/admin/dashboard");
+
+      return {
+        success: true,
+        message: `บันทึกชื่อคุณครู "${parsed.data.name}" เรียบร้อยแล้ว`,
+      };
+    }
+  );
+}
+

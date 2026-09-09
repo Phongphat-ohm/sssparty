@@ -20,9 +20,11 @@ import {
   X,
   Edit3,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortOrder } from "@/components/ui/SortableTableHeader";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface StudentAssignmentItem {
   id: string;
@@ -30,6 +32,8 @@ export interface StudentAssignmentItem {
   description: string;
   maxScore: number;
   dueDate: string;
+  allowLateSubmission?: boolean;
+  lateDueDate?: string | null;
   submissionType?: "FILE" | "LINK" | "QUESTIONS";
   rubricCount: number;
   submission?: {
@@ -69,10 +73,25 @@ export function StudentAssignmentsClient({
     setCurrentPage(1);
   };
 
+  const now = Date.now();
+
   // Counts
-  const todoCount = assignments.filter(
-    (a) => !a.submission || a.submission.status === "DRAFT" || a.submission.status === "RETURNED"
-  ).length;
+  const todoCount = assignments.filter((a) => {
+    const sub = a.submission;
+    const isSubmitted =
+      sub && (sub.status === "SUBMITTED" || sub.status === "LATE" || sub.status === "GRADED");
+    const isPastDue = now > new Date(a.dueDate).getTime();
+    return !isPastDue && !isSubmitted;
+  }).length;
+
+  const overdueCount = assignments.filter((a) => {
+    const sub = a.submission;
+    const isSubmitted =
+      sub && (sub.status === "SUBMITTED" || sub.status === "LATE" || sub.status === "GRADED");
+    const isPastDue = now > new Date(a.dueDate).getTime();
+    return isPastDue && !isSubmitted;
+  }).length;
+
   const returnedCount = assignments.filter(
     (a) => a.submission?.status === "RETURNED"
   ).length;
@@ -85,9 +104,15 @@ export function StudentAssignmentsClient({
 
   const filtered = assignments.filter((a) => {
     const sub = a.submission;
+    const isSubmitted =
+      sub && (sub.status === "SUBMITTED" || sub.status === "LATE" || sub.status === "GRADED");
+    const isPastDue = now > new Date(a.dueDate).getTime();
+
     let matchStatus = true;
     if (statusFilter === "TODO") {
-      matchStatus = !sub || sub.status === "DRAFT" || sub.status === "RETURNED";
+      matchStatus = !isPastDue && !isSubmitted;
+    } else if (statusFilter === "OVERDUE") {
+      matchStatus = isPastDue && !isSubmitted;
     } else if (statusFilter === "RETURNED") {
       matchStatus = sub?.status === "RETURNED";
     } else if (statusFilter === "IN_REVIEW") {
@@ -131,7 +156,8 @@ export function StudentAssignmentsClient({
           {/* Action-Oriented Status Tabs */}
           <div className="flex flex-wrap items-center gap-1.5 p-1 bg-[#FAF6F0] rounded-2xl border border-[#EADBCC]">
             {[
-              { key: "TODO", label: "งานที่ต้องทำ (To-Do)", count: todoCount },
+              { key: "TODO", label: "ค้างส่ง (To-Do)", count: todoCount },
+              { key: "OVERDUE", label: "เลยกำหนด", count: overdueCount, isOverdueTab: true },
               { key: "RETURNED", label: "ตีกลับให้แก้ไข", count: returnedCount },
               { key: "IN_REVIEW", label: "รอตรวจ", count: inReviewCount },
               { key: "GRADED", label: "ตรวจแล้ว", count: gradedCount },
@@ -148,7 +174,11 @@ export function StudentAssignmentsClient({
                   }}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
-                      ? "bg-[#D9A441] text-white shadow-xs"
+                      ? tab.isOverdueTab && tab.count > 0
+                        ? "bg-rose-600 text-white shadow-xs"
+                        : "bg-[#D9A441] text-white shadow-xs"
+                      : tab.isOverdueTab && tab.count > 0
+                      ? "text-rose-700 hover:text-rose-800 hover:bg-rose-50"
                       : "text-[#7A6A5C] hover:text-[#3F342B] hover:bg-white/80"
                   }`}
                 >
@@ -157,6 +187,8 @@ export function StudentAssignmentsClient({
                     className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold ${
                       isActive
                         ? "bg-white/25 text-white"
+                        : tab.isOverdueTab && tab.count > 0
+                        ? "bg-rose-100 text-rose-800"
                         : "bg-[#EADBCC] text-[#7A6A5C]"
                     }`}
                   >
@@ -177,14 +209,14 @@ export function StudentAssignmentsClient({
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="ค้นหาภาระงาน..."
-              className="w-full pl-9.5 pr-8 py-2 rounded-2xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] placeholder-[#A8988B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
+              placeholder="ค้นหาชื่อหรือคำสั่งงาน..."
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] placeholder-[#A8988B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A8988B] hover:text-[#3F342B] p-0.5 rounded-md"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#A8988B] hover:text-[#3F342B]"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -309,18 +341,22 @@ export function StudentAssignmentsClient({
                         <Clock className="w-3.5 h-3.5 text-[#C96B4B] shrink-0" />
                         <span>กำหนดส่ง:</span>
                         <strong className="text-[#3F342B]">
-                          {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {formatThaiDateTime(assignment.dueDate)}
                         </strong>
                         {isPastDue && !isSubmitted && (
-                          <span className="text-[10px] text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full font-bold">
-                            เลยกำหนดส่งแล้ว
-                          </span>
+                          !assignment.allowLateSubmission ? (
+                            <span className="text-[10px] text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full font-bold">
+                              เลยกำหนดส่งแล้ว (ปิดรับแล้ว)
+                            </span>
+                          ) : assignment.lateDueDate && Date.now() > new Date(assignment.lateDueDate).getTime() ? (
+                            <span className="text-[10px] text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded-full font-bold">
+                              หมดเขตส่งล่าช้าแล้ว
+                            </span>
+                          ) : (
+                            <span className="text-[10px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full font-bold">
+                              ส่งล่าช้าได้{assignment.lateDueDate ? ` (ถึง ${formatThaiDateTime(assignment.lateDueDate)})` : ""}
+                            </span>
+                          )
                         )}
                       </p>
                     </div>
@@ -338,13 +374,19 @@ export function StudentAssignmentsClient({
                           ถูกตีกลับ (ต้องส่งใหม่)
                         </span>
                       ) : isDraft ? (
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
-                          <Edit3 className="w-3.5 h-3.5 text-amber-700" />
-                          แบบร่าง (ยังไม่ส่ง)
+                        <span
+                          className={`text-xs font-bold px-3 py-1 rounded-full border flex items-center gap-1 ${
+                            isPastDue
+                              ? "bg-rose-100 text-rose-800 border-rose-300"
+                              : "bg-amber-100 text-amber-900 border-amber-300"
+                          }`}
+                        >
+                          <Edit3 className={`w-3.5 h-3.5 ${isPastDue ? "text-rose-700" : "text-amber-700"}`} />
+                          {isPastDue ? "เลยกำหนด (แบบร่าง)" : "แบบร่าง (ยังไม่ส่ง)"}
                         </span>
                       ) : isLate ? (
-                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-red-100 text-red-800 border border-red-200 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-orange-100 text-orange-800 border border-orange-200 flex items-center gap-1">
+                          <AlertTriangle className="w-3.5 h-3.5 text-orange-600" />
                           ส่งล่าช้า (รอตรวจ)
                         </span>
                       ) : isSubmitted ? (
@@ -352,10 +394,15 @@ export function StudentAssignmentsClient({
                           <CheckCircle2 className="w-3.5 h-3.5 text-blue-600" />
                           ส่งแล้ว (รอตรวจ)
                         </span>
+                      ) : isPastDue ? (
+                        <span className="text-xs font-bold px-3 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
+                          <AlertCircle className="w-3.5 h-3.5 text-rose-600" />
+                          เลยกำหนด
+                        </span>
                       ) : (
                         <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-1">
                           <Clock className="w-3.5 h-3.5 text-amber-600" />
-                          ยังไม่ได้ส่ง
+                          ค้างส่ง
                         </span>
                       )}
                     </div>

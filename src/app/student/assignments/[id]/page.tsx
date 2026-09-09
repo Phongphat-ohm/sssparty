@@ -54,6 +54,8 @@ export default async function StudentAssignmentDetailPage({
         submissionType: assignment.submissionType,
         status: assignment.status,
         dueDate: assignment.dueDate,
+        allowLateSubmission: assignment.allowLateSubmission,
+        lateDueDate: assignment.lateDueDate,
         maxScore: assignment.maxScore,
         attachments: assignment.attachments.map((att) => ({
           id: att.id,

@@ -36,6 +36,8 @@ export default async function AdminAssignmentsPage() {
     description: a.description,
     maxScore: a.maxScore,
     dueDate: a.dueDate.toISOString(),
+    allowLateSubmission: a.allowLateSubmission,
+    lateDueDate: a.lateDueDate ? a.lateDueDate.toISOString() : null,
     status: a.status,
     rubricCount: a.rubrics.length,
     submissionsCount: a.submissions.length,

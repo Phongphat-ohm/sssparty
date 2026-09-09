@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { createAuditLog } from "@/lib/audit/logger";
 import { isTermLocked } from "@/lib/terms/term-service";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface QuestionAnswerInput {
   questionId: string;
@@ -85,6 +86,26 @@ export async function submitAssignmentAction(
       return { success: false, message: "การบ้านนี้ปิดรับการส่งงานแล้ว" };
     }
 
+    const now = new Date();
+    const isLate = now.getTime() > new Date(assignment.dueDate).getTime();
+    if (isLate) {
+      if (!assignment.allowLateSubmission) {
+        return {
+          success: false,
+          message: "การบ้านนี้เลยกำหนดส่งแล้ว และไม่อนุญาตให้ส่งงานล่าช้า",
+        };
+      }
+      if (
+        assignment.lateDueDate &&
+        now.getTime() > new Date(assignment.lateDueDate).getTime()
+      ) {
+        return {
+          success: false,
+          message: `การบ้านนี้ปิดรับส่งงานล่าช้าแล้ว (หมดเขตส่งเมื่อ ${formatThaiDateTime(assignment.lateDueDate)})`,
+        };
+      }
+    }
+
     // หากตรวจให้คะแนนไปแล้ว ห้ามส่งทับ
     const existingSubmission = assignment.submissions[0];
     if (existingSubmission && existingSubmission.status === "GRADED") {
@@ -93,8 +114,6 @@ export async function submitAssignmentAction(
         message: "การบ้านนี้ได้รับการตรวจให้คะแนนแล้ว ไม่สามารถส่งซ้ำได้",
       };
     }
-
-    const now = new Date();
 
     // กรณีเป็น "แบบร่าง (DRAFT)"
     if (isDraft) {
@@ -212,7 +231,6 @@ export async function submitAssignmentAction(
     // 2. ตรวจสอบ Deadline:
     // ถ้า submittedAt <= dueDate -> สถานะ SUBMITTED
     // ถ้า submittedAt > dueDate -> สถานะ LATE
-    const isLate = now.getTime() > new Date(assignment.dueDate).getTime();
     const submissionStatus: "SUBMITTED" | "LATE" = isLate ? "LATE" : "SUBMITTED";
 
     const submission = await prisma.$transaction(async (tx) => {

@@ -12,6 +12,7 @@ import {
   Filter,
 } from "lucide-react";
 import { formatDistance } from "@/lib/attendance/geo-utils";
+import { formatThaiTime } from "@/lib/utils/date-thai";
 import "leaflet/dist/leaflet.css";
 
 export interface StudentMapRecord {
@@ -256,13 +257,7 @@ export function StudentAttendanceMap({
         const marker = L.marker(studentPos, { icon }).addTo(layer);
         studentMarkersMapRef.current.set(student.studentId, marker);
 
-        const timeStr = student.checkedAt
-          ? new Date(student.checkedAt).toLocaleTimeString("th-TH", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })
-          : "-";
+        const timeStr = formatThaiTime(student.checkedAt, { showSeconds: true, fallback: "-" });
 
         const distStr = formatDistance(student.distanceFromSession);
         const statusBadge = isInZone

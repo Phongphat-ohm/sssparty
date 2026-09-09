@@ -5,6 +5,8 @@ import {
   ComprehensiveEvaluationReportData,
 } from "@/actions/reports";
 import { StudentAttendanceRow } from "@/components/admin/AttendanceSheetClient";
+import { formatThaiDate, formatThaiDateTime } from "@/lib/utils/date-thai";
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 /**
  * 1. สร้าง HTML รายงานผลการส่งงานและการประเมินคะแนนภาระงาน (ขาว-ดำ มาตรฐานทางการ)
@@ -21,26 +23,14 @@ export function generateAssignmentReportHtml(params: {
     assignmentTitle,
     maxScore,
     dueDate,
-    academicTerm = "1/2569",
+    academicTerm = DEFAULT_ACADEMIC_TERM,
     selectedClass = "ALL",
     rows,
   } = params;
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const formattedDueDate = dueDate
-    ? new Date(dueDate).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }) + " น."
-    : "-";
+  const formattedDueDate = formatThaiDateTime(dueDate);
 
   const total = rows.length;
   const submitted = rows.filter(
@@ -74,14 +64,7 @@ export function generateAssignmentReportHtml(params: {
       const percent =
         hasScore && maxScore > 0 ? ((r.score! / maxScore) * 100).toFixed(0) + "%" : "-";
 
-      const submittedTimeStr = r.submittedAt
-        ? new Date(r.submittedAt).toLocaleDateString("th-TH", {
-            day: "numeric",
-            month: "short",
-            hour: "2-digit",
-            minute: "2-digit",
-          })
-        : "-";
+      const submittedTimeStr = formatThaiDateTime(r.submittedAt);
 
       return `<tr>
         <td class="text-center font-mono">${i + 1}</td>
@@ -173,11 +156,7 @@ export function generateGradebookReportHtml(data: GradebookReportData): string {
     stats,
   } = data;
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const assignmentHeaders = assignments
     .map(
@@ -284,18 +263,9 @@ export function generateAttendanceSessionReportHtml(params: {
     records,
   } = params;
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const formattedSessionDate = new Date(sessionDate).toLocaleDateString("th-TH", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedSessionDate = formatThaiDate(sessionDate, { variant: "withWeekday" });
 
   const total = records.length;
   const present = records.filter((r) => r.status === "PRESENT").length;
@@ -401,11 +371,7 @@ export function generateAttendanceSummaryReportHtml(
     stats,
   } = data;
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const rowsHtml = students
     .map(
@@ -503,11 +469,7 @@ export function generateComprehensiveEvaluationReportHtml(
     stats,
   } = data;
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const showIndividualAssignments = assignments.length <= 5;
 

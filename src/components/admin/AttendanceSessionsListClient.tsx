@@ -29,6 +29,7 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 import {
   createAttendanceSessionForDateAction,
   deleteAttendanceSessionAction,
@@ -41,6 +42,7 @@ import { PdfReportModal } from "@/components/admin/PdfReportModal";
 import { generateAttendanceSummaryReportHtml } from "@/lib/export/report-html-templates";
 import { showCozyConfirm, showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { getThaiHolidaysMap, ThaiHolidayInfo } from "@/lib/utils/holidays";
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 export interface SessionItem {
   id: string;
@@ -59,6 +61,7 @@ export interface SessionItem {
 
 interface AttendanceSessionsListClientProps {
   initialSessions: SessionItem[];
+  currentTerm?: string;
 }
 
 const THAI_MONTHS = [
@@ -80,6 +83,7 @@ const WEEKDAYS = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส."];
 
 export function AttendanceSessionsListClient({
   initialSessions,
+  currentTerm = DEFAULT_ACADEMIC_TERM,
 }: AttendanceSessionsListClientProps) {
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionItem[]>(initialSessions);
@@ -218,13 +222,7 @@ export function AttendanceSessionsListClient({
   };
 
   const promptCreateSessionForDate = async (dateKey: string) => {
-    const d = new Date(dateKey);
-    const thaiFormatted = d.toLocaleDateString("th-TH", {
-      weekday: "long",
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
+    const thaiFormatted = formatThaiDate(dateKey, { variant: "withWeekday" });
 
     const holidayOnDate = holidaysMap[dateKey];
 
@@ -257,16 +255,26 @@ export function AttendanceSessionsListClient({
               />
               <span>⏰ กำหนดเวลาเช็กชื่อทันเวลา (ตัดสายอัตโนมัติ)</span>
             </label>
-            <div id="swal-cutoff-box" style="display: none;" class="space-y-1 pt-1">
-              <input
-                id="swal-cutoff-input"
-                type="time"
-                defaultValue="08:30"
-                value="08:30"
-                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
-              />
+            <div id="swal-cutoff-box" style="display: none;" class="space-y-1.5 pt-1">
+              <div class="flex items-center gap-2">
+                <input
+                  id="swal-cutoff-input"
+                  type="time"
+                  step="60"
+                  defaultValue="08:30"
+                  value="08:30"
+                  class="flex-1 px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] font-mono"
+                />
+                <span class="text-xs font-bold text-[#8C5D23] px-2 py-1 rounded-lg bg-[#FAF0E1] border border-[#D9CABB]">ระบบ 24 ชม.</span>
+              </div>
+              <div class="flex items-center gap-1 text-[11px] text-[#7A6A5C]">
+                <span>เวลาแนะนำ:</span>
+                <button type="button" onclick="document.getElementById('swal-cutoff-input').value='08:30'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">08:30 น.</button>
+                <button type="button" onclick="document.getElementById('swal-cutoff-input').value='09:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">09:00 น.</button>
+                <button type="button" onclick="document.getElementById('swal-cutoff-input').value='16:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">16:00 น.</button>
+              </div>
               <span class="text-[11px] text-[#7A6A5C] block">
-                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะบันทึกเป็น "มาสาย" อัตโนมัติ (หากไม่ติ๊กเลือก จะเช็กชื่อได้ตลอดเวลา ไม่ตัดสาย)
+                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะบันทึกเป็น "มาสาย" อัตโนมัติ (ระบบเวลา 24 ชั่วโมง 00:00 - 23:59 น.)
               </span>
             </div>
           </div>
@@ -291,7 +299,7 @@ export function AttendanceSessionsListClient({
 
     setIsCreating(true);
     try {
-      const res = await createAttendanceSessionForDateAction(dateKey, "1/2569", cutoffTime);
+      const res = await createAttendanceSessionForDateAction(dateKey, currentTerm, cutoffTime);
       if (res.success && res.sessionId) {
         await showCozySuccess("สำเร็จ!", res.message);
         router.push(`/admin/attendance/${res.sessionId}`);
@@ -619,11 +627,7 @@ export function AttendanceSessionsListClient({
                 </div>
 
                 <span className="text-xs font-semibold text-[#7A6A5C] bg-[#FAF6F0] px-2.5 py-1 rounded-lg">
-                  {new Date(selectedDateKey).toLocaleDateString("th-TH", {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  })}
+                  {formatThaiDate(selectedDateKey)}
                 </span>
               </div>
 
@@ -872,11 +876,7 @@ export function AttendanceSessionsListClient({
                 </thead>
                 <tbody className="divide-y divide-[#F2E8DC] text-xs">
                   {paginatedSessions.map((s) => {
-                    const formattedDate = new Date(s.date).toLocaleDateString("th-TH", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    });
+                    const formattedDate = formatThaiDate(s.date);
 
                     return (
                       <tr key={s.id} className="hover:bg-[#FAF6F0]/50 transition-colors">

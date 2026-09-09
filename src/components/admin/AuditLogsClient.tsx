@@ -33,6 +33,7 @@ import {
   AuditCategory,
 } from "@/actions/audit";
 import { TablePagination } from "@/components/ui/TablePagination";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 interface AuditLogsClientProps {
   initialData: AuditLogsResult;
@@ -131,19 +132,7 @@ export function AuditLogsClient({ initialData }: AuditLogsClientProps) {
   };
 
   const formatDate = (iso: string) => {
-    try {
-      const d = new Date(iso);
-      return d.toLocaleString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-    } catch {
-      return iso;
-    }
+    return formatThaiDateTime(iso, { variant: "withSeconds" });
   };
 
   const getActionBadge = (action: string) => {

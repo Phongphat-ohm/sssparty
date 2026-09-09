@@ -9,16 +9,20 @@ import {
 } from "@/lib/export/report-api-service";
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { getAppBaseUrl } from "@/lib/utils/url";
 
 async function getRequestBaseUrl(): Promise<string> {
   try {
     const h = await headers();
-    const host = h.get("host") || "localhost:3000";
-    const proto = h.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-    return `${proto}://${host}`;
+    const host = h.get("host");
+    if (host) {
+      const proto = h.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+      return `${proto}://${host}`;
+    }
   } catch {
-    return process.env.NEXTAUTH_URL || "http://localhost:3000";
+    // Fallback to centralized getAppBaseUrl
   }
+  return getAppBaseUrl();
 }
 
 /**
@@ -40,7 +44,7 @@ export async function saveOfficialAssignmentReportAction(params: {
       assignmentId: params.assignmentId,
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
-      user: { id: currentUser.id, username: currentUser.username },
+      user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },
       baseUrl,
     });
 
@@ -82,7 +86,7 @@ export async function saveOfficialAttendanceReportAction(params: {
       sessionId: params.sessionId,
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
-      user: { id: currentUser.id, username: currentUser.username },
+      user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },
       baseUrl,
     });
 
@@ -122,7 +126,7 @@ export async function saveOfficialEvaluationReportAction(params: {
     const result = await generateEvaluationReportPdf({
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
-      user: { id: currentUser.id, username: currentUser.username },
+      user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },
       baseUrl,
     });
 
@@ -161,7 +165,7 @@ export async function saveOfficialAttendanceSummaryReportAction(params: {
     const result = await generateAttendanceSummaryReportPdf({
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
-      user: { id: currentUser.id, username: currentUser.username },
+      user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },
       baseUrl,
     });
 

@@ -38,6 +38,19 @@ export function AdminLayoutShell({
     return <div className="min-h-screen bg-stone-950">{children}</div>;
   }
 
+  // ตรวจสอบความถูกต้องของภาคเรียนกับรายการที่มีอยู่จริงในระบบ
+  const effectiveCurrentTerm =
+    availableTerms.length > 0 && currentTerm && availableTerms.includes(currentTerm)
+      ? currentTerm
+      : (availableTerms[0] || currentTerm);
+
+  const effectiveSelectedTerm =
+    availableTerms.length > 0 && selectedTerm && availableTerms.includes(selectedTerm)
+      ? selectedTerm
+      : effectiveCurrentTerm;
+
+  const showPastTermBanner = isViewingPastTerm && effectiveSelectedTerm !== effectiveCurrentTerm;
+
   return (
     <div className="h-screen h-dvh bg-[#FFF9F0] flex flex-col md:flex-row overflow-hidden">
       <AdminSidebar
@@ -48,12 +61,12 @@ export function AdminLayoutShell({
       <div className="flex-1 min-w-0 h-full flex flex-col overflow-hidden">
         <AdminNavbar
           adminName={adminName}
-          currentTerm={currentTerm}
-          selectedTerm={selectedTerm}
+          currentTerm={effectiveCurrentTerm}
+          selectedTerm={effectiveSelectedTerm}
           availableTerms={availableTerms}
         />
-        {isViewingPastTerm && (
-          <PastTermBanner selectedTerm={selectedTerm} currentTerm={currentTerm} />
+        {showPastTermBanner && (
+          <PastTermBanner selectedTerm={effectiveSelectedTerm} currentTerm={effectiveCurrentTerm} />
         )}
         {maintenanceMode && (
           <div className="bg-amber-500 text-white px-4 py-2 text-xs font-medium flex items-center justify-between shadow-xs z-10 shrink-0">

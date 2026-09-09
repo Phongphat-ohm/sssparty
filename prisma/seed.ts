@@ -7,6 +7,12 @@ async function main() {
   const adminUsername = process.env.INITIAL_ADMIN_USERNAME || "admin";
   const adminPassword = process.env.INITIAL_ADMIN_PASSWORD || "admin123";
 
+  if (!process.env.INITIAL_ADMIN_PASSWORD) {
+    console.warn(
+      "⚠️ [Security Notice] INITIAL_ADMIN_PASSWORD is not set in environment. Using default password. Please change it immediately after login!"
+    );
+  }
+
   // Check if admin user already exists
   const existingAdmin = await prisma.user.findFirst({
     where: {

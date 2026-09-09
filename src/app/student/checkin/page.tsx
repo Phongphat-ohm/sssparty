@@ -133,6 +133,8 @@ export default async function StudentCheckInPage(props: PageProps) {
         }
         studentName={`${student.firstName} ${student.lastName}`}
         studentCode={student.studentCode}
+        initialKey={queryKey}
+        initialSessionId={querySessionId}
       />
     </div>
   );

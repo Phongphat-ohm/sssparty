@@ -37,6 +37,7 @@ import {
   updateSessionCutoffTimeAction,
   updateStudentCustomCutoffTimeAction,
 } from "@/actions/attendance";
+import { formatThaiDate, formatThaiTime } from "@/lib/utils/date-thai";
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { ActionDropdown, DropdownGroup } from "@/components/ui/ActionDropdown";
@@ -221,12 +222,7 @@ export function AttendanceSheetClient({
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
-  const formattedDate = new Date(sessionDate).toLocaleDateString("th-TH", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedDate = formatThaiDate(sessionDate, { variant: "withWeekday" });
 
   // Calculate live stats
   const totalCount = records.length;
@@ -325,15 +321,25 @@ export function AttendanceSheetClient({
               />
               <span>เปิดใช้งานการกำหนดเวลาเช็กชื่อ (ตัดสายอัตโนมัติ)</span>
             </label>
-            <div id="swal-time-wrapper" style="display: ${isCurrentlySet ? "block" : "none"};" class="pt-1 space-y-1">
-              <input
-                type="time"
-                id="swal-cutoff-time"
-                value="${sessionCutoff || "08:30"}"
-                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
-              />
+            <div id="swal-time-wrapper" style="display: ${isCurrentlySet ? "block" : "none"};" class="pt-1.5 space-y-1.5">
+              <div class="flex items-center gap-2">
+                <input
+                  type="time"
+                  step="60"
+                  id="swal-cutoff-time"
+                  value="${sessionCutoff || "08:30"}"
+                  class="flex-1 px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] font-mono"
+                />
+                <span class="text-xs font-bold text-[#8C5D23] px-2 py-1 rounded-lg bg-[#FAF0E1] border border-[#D9CABB]">ระบบ 24 ชม.</span>
+              </div>
+              <div class="flex items-center gap-1 text-[11px] text-[#7A6A5C]">
+                <span>เวลาแนะนำ:</span>
+                <button type="button" onclick="document.getElementById('swal-cutoff-time').value='08:30'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">08:30 น.</button>
+                <button type="button" onclick="document.getElementById('swal-cutoff-time').value='09:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">09:00 น.</button>
+                <button type="button" onclick="document.getElementById('swal-cutoff-time').value='16:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">16:00 น.</button>
+              </div>
               <span class="text-[11px] text-[#7A6A5C] block">
-                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะขึ้นสถานะว่า 'มาสาย' อัตโนมัติ (หากไม่ติ๊กเลือก จะเช็กชื่อได้ตลอดเวลา ไม่ตัดสาย)
+                นักเรียนที่เช็กชื่อหลังเวลานี้ ระบบจะขึ้นสถานะว่า 'มาสาย' อัตโนมัติ (ระบบเวลา 24 ชั่วโมง 00:00 - 23:59 น.)
               </span>
             </div>
           </div>
@@ -389,15 +395,25 @@ export function AttendanceSheetClient({
               />
               <span>กำหนดเวลาเฉพาะบุคคลนี้</span>
             </label>
-            <div id="swal-student-time-wrapper" style="display: ${isCustomSet ? "block" : "none"};" class="pt-1 space-y-1">
-              <input
-                type="time"
-                id="swal-student-cutoff-time"
-                value="${currentCutoff || sessionCutoff || "08:30"}"
-                class="w-full px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
-              />
+            <div id="swal-student-time-wrapper" style="display: ${isCustomSet ? "block" : "none"};" class="pt-1.5 space-y-1.5">
+              <div class="flex items-center gap-2">
+                <input
+                  type="time"
+                  step="60"
+                  id="swal-student-cutoff-time"
+                  value="${currentCutoff || sessionCutoff || "08:30"}"
+                  class="flex-1 px-3 py-2 border border-[#D9CABB] rounded-xl text-sm bg-white text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] font-mono"
+                />
+                <span class="text-xs font-bold text-[#8C5D23] px-2 py-1 rounded-lg bg-[#FAF0E1] border border-[#D9CABB]">ระบบ 24 ชม.</span>
+              </div>
+              <div class="flex items-center gap-1 text-[11px] text-[#7A6A5C]">
+                <span>เวลาแนะนำ:</span>
+                <button type="button" onclick="document.getElementById('swal-student-cutoff-time').value='08:30'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">08:30 น.</button>
+                <button type="button" onclick="document.getElementById('swal-student-cutoff-time').value='09:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">09:00 น.</button>
+                <button type="button" onclick="document.getElementById('swal-student-cutoff-time').value='16:00'" class="px-1.5 py-0.5 rounded bg-white border border-[#D9CABB] hover:bg-[#FAF0E1]">16:00 น.</button>
+              </div>
               <span class="text-[11px] text-[#7A6A5C] block">
-                หากนักเรียนคนนี้เช็กชื่อหลังเวลานี้ จะถูกบันทึกเป็น 'มาสาย' (หากไม่ติ๊กเลือก จะใช้เวลาตามรอบปกติ)
+                หากนักเรียนคนนี้เช็กชื่อหลังเวลานี้ จะถูกบันทึกเป็น 'มาสาย' (ระบบเวลา 24 ชั่วโมง 00:00 - 23:59 น.)
               </span>
             </div>
           </div>
@@ -911,13 +927,7 @@ export function AttendanceSheetClient({
                         </button>
                         {r.checkedAt && (
                           <span className="text-[10px] text-[#7A6A5C] flex items-center gap-1 mt-0.5">
-                            <span>
-                              {new Date(r.checkedAt).toLocaleTimeString("th-TH", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              })}{" "}
-                              น.
-                            </span>
+                            <span>{formatThaiTime(r.checkedAt)}</span>
                             {r.status === "LATE" && (
                               <span className="text-[9px] font-bold text-amber-700 bg-amber-100 px-1 rounded">
                                 สาย

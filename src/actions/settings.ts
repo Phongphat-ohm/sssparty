@@ -9,6 +9,14 @@ import {
   invalidateSettingsCache,
   SystemSettingsMap,
 } from "@/lib/settings/system-settings";
+import {
+  DEFAULT_ATTENDANCE_RADIUS,
+  DEFAULT_CUTOFF_TIME,
+  DEFAULT_MAX_UPLOAD_SIZE_MB,
+  DEFAULT_MIN_ATTENDANCE_PERCENT,
+  DEFAULT_SITE_NAME,
+  DEFAULT_TEACHER_NAME,
+} from "@/lib/constants/defaults";
 
 export interface SettingsActionResult {
   success: boolean;
@@ -30,13 +38,13 @@ export async function getSystemSettingsAction(): Promise<SettingsActionResult> {
     console.error("getSystemSettingsAction error:", error);
     return {
       success: false,
-      message: "ไม่สามารถดึงข้อมูลการตั้งค่าระบบได้",
+      message: "ไม่สามารถดึงการตั้งค่าระบบได้",
     };
   }
 }
 
 /**
- * Server Action บันทึกการตั้งค่าระบบส่วนกลาง
+ * Server Action อัปเดตการตั้งค่าระบบทั้งหมด (เฉพาะครู/Admin ที่มีสิทธิ์ MANAGE_SETTINGS)
  */
 export async function updateSystemSettingsAction(
   formData: FormData
@@ -48,6 +56,36 @@ export async function updateSystemSettingsAction(
     }
     const { user: currentUser } = authCheck;
 
+    const teacherName =
+      (formData.get("teacher_name") as string)?.trim() || DEFAULT_TEACHER_NAME;
+    const schoolName =
+      (formData.get("school_name") as string)?.trim() || "";
+    const teacherContact =
+      (formData.get("teacher_contact") as string)?.trim() || "";
+    const siteName =
+      (formData.get("site_name") as string)?.trim() || DEFAULT_SITE_NAME;
+
+    const minAttendancePercent = parseFloat(
+      (formData.get("min_attendance_percent") as string) || String(DEFAULT_MIN_ATTENDANCE_PERCENT)
+    );
+    const defaultAttendanceRadius = parseFloat(
+      (formData.get("default_attendance_radius") as string) || String(DEFAULT_ATTENDANCE_RADIUS)
+    );
+    const defaultCutoffTime =
+      (formData.get("default_cutoff_time") as string)?.trim() || DEFAULT_CUTOFF_TIME;
+
+    const maxUploadSizeMb = parseInt(
+      (formData.get("max_upload_size_mb") as string) || String(DEFAULT_MAX_UPLOAD_SIZE_MB),
+      10
+    );
+    const allowedFileTypes =
+      (formData.get("allowed_file_types") as string)?.trim() ||
+      "pdf, zip, png, jpg, jpeg, mp4, docx, pptx";
+    const allowLateSubmissions =
+      formData.get("allow_late_submissions") === "true";
+    const allowStudentNameEdit =
+      formData.get("allow_student_name_edit") === "true";
+
     const maintenanceMode = formData.get("maintenance_mode") === "true";
     const maintenanceMessage =
       (formData.get("maintenance_message") as string)?.trim() ||
@@ -56,18 +94,81 @@ export async function updateSystemSettingsAction(
       (formData.get("maintenance_expected_end") as string)?.trim() || "";
     const maintenanceAutoDeactivate =
       formData.get("maintenance_auto_deactivate") === "true";
-    const siteName =
-      (formData.get("site_name") as string)?.trim() || "3S Party - ชุมนุมสื่อสร้างสรรค์";
-    const academicTerm =
-      (formData.get("academic_term") as string)?.trim() || "1/2569";
-    const maxUploadSizeMb = parseInt(
-      (formData.get("max_upload_size_mb") as string) || "50",
-      10
-    );
-    const allowStudentNameEdit =
-      formData.get("allow_student_name_edit") === "true";
 
     const settingsToUpdate = [
+      // 1. ข้อมูลครูและชุมนุม
+      {
+        key: "teacher_name",
+        value: teacherName,
+        description: "ชื่อ-นามสกุล ครูผู้สอนหรือครูที่ปรึกษาประจำชุมนุม สำหรับแสดงบนรายงานและหน้าหลัก",
+        category: "TEACHER",
+      },
+      {
+        key: "school_name",
+        value: schoolName,
+        description: "ชื่อโรงเรียนหรือสถานศึกษาสำหรับแสดงบนหัวรายงานราชการ",
+        category: "GENERAL",
+      },
+      {
+        key: "teacher_contact",
+        value: teacherContact,
+        description: "ข้อมูลติดต่อคุณครู (เช่น Line ID, Facebook หรือเบอร์โทรศัพท์)",
+        category: "TEACHER",
+      },
+      {
+        key: "site_name",
+        value: siteName,
+        description: "ชื่อระบบหรือชื่อชุมนุม",
+        category: "GENERAL",
+      },
+
+      // 2. วิชาการและการเช็กชื่อ (หมายเหตุ: academic_term จัดการผ่าน /admin/terms เท่านั้น)
+      {
+        key: "min_attendance_percent",
+        value: String(isNaN(minAttendancePercent) ? 80 : minAttendancePercent),
+        description: "เกณฑ์เวลาเรียนขั้นต่ำสำหรับผ่านกิจกรรมชุมนุม (%)",
+        category: "ACADEMIC",
+      },
+      {
+        key: "default_attendance_radius",
+        value: String(isNaN(defaultAttendanceRadius) ? 100 : defaultAttendanceRadius),
+        description: "รัศมีการเช็กชื่อผ่าน GPS เริ่มต้น (เมตร)",
+        category: "ATTENDANCE",
+      },
+      {
+        key: "default_cutoff_time",
+        value: defaultCutoffTime,
+        description: "เวลาตัดรอบเช็กชื่อตรงเวลาเริ่มต้น",
+        category: "ATTENDANCE",
+      },
+
+      // 3. นโยบายการส่งงานและไฟล์
+      {
+        key: "max_upload_size_mb",
+        value: String(isNaN(maxUploadSizeMb) || maxUploadSizeMb <= 0 ? 50 : maxUploadSizeMb),
+        description: "ขนาดไฟล์ส่งงานสูงสุดที่อนุญาต (MB)",
+        category: "UPLOAD",
+      },
+      {
+        key: "allowed_file_types",
+        value: allowedFileTypes,
+        description: "ประเภทนามสกุลไฟล์ที่อนุญาตให้นักเรียนส่งงาน",
+        category: "UPLOAD",
+      },
+      {
+        key: "allow_late_submissions",
+        value: String(allowLateSubmissions),
+        description: "อนุญาตให้นักเรียนส่งงานล่าช้าหลังกำหนดส่งได้",
+        category: "UPLOAD",
+      },
+      {
+        key: "allow_student_name_edit",
+        value: String(allowStudentNameEdit),
+        description: "อนุญาตให้นักเรียนแก้ไขชื่อ-นามสกุลตนเองในหน้าโปรไฟล์",
+        category: "STUDENT",
+      },
+
+      // 4. โหมดปรับปรุงระบบ
       {
         key: "maintenance_mode",
         value: String(maintenanceMode),
@@ -91,30 +192,6 @@ export async function updateSystemSettingsAction(
         value: String(maintenanceAutoDeactivate),
         description: "เปิดระบบอัตโนมัติเมื่อครบกำหนดเวลาปรับปรุงระบบ",
         category: "MAINTENANCE",
-      },
-      {
-        key: "site_name",
-        value: siteName,
-        description: "ชื่อระบบหรือชื่อชุมนุม",
-        category: "GENERAL",
-      },
-      {
-        key: "academic_term",
-        value: academicTerm,
-        description: "ภาคเรียนปัจจุบันสำหรับใช้เป็นค่าเริ่มต้นในระบบ",
-        category: "ACADEMIC",
-      },
-      {
-        key: "max_upload_size_mb",
-        value: String(isNaN(maxUploadSizeMb) || maxUploadSizeMb <= 0 ? 50 : maxUploadSizeMb),
-        description: "ขนาดไฟล์ส่งงานสูงสุดที่อนุญาต (MB)",
-        category: "UPLOAD",
-      },
-      {
-        key: "allow_student_name_edit",
-        value: String(allowStudentNameEdit),
-        description: "อนุญาตให้นักเรียนแก้ไขชื่อ-นามสกุลตนเองในหน้าโปรไฟล์",
-        category: "STUDENT",
       },
     ];
 
@@ -182,9 +259,9 @@ export async function updateSystemSettingsAction(
       role: "ADMIN",
       action: "UPDATE_SETTINGS",
       targetType: "SETTINGS",
-      details: `อัปเดตการตั้งค่าระบบ (โหมดบำรุงรักษา: ${
+      details: `อัปเดตการตั้งค่าระบบ (ครูผู้สอน: ${teacherName}, โรงเรียน: ${schoolName || "-"}, โหมดบำรุงรักษา: ${
         maintenanceMode ? "เปิดใช้งาน" : "ปิดใช้งาน"
-      }, ภาคเรียน: ${academicTerm}, ไฟล์สูงสุด: ${maxUploadSizeMb} MB)`,
+      }, ไฟล์สูงสุด: ${maxUploadSizeMb} MB)`,
     });
 
     revalidatePath("/admin/settings");

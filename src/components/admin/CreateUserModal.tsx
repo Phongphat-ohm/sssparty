@@ -217,6 +217,23 @@ export function CreateUserModal({
             </div>
           )}
 
+          {/* Teacher Real Name */}
+          <div className="space-y-1">
+            <label className="text-xs font-semibold text-[#5A4D41]">
+              ชื่อ-นามสกุล หรือชื่อคุณครูผู้สอน
+            </label>
+            <input
+              type="text"
+              name="name"
+              maxLength={100}
+              placeholder="เช่น นายสมศักดิ์ รักเรียน หรือ ครูสมศักดิ์"
+              className="w-full px-3.5 py-2 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+            />
+            <p className="text-[10px] text-[#A8988B]">
+              สำหรับแสดงบนรายงาน ใบเช็กชื่อ และลายเซ็นเอกสารราชการ
+            </p>
+          </div>
+
           {/* Username */}
           <div className="space-y-1">
             <label className="text-xs font-semibold text-[#5A4D41]">

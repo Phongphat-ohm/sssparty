@@ -176,15 +176,17 @@ export async function deleteGeneratedReportAction(id: string) {
   }
 }
 
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
+
 /**
  * คำนวณรหัสเอกสารอัตโนมัติลำดับถัดไปตามปีการศึกษา เช่น DOC-3S-2569-0001
  * โดยนับต่อกันตามจำนวนรายงานในระบบ (0001, 0002, 0003...) และตรวจสอบไม่ให้ซ้ำ
  */
 export async function getNextReportCode(academicTerm?: string): Promise<string> {
   try {
-    const term = academicTerm || (await getSystemSetting("academic_term")) || "1/2569";
+    const term = academicTerm || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
     const yearMatch = term.match(/\d{4}/);
-    const termYear = yearMatch ? yearMatch[0] : "2569";
+    const termYear = yearMatch ? yearMatch[0] : String(new Date().getFullYear() + 543);
     const prefix = `DOC-3S-${termYear}-`;
 
     // ค้นหารายการที่มี prefix นี้ทั้งหมดเพื่อหาค่าเลขลำดับสูงสุด

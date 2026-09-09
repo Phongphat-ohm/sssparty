@@ -8,6 +8,9 @@ import {
   updateAttendanceSessionInfoAction,
 } from "@/actions/attendance";
 import { showCozySuccess, showCozyError } from "@/lib/ui/swal";
+import { ThaiDatePicker } from "@/components/ui/ThaiDatePicker";
+
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 export interface AttendanceSessionData {
   id?: string;
@@ -21,12 +24,14 @@ interface AttendanceSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   sessionToEdit?: AttendanceSessionData | null;
+  defaultTerm?: string;
 }
 
 export function AttendanceSessionModal({
   isOpen,
   onClose,
   sessionToEdit,
+  defaultTerm,
 }: AttendanceSessionModalProps) {
   const router = useRouter();
   const isEditing = !!sessionToEdit?.id;
@@ -36,7 +41,9 @@ export function AttendanceSessionModal({
   const [date, setDate] = useState(
     sessionToEdit?.date ? new Date(sessionToEdit.date).toISOString().split("T")[0] : todayStr
   );
-  const [academicTerm, setAcademicTerm] = useState(sessionToEdit?.academicTerm || "1/2569");
+  const [academicTerm, setAcademicTerm] = useState(
+    sessionToEdit?.academicTerm || defaultTerm || DEFAULT_ACADEMIC_TERM
+  );
   const [note, setNote] = useState(sessionToEdit?.note || "");
   const [isPending, setIsPending] = useState(false);
 
@@ -123,14 +130,13 @@ export function AttendanceSessionModal({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-xs font-semibold text-[#5A4D41]">
-                วันที่จัดกิจกรรม <span className="text-red-500">*</span>
+                วันที่จัดกิจกรรม (ปี พ.ศ.) <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
+              <ThaiDatePicker
                 required
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441]"
+                onChange={setDate}
+                placeholder="เลือกวันที่จัดกิจกรรม..."
               />
             </div>
 

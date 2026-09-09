@@ -42,6 +42,7 @@ import {
   getAcademicTermsListAction,
 } from "@/actions/term";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 interface AcademicTermsClientProps {
   initialTerms: AcademicTermWithStats[];
@@ -263,7 +264,8 @@ export function AcademicTermsClient({
       const res = await setSystemActiveTermAction(term.id);
       if (res.success) {
         await showCozySuccess("สำเร็จ!", res.message);
-        window.location.reload();
+        router.refresh();
+        await refreshTerms();
       } else {
         await showCozyError("ไม่สามารถเปลี่ยนได้", res.message);
       }
@@ -280,12 +282,14 @@ export function AcademicTermsClient({
       });
       const data = await res.json();
       if (data.success) {
-        window.location.reload();
+        router.refresh();
+        await refreshTerms();
       } else {
         await showCozyError("ไม่สามารถสลับภาคเรียนได้", data.message);
       }
     } catch {
-      window.location.reload();
+      router.refresh();
+      await refreshTerms();
     }
   };
 
@@ -336,7 +340,8 @@ export function AcademicTermsClient({
       if (res.success) {
         await showCozySuccess("ลบเรียบร้อยแล้ว", res.message);
         setDeletingTerm(null);
-        window.location.reload();
+        router.refresh();
+        await refreshTerms();
       } else {
         await showCozyError("ไม่สามารถลบได้", res.message);
       }
@@ -595,11 +600,7 @@ export function AcademicTermsClient({
 
                     {/* Created At */}
                     <td className="py-3.5 px-4 hidden lg:table-cell text-[11px] text-[#7A6A5C]">
-                      {new Date(term.createdAt).toLocaleDateString("th-TH", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatThaiDate(term.createdAt)}
                     </td>
 
                     {/* Action Dropdown using Portal (No overflow cut) */}

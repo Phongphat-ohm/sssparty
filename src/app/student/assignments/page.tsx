@@ -36,6 +36,8 @@ export default async function StudentAssignmentsPage() {
       maxScore: a.maxScore,
       submissionType: a.submissionType as any,
       dueDate: a.dueDate.toISOString(),
+      allowLateSubmission: a.allowLateSubmission,
+      lateDueDate: a.lateDueDate ? a.lateDueDate.toISOString() : null,
       rubricCount: a.rubrics.length,
       submission: sub
         ? {

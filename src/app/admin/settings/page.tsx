@@ -15,7 +15,15 @@ export default async function AdminSettingsPage() {
     redirect("/admin-login");
   }
 
-  const [user, settings] = await Promise.all([
+  const [
+    user,
+    settings,
+    studentCount,
+    assignmentCount,
+    attendanceSessionCount,
+    adminCount,
+    termCount,
+  ] = await Promise.all([
     prisma.user.findUnique({
       where: { id: session.userId },
       select: {
@@ -27,6 +35,11 @@ export default async function AdminSettingsPage() {
       },
     }),
     getSystemSettings(),
+    prisma.student.count(),
+    prisma.assignment.count(),
+    prisma.attendanceSession.count(),
+    prisma.user.count({ where: { role: "ADMIN" } }),
+    prisma.academicTerm.count(),
   ]);
 
   if (!user) {
@@ -34,6 +47,14 @@ export default async function AdminSettingsPage() {
   }
 
   const canManageSettings = hasAdminPermission(user, "MANAGE_SETTINGS");
+
+  const systemStats = {
+    studentCount,
+    assignmentCount,
+    attendanceSessionCount,
+    adminCount,
+    termCount,
+  };
 
   return (
     <div className="p-4 sm:p-8 space-y-8 max-w-5xl w-full mx-auto">
@@ -76,6 +97,7 @@ export default async function AdminSettingsPage() {
         <SystemSettingsForm
           initialSettings={settings}
           canManageSettings={canManageSettings}
+          systemStats={systemStats}
         />
       </div>
     </div>

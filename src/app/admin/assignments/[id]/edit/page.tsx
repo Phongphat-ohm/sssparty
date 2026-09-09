@@ -39,6 +39,8 @@ export default async function EditAssignmentPage({
           description: assignment.description,
           maxScore: assignment.maxScore,
           dueDate: assignment.dueDate,
+          allowLateSubmission: assignment.allowLateSubmission,
+          lateDueDate: assignment.lateDueDate,
           status: assignment.status,
           submissionType: assignment.submissionType,
           rubrics: assignment.rubrics.map((r) => ({

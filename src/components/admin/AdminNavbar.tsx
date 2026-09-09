@@ -13,6 +13,8 @@ import { logoutAction } from "@/actions/auth";
 
 import { AcademicTermSelector } from "@/components/admin/AcademicTermSelector";
 
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
+
 interface AdminNavbarProps {
   adminName: string;
   currentTerm?: string;
@@ -22,11 +24,22 @@ interface AdminNavbarProps {
 
 export function AdminNavbar({
   adminName,
-  currentTerm = "1/2569",
-  selectedTerm = "1/2569",
-  availableTerms = ["1/2569"],
+  currentTerm,
+  selectedTerm,
+  availableTerms = [],
 }: AdminNavbarProps) {
   const pathname = usePathname();
+
+  // ตรวจสอบความถูกต้องของภาคเรียนกับรายการที่มีอยู่จริงในระบบ
+  const effectiveCurrentTerm =
+    availableTerms.length > 0 && currentTerm && availableTerms.includes(currentTerm)
+      ? currentTerm
+      : (availableTerms[0] || currentTerm || DEFAULT_ACADEMIC_TERM);
+
+  const effectiveSelectedTerm =
+    availableTerms.length > 0 && selectedTerm && availableTerms.includes(selectedTerm)
+      ? selectedTerm
+      : effectiveCurrentTerm;
 
   // Dynamic breadcrumb mapping
   const getPageTitle = (path: string) => {
@@ -81,8 +94,8 @@ export function AdminNavbar({
 
         {/* Academic Term Selector Dropdown */}
         <AcademicTermSelector
-          currentTerm={currentTerm}
-          selectedTerm={selectedTerm}
+          currentTerm={effectiveCurrentTerm}
+          selectedTerm={effectiveSelectedTerm}
           availableTerms={availableTerms}
         />
 

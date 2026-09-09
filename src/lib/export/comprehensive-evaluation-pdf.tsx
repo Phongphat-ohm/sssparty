@@ -12,6 +12,7 @@ import {
 import path from "path";
 import { ComprehensiveEvaluationReportData } from "@/actions/reports";
 import { registerThaiFonts } from "./fonts";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 export { registerThaiFonts };
 registerThaiFonts();
@@ -280,11 +281,7 @@ export const ComprehensiveEvaluationPdfDocument: React.FC<Props> = ({
   const targetGroupText =
     className === "ALL" ? "นักเรียนทั้งหมดทุกห้อง" : `ชั้นมัธยมศึกษาปีที่ ${className}`;
 
-  const thaiDateStr = new Intl.DateTimeFormat("th-TH", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  }).format(new Date());
+  const thaiDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const passPercent =
     totalStudents > 0

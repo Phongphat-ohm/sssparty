@@ -8,13 +8,15 @@ import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSetting } from "@/lib/settings/system-settings";
 import { attendanceEventBus } from "@/lib/attendance/attendance-events";
 import { checkTermCanEdit } from "@/lib/terms/term-service";
+import { formatThaiDate } from "@/lib/utils/date-thai";
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "LEAVE" | "ABSENT";
 
 const createSessionSchema = z.object({
   title: z.string().optional(),
   date: z.date(),
-  academicTerm: z.string().default("1/2569"),
+  academicTerm: z.string().default(DEFAULT_ACADEMIC_TERM),
   note: z.string().optional(),
   onTimeCutoffTime: z.string().optional(),
 });
@@ -32,11 +34,7 @@ async function generateAutoSessionTitle(date: Date, academicTerm: string): Promi
   const count = await prisma.attendanceSession.count({
     where: { academicTerm },
   });
-  const thaiDate = date.toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
+  const thaiDate = formatThaiDate(date);
   return `กิจกรรมชุมนุม ครั้งที่ ${count + 1} (${thaiDate})`;
 }
 
@@ -56,7 +54,7 @@ export async function createAttendanceSessionAction(
     const rawTitle = (formData.get("title") as string)?.trim();
     const dateStr = formData.get("date") as string;
     const defaultTerm = await getSystemSetting("academic_term");
-    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
+    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || DEFAULT_ACADEMIC_TERM;
     const note = (formData.get("note") as string)?.trim() || undefined;
     const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || undefined;
 
@@ -134,7 +132,7 @@ export async function createAttendanceSessionAction(
  */
 export async function createAttendanceSessionForDateAction(
   dateStr: string,
-  academicTerm: string = "1/2569",
+  academicTerm: string = DEFAULT_ACADEMIC_TERM,
   cutoffTime?: string
 ): Promise<AttendanceActionResult> {
   try {
@@ -214,7 +212,7 @@ export async function updateAttendanceSessionInfoAction(
     const title = (formData.get("title") as string)?.trim();
     const dateStr = formData.get("date") as string;
     const defaultTerm = await getSystemSetting("academic_term");
-    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || "1/2569";
+    const academicTerm = (formData.get("academicTerm") as string)?.trim() || defaultTerm || DEFAULT_ACADEMIC_TERM;
     const note = (formData.get("note") as string)?.trim() || undefined;
     const onTimeCutoffTime = (formData.get("onTimeCutoffTime") as string)?.trim() || null;
 

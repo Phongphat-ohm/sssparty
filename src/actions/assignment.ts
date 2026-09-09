@@ -19,17 +19,30 @@ const rubricItemSchema = z.object({
   sortOrder: z.number().int().optional(),
 });
 
-const assignmentSchema = z.object({
+const baseAssignmentSchema = z.object({
   title: z.string().min(3, "ชื่อการบ้านต้องมีความยาวอย่างน้อย 3 ตัวอักษร"),
   description: z.string().min(5, "รายละเอียดงานต้องมีความยาวอย่างน้อย 5 ตัวอักษร"),
   maxScore: z.number().positive("คะแนนเต็มต้องมากกว่า 0"),
-  dueDate: z.date().refine((d) => d.getTime() > Date.now(), {
-    message: "กำหนดส่งต้องเป็นเวลาในอนาคต",
-  }),
+  dueDate: z.date(),
+  allowLateSubmission: z.boolean().default(true),
+  lateDueDate: z.date().nullable().optional(),
   status: z.enum(["DRAFT", "PUBLISHED", "CLOSED"]).default("DRAFT"),
   submissionType: z.enum(["FILE", "LINK", "QUESTIONS"]).default("FILE"),
   rubrics: z.array(rubricItemSchema).min(1, "ต้องมีเกณฑ์การให้คะแนนอย่างน้อย 1 ข้อ"),
 });
+
+const assignmentSchema = baseAssignmentSchema.refine(
+  (data) => {
+    if (data.allowLateSubmission && data.lateDueDate) {
+      return data.lateDueDate.getTime() >= data.dueDate.getTime();
+    }
+    return true;
+  },
+  {
+    message: "วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)",
+    path: ["lateDueDate"],
+  }
+);
 
 export interface AssignmentActionResult {
   success: boolean;
@@ -55,6 +68,9 @@ export async function createAssignmentAction(
     const maxScore = parseFloat(formData.get("maxScore") as string);
     const dueDateStr = formData.get("dueDate") as string;
     const status = (formData.get("status") as "DRAFT" | "PUBLISHED" | "CLOSED") || "DRAFT";
+    const allowLateSubmission = formData.get("allowLateSubmission") !== "false";
+    const lateDueDateStr = (formData.get("lateDueDate") as string)?.trim();
+    const lateDueDate = lateDueDateStr ? new Date(lateDueDateStr) : null;
     const submissionType =
       (formData.get("submissionType") as "FILE" | "LINK" | "QUESTIONS") || "FILE";
     const rubricsJson = formData.get("rubricsJson") as string;
@@ -113,6 +129,8 @@ export async function createAssignmentAction(
       description,
       maxScore,
       dueDate: new Date(dueDateStr),
+      allowLateSubmission,
+      lateDueDate,
       status,
       submissionType,
       rubrics: parsedRubrics,
@@ -144,6 +162,8 @@ export async function createAssignmentAction(
           description: validData.description,
           maxScore: validData.maxScore,
           dueDate: validData.dueDate,
+          allowLateSubmission: validData.allowLateSubmission,
+          lateDueDate: validData.allowLateSubmission ? validData.lateDueDate : null,
           status: validData.status,
           submissionType: validData.submissionType,
           academicTerm,
@@ -234,6 +254,12 @@ export async function updateAssignmentAction(
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const dueDateStr = formData.get("dueDate") as string;
+    const allowLateSubmission =
+      formData.get("allowLateSubmission") !== null
+        ? formData.get("allowLateSubmission") !== "false"
+        : existing.allowLateSubmission;
+    const lateDueDateStr = (formData.get("lateDueDate") as string)?.trim();
+    const lateDueDate = lateDueDateStr ? new Date(lateDueDateStr) : null;
     const status = (formData.get("status") as "DRAFT" | "PUBLISHED" | "CLOSED") || existing.status;
     const termInput = (formData.get("academicTerm") as string)?.trim();
     const academicTerm = termInput || existing.academicTerm;
@@ -252,6 +278,15 @@ export async function updateAssignmentAction(
 
     if (!title || !description || !dueDateStr) {
       return { success: false, message: "กรุณากรอกข้อมูลให้ครบถ้วน" };
+    }
+
+    if (allowLateSubmission && lateDueDate) {
+      if (lateDueDate.getTime() < new Date(dueDateStr).getTime()) {
+        return {
+          success: false,
+          message: "วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)",
+        };
+      }
     }
 
     const attachmentsJson = formData.get("attachmentsJson") as string;
@@ -275,6 +310,8 @@ export async function updateAssignmentAction(
             title,
             description,
             dueDate: new Date(dueDateStr),
+            allowLateSubmission,
+            lateDueDate: allowLateSubmission ? lateDueDate : null,
             status,
             academicTerm,
           },
@@ -350,6 +387,8 @@ export async function updateAssignmentAction(
       description,
       maxScore,
       dueDate: new Date(dueDateStr),
+      allowLateSubmission,
+      lateDueDate: allowLateSubmission ? lateDueDate : null,
       status,
       submissionType,
       rubrics: parsedRubrics,
@@ -394,6 +433,8 @@ export async function updateAssignmentAction(
           description: validData.description,
           maxScore: validData.maxScore,
           dueDate: validData.dueDate,
+          allowLateSubmission: validData.allowLateSubmission,
+          lateDueDate: validData.lateDueDate,
           status: validData.status,
           submissionType: validData.submissionType,
           academicTerm,

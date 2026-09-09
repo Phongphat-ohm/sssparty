@@ -2,17 +2,14 @@
 
 import React from "react";
 import { GradebookReportData } from "@/actions/reports";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 interface GradebookReportViewProps {
   data: GradebookReportData;
 }
 
 export function GradebookReportView({ data }: GradebookReportViewProps) {
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
   const {
     academicTerm,

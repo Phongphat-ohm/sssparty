@@ -7,6 +7,7 @@ import { signAuthToken } from "@/lib/auth/jwt";
 import { setAuthSession, getAuthSession, clearAuthSession } from "@/lib/auth/session";
 import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSettings } from "@/lib/settings/system-settings";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 // Zod Validation Schemas
 const adminLoginSchema = z.object({
@@ -98,6 +99,7 @@ export async function adminLoginAction(
       userId: user.id,
       role: "ADMIN",
       username: user.username,
+      name: user.name || user.username,
     });
 
     await setAuthSession(token);
@@ -152,18 +154,7 @@ export async function studentLoginAction(
       if (settings.maintenance_expected_end) {
         const d = new Date(settings.maintenance_expected_end);
         if (!isNaN(d.getTime())) {
-          const thaiDate =
-            d.toLocaleDateString("th-TH", {
-              day: "numeric",
-              month: "short",
-              year: "numeric",
-            }) +
-            " เวลา " +
-            d.toLocaleTimeString("th-TH", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) +
-            " น.";
+          const thaiDate = formatThaiDateTime(d, { variant: "long" });
           timeInfo = ` (คาดว่าจะเปิดให้บริการ: ${thaiDate})`;
         } else {
           timeInfo = ` (คาดว่าจะเปิดให้บริการเวลา: ${settings.maintenance_expected_end})`;

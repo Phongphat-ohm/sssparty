@@ -51,7 +51,10 @@ export default async function AdminAttendancePage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-7xl mx-auto w-full">
-      <AttendanceSessionsListClient initialSessions={sessionItems} />
+      <AttendanceSessionsListClient
+        initialSessions={sessionItems}
+        currentTerm={selectedTerm}
+      />
     </div>
   );
 }

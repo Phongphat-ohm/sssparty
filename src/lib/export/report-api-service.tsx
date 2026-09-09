@@ -21,11 +21,14 @@ import {
 import {
   ComprehensiveEvaluationPdfDocument,
 } from "./comprehensive-evaluation-pdf";
+import { formatThaiDate, formatThaiTime, formatThaiDateTime } from "@/lib/utils/date-thai";
 import {
   getComprehensiveEvaluationReportDataAction,
   getAttendanceSummaryReportDataAction,
 } from "@/actions/reports";
 import { registerThaiFonts } from "./fonts";
+import { getAppBaseUrl } from "@/lib/utils/url";
+import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 // ตรวจสอบและลงทะเบียนฟอนต์ไทยทันที
 registerThaiFonts();
@@ -40,6 +43,30 @@ interface ReportResult {
 }
 
 /**
+ * ดึงชื่อครูผู้พิมพ์/ผู้ลงนามในรายงานอย่างเป็นทางการ (ลำดับ: user.name -> db.name -> username -> system teacher_name)
+ */
+async function resolvePrintedByName(user?: {
+  id?: string;
+  username?: string;
+  name?: string | null;
+}): Promise<string> {
+  if (user?.name?.trim()) return user.name.trim();
+  if (user?.id) {
+    const dbUser = await prisma.user
+      .findUnique({
+        where: { id: user.id },
+        select: { name: true, username: true },
+      })
+      .catch(() => null);
+    if (dbUser?.name?.trim()) return dbUser.name.trim();
+    if (dbUser?.username?.trim()) return dbUser.username.trim();
+  }
+  if (user?.username?.trim()) return user.username.trim();
+  const defaultTeacher = await getSystemSetting("teacher_name").catch(() => null);
+  return defaultTeacher?.trim() || "ผู้ดูแลระบบ";
+}
+
+/**
  * 1. สร้างเอกสารรายงานผลการส่งงานและการประเมินคะแนน (Assignment Submissions Report)
  * รองรับทั้งโหมด Preview (ไม่บันทึก S3/DB) และ Official (ออกรหัส, ทำ QR Code, อัปโหลด S3, บันทึก DB)
  */
@@ -47,7 +74,7 @@ export async function generateAssignmentReportPdf(params: {
   assignmentId: string;
   filterClass?: string;
   isOfficial?: boolean;
-  user?: { id: string; username: string };
+  user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
   const { assignmentId, filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
@@ -80,31 +107,19 @@ export async function generateAssignmentReportPdf(params: {
     orderBy: [{ className: "asc" }, { studentNumber: "asc" }],
   });
 
-  const academicTerm = (await getSystemSetting("academic_term")) || "1/2569";
+  const academicTerm = (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
   const clubName =
     (await getSystemSetting("site_name")) ||
     "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const formattedDueDate = assignment.dueDate
-    ? new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      }) + " น."
-    : "-";
+  const formattedDueDate = formatThaiDateTime(assignment.dueDate);
 
   // 3. รหัสเอกสารและ QR Code
   let reportCode = "PREVIEW-DRAFT";
   let qrDataUrl: string | null = null;
-  const siteOrigin = baseUrl || process.env.NEXTAUTH_URL || "https://sssparty.vercel.app";
+  const siteOrigin = getAppBaseUrl(baseUrl);
 
   if (isOfficial) {
     reportCode = await getNextReportCode(academicTerm);
@@ -142,12 +157,7 @@ export async function generateAssignmentReportPdf(params: {
         submissionStatus = isLate ? "LATE" : "SUBMITTED";
         submittedCount++;
 
-        submittedAtStr = new Date(sub.submittedAt).toLocaleDateString("th-TH", {
-          day: "numeric",
-          month: "short",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+        submittedAtStr = formatThaiDateTime(sub.submittedAt);
 
         if (sub.grade && typeof sub.grade.score === "number") {
           score = sub.grade.score;
@@ -191,7 +201,7 @@ export async function generateAssignmentReportPdf(params: {
     clubName,
     targetClass: filterClass,
     printDateStr,
-    printedByName: user?.username || "ผู้ดูแลระบบ",
+    printedByName: await resolvePrintedByName(user),
     totalStudents,
     submittedCount,
     gradedCount,
@@ -255,7 +265,7 @@ export async function generateAssignmentReportPdf(params: {
           fileUrl: fileUrl || "",
           fileSize: pdfBuffer.length,
           printedById: user.id,
-          printedByName: user.username,
+          printedByName: templateData.printedByName,
           metadata: JSON.stringify(metadataObj),
         },
       });
@@ -294,7 +304,7 @@ export async function generateAttendanceSessionReportPdf(params: {
   sessionId: string;
   filterClass?: string;
   isOfficial?: boolean;
-  user?: { id: string; username: string };
+  user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
   const { sessionId, filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
@@ -324,26 +334,18 @@ export async function generateAttendanceSessionReportPdf(params: {
     orderBy: [{ className: "asc" }, { studentNumber: "asc" }],
   });
 
-  const academicTerm = session.academicTerm || (await getSystemSetting("academic_term")) || "1/2569";
+  const academicTerm = session.academicTerm || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
   const clubName =
     (await getSystemSetting("site_name")) ||
     "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
 
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const sessionDateStr = new Date(session.date).toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const sessionDateStr = formatThaiDate(session.date, { variant: "long" });
 
   let reportCode = "PREVIEW-DRAFT";
   let qrDataUrl: string | null = null;
-  const siteOrigin = baseUrl || process.env.NEXTAUTH_URL || "https://sssparty.vercel.app";
+  const siteOrigin = getAppBaseUrl(baseUrl);
 
   if (isOfficial) {
     reportCode = await getNextReportCode(academicTerm);
@@ -378,11 +380,7 @@ export async function generateAttendanceSessionReportPdf(params: {
       else absentCount++;
 
       if (rec.checkedAt) {
-        checkedAtStr = new Date(rec.checkedAt).toLocaleTimeString("th-TH", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit",
-        });
+        checkedAtStr = formatThaiTime(rec.checkedAt, { showSeconds: true });
       }
 
       checkInMethod =
@@ -423,7 +421,7 @@ export async function generateAttendanceSessionReportPdf(params: {
     clubName,
     targetClass: filterClass,
     printDateStr,
-    printedByName: user?.username || "ผู้ดูแลระบบ",
+    printedByName: await resolvePrintedByName(user),
     totalStudents,
     presentCount,
     lateCount,
@@ -481,7 +479,7 @@ export async function generateAttendanceSessionReportPdf(params: {
           fileUrl: fileUrl || "",
           fileSize: pdfBuffer.length,
           printedById: user.id,
-          printedByName: user.username,
+          printedByName: templateData.printedByName,
           metadata: JSON.stringify(metadataObj),
         },
       });
@@ -519,7 +517,7 @@ export async function generateAttendanceSessionReportPdf(params: {
 export async function generateEvaluationReportPdf(params: {
   filterClass?: string;
   isOfficial?: boolean;
-  user?: { id: string; username: string };
+  user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
   const { filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
@@ -530,11 +528,11 @@ export async function generateEvaluationReportPdf(params: {
   }
 
   const reportData = result.data;
-  const academicTerm = reportData.academicTerm || "1/2569";
+  const academicTerm = reportData.academicTerm || DEFAULT_ACADEMIC_TERM;
 
   let reportCode = "PREVIEW-DRAFT";
   let qrDataUrl: string | null = null;
-  const siteOrigin = baseUrl || process.env.NEXTAUTH_URL || "https://sssparty.vercel.app";
+  const siteOrigin = getAppBaseUrl(baseUrl);
 
   if (isOfficial) {
     reportCode = await getNextReportCode(academicTerm);
@@ -546,6 +544,8 @@ export async function generateEvaluationReportPdf(params: {
     });
   }
 
+  const printedByName = await resolvePrintedByName(user);
+
   registerThaiFonts();
   const pdfBuffer = await renderToBuffer(
     <ComprehensiveEvaluationPdfDocument
@@ -553,7 +553,7 @@ export async function generateEvaluationReportPdf(params: {
       reportCode={reportCode}
       isOfficial={isOfficial}
       qrDataUrl={qrDataUrl}
-      printedByName={user?.username || "ผู้ดูแลระบบ"}
+      printedByName={printedByName}
     />
   );
 
@@ -602,7 +602,7 @@ export async function generateEvaluationReportPdf(params: {
           fileUrl: fileUrl || "",
           fileSize: pdfBuffer.length,
           printedById: user.id,
-          printedByName: user.username,
+          printedByName,
           metadata: JSON.stringify(metadataObj),
         },
       });
@@ -639,7 +639,7 @@ export async function generateEvaluationReportPdf(params: {
 export async function generateAttendanceSummaryReportPdf(params: {
   filterClass?: string;
   isOfficial?: boolean;
-  user?: { id: string; username: string };
+  user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
   const { filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
@@ -650,14 +650,14 @@ export async function generateAttendanceSummaryReportPdf(params: {
   }
 
   const reportData = result.data;
-  const academicTerm = reportData.academicTerm || "1/2569";
+  const academicTerm = reportData.academicTerm || DEFAULT_ACADEMIC_TERM;
   const clubName =
     (await getSystemSetting("site_name")) ||
     "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
 
   let reportCode = "PREVIEW-DRAFT";
   let qrDataUrl: string | null = null;
-  const siteOrigin = baseUrl || process.env.NEXTAUTH_URL || "https://sssparty.vercel.app";
+  const siteOrigin = getAppBaseUrl(baseUrl);
 
   if (isOfficial) {
     reportCode = await getNextReportCode(academicTerm);
@@ -669,13 +669,9 @@ export async function generateAttendanceSummaryReportPdf(params: {
     });
   }
 
-  const printDateStr = new Intl.DateTimeFormat("th-TH", {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(new Date());
+  const printDateStr = formatThaiDateTime(new Date());
+
+  const printedByName = await resolvePrintedByName(user);
 
   const templateData: AttendanceSummaryPdfData = {
     reportCode,
@@ -686,7 +682,7 @@ export async function generateAttendanceSummaryReportPdf(params: {
     academicTerm,
     targetClass: filterClass,
     printDateStr,
-    printedByName: user?.username || "ผู้ดูแลระบบ",
+    printedByName,
     totalSessions: reportData.totalSessions,
     totalStudents: reportData.totalStudents,
     passedCount: reportData.stats.passedCount,
@@ -743,7 +739,7 @@ export async function generateAttendanceSummaryReportPdf(params: {
           fileUrl: fileUrl || "",
           fileSize: pdfBuffer.length,
           printedById: user.id,
-          printedByName: user.username,
+          printedByName,
           metadata: JSON.stringify(metadataObj),
         },
       });

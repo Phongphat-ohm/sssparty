@@ -17,6 +17,7 @@ const createUserSchema = z.object({
       /^[a-zA-Z0-9_.-]+$/,
       "ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรภาษาอังกฤษ ตัวเลข, '.', '_' หรือ '-' เท่านั้น"
     ),
+  name: z.string().max(100, "ชื่อต้องไม่เกิน 100 ตัวอักษร").optional().nullable(),
   password: z
     .string()
     .min(6, "รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร"),
@@ -35,6 +36,7 @@ const updateUserSchema = z.object({
       /^[a-zA-Z0-9_.-]+$/,
       "ชื่อผู้ใช้ต้องประกอบด้วยตัวอักษรภาษาอังกฤษ ตัวเลข, '.', '_' หรือ '-' เท่านั้น"
     ),
+  name: z.string().max(100, "ชื่อต้องไม่เกิน 100 ตัวอักษร").optional().nullable(),
   role: z.enum(["ADMIN", "STUDENT"]),
   adminRole: z.enum(["SUPER_ADMIN", "TEACHER", "ASSISTANT", "CUSTOM"]).optional(),
   permissions: z.array(z.string()).optional(),
@@ -74,6 +76,7 @@ export async function createUserAction(
     const { user: currentUser } = authCheck;
 
     const username = (formData.get("username") as string)?.trim();
+    const name = (formData.get("name") as string)?.trim() || null;
     const password = (formData.get("password") as string) || "";
     const role = (formData.get("role") as "ADMIN" | "STUDENT") || "ADMIN";
     const adminRole = (formData.get("adminRole") as AdminRoleType) || "TEACHER";
@@ -100,6 +103,7 @@ export async function createUserAction(
 
     const parsed = createUserSchema.safeParse({
       username,
+      name,
       password,
       role,
       adminRole,
@@ -131,6 +135,7 @@ export async function createUserAction(
     const newUser = await prisma.user.create({
       data: {
         username: parsed.data.username,
+        name: parsed.data.name,
         passwordHash,
         role: parsed.data.role,
         adminRole: parsed.data.role === "ADMIN" ? (parsed.data.adminRole as any) : null,
@@ -184,6 +189,7 @@ export async function updateUserAction(
     const { user: currentUser, session } = authCheck;
 
     const username = (formData.get("username") as string)?.trim();
+    const name = (formData.get("name") as string)?.trim() || null;
     const role = formData.get("role") as "ADMIN" | "STUDENT";
     const adminRole = formData.get("adminRole") as AdminRoleType | null;
     const permissionsRaw = formData.getAll("permissions") as string[];
@@ -260,6 +266,7 @@ export async function updateUserAction(
 
     const parsed = updateUserSchema.safeParse({
       username,
+      name,
       role,
       adminRole: adminRole || undefined,
       permissions: finalPermissions,
@@ -292,6 +299,7 @@ export async function updateUserAction(
         where: { id: userId },
         data: {
           username: parsed.data.username,
+          name: parsed.data.name,
           role: parsed.data.role,
           adminRole: parsed.data.role === "ADMIN" ? (parsed.data.adminRole as any) : null,
           permissions: parsed.data.role === "ADMIN" ? (finalPermissions as any) : [],

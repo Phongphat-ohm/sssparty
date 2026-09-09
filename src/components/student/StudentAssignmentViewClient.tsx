@@ -28,6 +28,7 @@ import {
 } from "@/components/student/StudentSubmissionForm";
 import { MarkdownViewer } from "@/components/ui/MarkdownViewer";
 import { getFileTypeCategory } from "@/lib/s3/file-validator";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 interface AttachmentItem {
   id: string;
@@ -59,6 +60,8 @@ interface StudentAssignmentViewClientProps {
     submissionType: "FILE" | "LINK" | "QUESTIONS";
     status?: "DRAFT" | "PUBLISHED" | "CLOSED";
     dueDate: Date;
+    allowLateSubmission?: boolean;
+    lateDueDate?: Date | null;
     maxScore: number;
     attachments: AttachmentItem[];
     rubrics: RubricItem[];
@@ -76,6 +79,12 @@ export function StudentAssignmentViewClient({
   const isReturned = submission?.status === "RETURNED";
   const isGraded = submission?.status === "GRADED";
   const isSubmitted = submission?.status === "SUBMITTED" || submission?.status === "LATE";
+
+  const now = new Date();
+  const isPastDueCalc = now.getTime() > new Date(assignment.dueDate).getTime();
+  const isPastLateDue = assignment.lateDueDate
+    ? now.getTime() > new Date(assignment.lateDueDate).getTime()
+    : false;
 
   // Mobile Tab state: "work" (Your Work) or "instructions" (Assignment Details & Rubrics)
   const [activeMobileTab, setActiveMobileTab] = useState<"work" | "instructions">(
@@ -129,12 +138,29 @@ export function StudentAssignmentViewClient({
                 </span>
               )}
 
-              {assignment.status === "CLOSED" && (
+              {assignment.status === "CLOSED" ? (
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" />
                   ปิดรับงานแล้ว
                 </span>
-              )}
+              ) : isPastDueCalc ? (
+                !assignment.allowLateSubmission ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    เลยกำหนดส่ง (ปิดรับแล้ว)
+                  </span>
+                ) : isPastLateDue ? (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    หมดเขตส่งล่าช้าแล้ว
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />
+                    ส่งล่าช้าได้
+                  </span>
+                )
+              ) : null}
             </div>
 
             <h1 className="text-base sm:text-xl font-extrabold text-[#3F342B] tracking-tight truncate mt-0.5">
@@ -144,22 +170,24 @@ export function StudentAssignmentViewClient({
         </div>
 
         {/* Quick Deadline & Score Pill */}
-        <div className="flex items-center gap-2 self-start sm:self-auto shrink-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 self-start sm:self-auto shrink-0">
           <span className="text-xs font-bold px-3 py-1 rounded-xl bg-[#FAF0E1] text-[#8C5D23] border border-[#EADBCC]">
             เต็ม {assignment.maxScore} คะแนน
           </span>
 
-          <span className="text-xs text-[#7A6A5C] flex items-center gap-1 bg-[#FAF6F0] px-3 py-1 rounded-xl border border-[#EADBCC]">
-            <Clock className="w-3.5 h-3.5 text-[#C96B4B]" />
-            <span>
-              {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-                day: "numeric",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+          <div className="flex flex-col items-start sm:items-end gap-1">
+            <span className="text-xs text-[#7A6A5C] flex items-center gap-1 bg-[#FAF6F0] px-3 py-1 rounded-xl border border-[#EADBCC]">
+              <Clock className="w-3.5 h-3.5 text-[#C96B4B]" />
+              <span>
+                {formatThaiDateTime(assignment.dueDate)}
+              </span>
             </span>
-          </span>
+            {assignment.allowLateSubmission && assignment.lateDueDate && (
+              <span className="text-[10px] text-amber-800 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                ส่งช้าได้ถึง: {formatThaiDateTime(assignment.lateDueDate)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
@@ -448,6 +476,8 @@ export function StudentAssignmentViewClient({
             assignmentTitle={assignment.title}
             submissionType={assignment.submissionType}
             dueDate={assignment.dueDate}
+            allowLateSubmission={assignment.allowLateSubmission ?? true}
+            lateDueDate={assignment.lateDueDate}
             maxScore={assignment.maxScore}
             questions={assignment.questions}
             initialSubmission={submission}

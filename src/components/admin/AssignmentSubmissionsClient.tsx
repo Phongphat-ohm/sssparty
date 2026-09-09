@@ -20,6 +20,7 @@ import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
 import { PdfReportModal } from "@/components/admin/PdfReportModal";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface StudentSubmissionRow {
   studentId: string;
@@ -386,14 +387,7 @@ export function AssignmentSubmissionsClient({
                       )}
                     </td>
                     <td className="p-3 text-[#7A6A5C]">
-                      {r.submittedAt
-                        ? new Date(r.submittedAt).toLocaleDateString("th-TH", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
-                        : "-"}
+                      {formatThaiDateTime(r.submittedAt)}
                     </td>
                     <td className="p-3 pr-5 text-right">
                       {isSubmitted ? (

@@ -30,6 +30,7 @@ import { markAllAttendanceStatusAction } from "@/actions/attendance";
 import { generateDynamicKey } from "@/lib/attendance/dynamic-key";
 import { showCozySuccess, showCozyError, showCozyConfirm } from "@/lib/ui/swal";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
+import { formatThaiTime } from "@/lib/utils/date-thai";
 
 interface ProjectorModalProps {
   isOpen: boolean;
@@ -770,11 +771,7 @@ export function DynamicKeyProjectorModal({
                 </div>
               ) : (
                 recentCheckins.map((item, idx) => {
-                  const checkTime = new Date(item.checkedAt).toLocaleTimeString("th-TH", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                    second: "2-digit",
-                  });
+                  const checkTime = formatThaiTime(item.checkedAt, { showSeconds: true });
 
                   return (
                     <div

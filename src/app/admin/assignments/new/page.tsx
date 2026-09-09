@@ -23,6 +23,7 @@ import {
   AssignmentQuestionItem,
 } from "@/components/admin/QuestionBuilder";
 import { createAssignmentAction } from "@/actions/assignment";
+import { ThaiDateTimePicker } from "@/components/ui/ThaiDateTimePicker";
 
 const DEFAULT_RUBRICS: RubricItem[] = [
   {
@@ -57,6 +58,8 @@ export default function NewAssignmentPage() {
     .toISOString()
     .slice(0, 16);
   const [dueDate, setDueDate] = useState(defaultDueDate);
+  const [allowLateSubmission, setAllowLateSubmission] = useState(true);
+  const [lateDueDate, setLateDueDate] = useState("");
 
   const [rubrics, setRubrics] = useState<RubricItem[]>(DEFAULT_RUBRICS);
   const [attachments, setAttachments] = useState<TeacherAttachmentItem[]>([]);
@@ -69,6 +72,13 @@ export default function NewAssignmentPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
+
+    if (allowLateSubmission && lateDueDate) {
+      if (new Date(lateDueDate).getTime() < new Date(dueDate).getTime()) {
+        setErrorMessage("วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)");
+        return;
+      }
+    }
 
     if (!isMatch) {
       setErrorMessage(
@@ -95,6 +105,8 @@ export default function NewAssignmentPage() {
       formData.set("description", description);
       formData.set("maxScore", maxScore.toString());
       formData.set("dueDate", dueDate);
+      formData.set("allowLateSubmission", String(allowLateSubmission));
+      formData.set("lateDueDate", allowLateSubmission ? lateDueDate : "");
       formData.set("status", status);
       formData.set("submissionType", submissionType);
       formData.set("rubricsJson", JSON.stringify(rubrics));
@@ -199,7 +211,7 @@ export default function NewAssignmentPage() {
                 required
                 value={maxScore || ""}
                 onChange={(e) => setMaxScore(parseFloat(e.target.value) || 0)}
-                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-sm font-bold text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
+                className="w-full h-[42px] px-4 py-2 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-sm font-bold text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all shadow-2xs"
               />
             </div>
 
@@ -208,12 +220,10 @@ export default function NewAssignmentPage() {
               <label className="text-xs font-semibold text-[#5A4D41]">
                 กำหนดส่งงาน (Due Date) <span className="text-red-500">*</span>
               </label>
-              <input
-                type="datetime-local"
+              <ThaiDateTimePicker
                 required
                 value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
+                onChange={setDueDate}
               />
             </div>
 
@@ -225,11 +235,49 @@ export default function NewAssignmentPage() {
               <select
                 value={status}
                 onChange={(e) => setStatus(e.target.value as "DRAFT" | "PUBLISHED")}
-                className="w-full px-4 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all font-medium"
+                className="w-full h-[42px] px-4 py-2 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs sm:text-sm text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all font-medium cursor-pointer shadow-2xs"
               >
                 <option value="PUBLISHED">เปิดรับส่งงานทันที (PUBLISHED)</option>
                 <option value="DRAFT">บันทึกเป็นฉบับร่างไว้ก่อน (DRAFT)</option>
               </select>
+            </div>
+
+            {/* Late Submission Policy */}
+            <div className="col-span-1 sm:col-span-3 pt-2">
+              <div className="bg-[#FAF6F0]/80 rounded-2xl p-4 border border-[#EADBCC] space-y-3">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={allowLateSubmission}
+                    onChange={(e) => setAllowLateSubmission(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-[#D9CABB] text-[#D9A441] focus:ring-[#D9A441] cursor-pointer"
+                  />
+                  <div className="space-y-0.5">
+                    <span className="text-sm font-bold text-[#3F342B] block">
+                      อนุญาตให้นักเรียนส่งงานล่าช้าได้ (Late Submission)
+                    </span>
+                    <p className="text-xs text-[#7A6A5C]">
+                      หากเปิดใช้งาน นักเรียนที่ส่งงานหลังกำหนดส่ง (Due Date) จะยังสามารถส่งงานได้ โดยระบบจะระบุสถานะเป็น &quot;ส่งช้า&quot;
+                      หากปิดใช้งาน ระบบจะปิดรับการส่งทันทีเมื่อพ้นกำหนดส่งงาน
+                    </p>
+                  </div>
+                </label>
+
+                {allowLateSubmission && (
+                  <div className="pl-7 pt-2 border-t border-[#EADBCC]/60 space-y-1.5 animate-in fade-in duration-200">
+                    <label className="text-xs font-semibold text-[#5A4D41] flex flex-wrap items-center gap-1.5">
+                      <span>กำหนดวันปิดรับส่งงานล่าช้า (Late Submission Deadline)</span>
+                      <span className="text-[11px] font-normal text-[#938270]">(ไม่บังคับ - หากไม่ระบุจะส่งล่าช้าได้จนกว่าครูจะปิดรับงาน)</span>
+                    </label>
+                    <div className="max-w-md">
+                      <ThaiDateTimePicker
+                        value={lateDueDate}
+                        onChange={setLateDueDate}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>

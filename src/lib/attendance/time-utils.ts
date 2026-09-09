@@ -41,19 +41,5 @@ export function isTimePastCutoff(checkedAt: Date, cutoffTimeStr: string): boolea
   }
 }
 
-/**
- * แปลง Date ให้เป็นสตริงเวลาภาษาไทย เช่น "08:35 น."
- */
-export function formatThaiTime(date: Date): string {
-  try {
-    const timeFormatter = new Intl.DateTimeFormat("th-TH", {
-      timeZone: "Asia/Bangkok",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    });
-    return `${timeFormatter.format(date)} น.`;
-  } catch {
-    return "";
-  }
-}
+import { formatThaiTime } from "@/lib/utils/date-thai";
+export { formatThaiTime };

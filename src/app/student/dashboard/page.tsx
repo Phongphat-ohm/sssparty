@@ -14,11 +14,13 @@ import {
   Link2,
   KeyRound,
   RotateCcw,
+  AlertCircle,
 } from "lucide-react";
 import { prisma } from "@/lib/prisma/client";
 import { getCurrentSystemTerm } from "@/lib/terms/term-service";
 import Link from "next/link";
 import { StudentProgressChart } from "@/components/charts/StudentProgressChart";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export default async function StudentDashboardPage() {
   const session = await getAuthSession();
@@ -72,9 +74,19 @@ export default async function StudentDashboardPage() {
     (a) =>
       a.submissions[0]?.status === "SUBMITTED" || a.submissions[0]?.status === "LATE"
   ).length;
+  const now = Date.now();
   const unsubmittedAssignments = assignments.filter(
     (a) => a.submissions.length === 0 || a.submissions[0]?.status === "RETURNED" || a.submissions[0]?.status === "DRAFT"
   );
+  // แยกงานค้างส่ง (ยังไม่เลยกำหนด) และงานที่เลยกำหนดแล้ว
+  const pendingAssignments = unsubmittedAssignments.filter(
+    (a) => now <= new Date(a.dueDate).getTime()
+  );
+  const overdueAssignments = unsubmittedAssignments.filter(
+    (a) => now > new Date(a.dueDate).getTime()
+  );
+  const pendingCount = pendingAssignments.length;
+  const overdueCount = overdueAssignments.length;
   const unsubmittedCount = unsubmittedAssignments.length;
 
   const gradedAssignments = assignments.filter(
@@ -266,11 +278,16 @@ export default async function StudentDashboardPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
-            <h2 className="font-bold text-[#3F342B] text-base sm:text-lg flex items-center gap-2">
+            <h2 className="font-bold text-[#3F342B] text-base sm:text-lg flex items-center gap-2 flex-wrap">
               <span>ภาระงานที่ต้องส่ง</span>
-              {unsubmittedCount > 0 && (
+              {pendingCount > 0 && (
                 <span className="text-xs font-bold bg-amber-100 text-amber-900 border border-amber-300 px-2 py-0.5 rounded-full">
-                  ค้างส่ง {unsubmittedCount} งาน
+                  ค้างส่ง {pendingCount} งาน
+                </span>
+              )}
+              {overdueCount > 0 && (
+                <span className="text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300 px-2 py-0.5 rounded-full">
+                  เลยกำหนด {overdueCount} งาน
                 </span>
               )}
             </h2>
@@ -322,6 +339,8 @@ export default async function StudentDashboardPage() {
                   className={`bg-white rounded-2xl p-4 sm:p-5 border transition-all flex flex-col justify-between gap-4 group ${
                     isReturned
                       ? "border-orange-300 shadow-md ring-1 ring-orange-200"
+                      : isPastDue
+                      ? "border-rose-200 shadow-2xs hover:border-rose-400"
                       : "border-[#EADBCC] shadow-2xs hover:border-[#D9A441]"
                   }`}
                 >
@@ -347,6 +366,12 @@ export default async function StudentDashboardPage() {
                             ถูกตีกลับ
                           </span>
                         )}
+                        {isPastDue && !isReturned && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-100 text-rose-800 border border-rose-300 flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-rose-600" />
+                            เลยกำหนด
+                          </span>
+                        )}
                       </div>
 
                       <span className="text-[11px] font-semibold text-[#8C5D23] bg-[#FAF0E1] px-2 py-0.5 rounded-lg border border-[#EADBCC]">
@@ -368,12 +393,7 @@ export default async function StudentDashboardPage() {
                         <span>
                           ส่งภายใน:{" "}
                           <strong className={isPastDue ? "text-red-600 font-bold" : "text-[#3F342B]"}>
-                            {new Date(assignment.dueDate).toLocaleDateString("th-TH", {
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {formatThaiDateTime(assignment.dueDate)}
                           </strong>
                           {isPastDue && (
                             <span className="text-red-600 font-bold ml-1">(เลยกำหนด)</span>
@@ -408,17 +428,32 @@ export default async function StudentDashboardPage() {
 
       {/* 3. 3 CORE METRIC CARDS (Streamlined & Clean) */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
-        {/* Metric 1: งานค้างส่ง */}
+        {/* Metric 1: งานค้างส่ง / เลยกำหนด */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 border border-[#EADBCC] shadow-2xs flex items-center gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 border border-amber-200 text-amber-700 flex items-center justify-center shrink-0">
+          <div
+            className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
+              overdueCount > 0
+                ? "bg-rose-50 border-rose-200 text-rose-600"
+                : "bg-amber-50 border-amber-200 text-amber-700"
+            }`}
+          >
             <AlertTriangle className="w-6 h-6" />
           </div>
           <div>
             <p className="text-xs text-[#7A6A5C] font-semibold">งานค้างส่ง (To-Do)</p>
-            <p className="text-2xl font-black text-amber-600 leading-tight">
-              {unsubmittedCount} <span className="text-xs font-normal text-[#7A6A5C]">งาน</span>
+            <div className="flex items-baseline gap-2 flex-wrap">
+              <p className="text-2xl font-black text-amber-600 leading-tight">
+                {pendingCount} <span className="text-xs font-normal text-[#7A6A5C]">งาน</span>
+              </p>
+              {overdueCount > 0 && (
+                <span className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full">
+                  เลยกำหนด {overdueCount}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-[#A8988B] mt-0.5">
+              {overdueCount > 0 ? "มีงานที่พ้นกำหนดส่งแล้ว" : "ต้องส่งตามกำหนด"}
             </p>
-            <p className="text-[10px] text-[#A8988B] mt-0.5">ต้องส่งตามกำหนด</p>
           </div>
         </div>
 

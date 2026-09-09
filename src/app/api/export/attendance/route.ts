@@ -4,6 +4,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { generateCsvString, createCsvResponse } from "@/lib/export/csv-helper";
 import { createAuditLog } from "@/lib/audit/logger";
+import { formatThaiDate, formatThaiTime } from "@/lib/utils/date-thai";
 
 export const dynamic = "force-dynamic";
 
@@ -66,11 +67,7 @@ export async function GET(req: NextRequest) {
         attendanceSession.records.map((r) => [r.studentId, r])
       );
 
-      const sessionDateStr = new Date(attendanceSession.date).toLocaleDateString("th-TH", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
+      const sessionDateStr = formatThaiDate(attendanceSession.date);
 
       const headers = [
         "เลขที่",
@@ -100,10 +97,7 @@ export async function GET(req: NextRequest) {
           else if (record.status === "LEAVE") statusText = "ลา";
 
           if (record.checkedAt) {
-            checkTimeStr = new Date(record.checkedAt).toLocaleTimeString("th-TH", {
-              hour: "2-digit",
-              minute: "2-digit",
-            }) + " น.";
+            checkTimeStr = formatThaiTime(record.checkedAt);
           }
           noteText = record.note || "-";
         }

@@ -33,6 +33,7 @@ export async function requireAdminPermission(
     select: {
       id: true,
       username: true,
+      name: true,
       role: true,
       adminRole: true,
       permissions: true,

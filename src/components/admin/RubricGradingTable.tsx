@@ -16,6 +16,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { saveGradeAction, returnSubmissionAction } from "@/actions/grade";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface RubricDefinition {
   id: string;
@@ -348,7 +349,7 @@ export function RubricGradingTable({
               )}
               {returnedAt && (
                 <span className="text-[10px] text-orange-700/80 font-mono block mt-0.5">
-                  วันเวลาที่ตีกลับ: {new Date(returnedAt).toLocaleString("th-TH")}
+                  วันเวลาที่ตีกลับ: {formatThaiDateTime(returnedAt)}
                 </span>
               )}
             </div>
@@ -366,7 +367,7 @@ export function RubricGradingTable({
                 </span>
                 {returnedAt && (
                   <span className="text-[10px] text-indigo-700/80 font-mono">
-                    ตีกลับเมื่อ: {new Date(returnedAt).toLocaleString("th-TH")}
+                    ตีกลับเมื่อ: {formatThaiDateTime(returnedAt)}
                   </span>
                 )}
               </div>

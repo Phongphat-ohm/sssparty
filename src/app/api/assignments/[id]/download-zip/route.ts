@@ -6,6 +6,7 @@ import { s3Client, S3_BUCKET } from "@/lib/s3/client";
 import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { createAuditLog } from "@/lib/audit/logger";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export const dynamic = "force-dynamic";
 
@@ -129,7 +130,7 @@ export async function GET(
           `ข้อมูลการส่งงาน: ${assignment.title}`,
           `นักเรียน: ${student.firstName} ${student.lastName} (ห้อง ${student.className} เลขที่ ${student.studentNumber})`,
           `รหัสนักเรียน: ${student.studentCode}`,
-          `เวลาที่ส่ง: ${new Date(sub.submittedAt).toLocaleString("th-TH")}`,
+          `เวลาที่ส่ง: ${formatThaiDateTime(sub.submittedAt)}`,
           `=========================================\n`,
         ];
 

@@ -29,6 +29,7 @@ import {
 import { validateFileMeta, getFileTypeCategory } from "@/lib/s3/file-validator";
 import { requestDownloadUrlAction } from "@/actions/upload";
 import { submitAssignmentAction } from "@/actions/submission";
+import { formatThaiDateTime } from "@/lib/utils/date-thai";
 
 export interface QuestionData {
   id: string;
@@ -75,6 +76,8 @@ interface StudentSubmissionFormProps {
   assignmentTitle: string;
   submissionType: "FILE" | "LINK" | "QUESTIONS";
   dueDate: Date;
+  allowLateSubmission?: boolean;
+  lateDueDate?: Date | null;
   maxScore: number;
   questions?: QuestionData[];
   initialSubmission: SubmissionData | null;
@@ -86,6 +89,8 @@ export function StudentSubmissionForm({
   assignmentTitle,
   submissionType = "FILE",
   dueDate,
+  allowLateSubmission = true,
+  lateDueDate = null,
   maxScore,
   questions = [],
   initialSubmission,
@@ -124,6 +129,14 @@ export function StudentSubmissionForm({
     (initialSubmission.status === "SUBMITTED" ||
       initialSubmission.status === "LATE" ||
       isGraded);
+
+  const now = new Date();
+  const isPastDue = now.getTime() > new Date(dueDate).getTime();
+  const isPastLateDue = lateDueDate
+    ? now.getTime() > new Date(lateDueDate).getTime()
+    : false;
+  const isSubmissionLocked =
+    isClosed || (isPastDue && (!allowLateSubmission || isPastLateDue));
 
   // Detect Link Platform
   const getPlatformInfo = (url: string) => {
@@ -206,6 +219,15 @@ export function StudentSubmissionForm({
     setAnswersMap((prev) => ({ ...prev, [questionId]: val }));
   };
 
+  const triggerFileDownload = (url: string) => {
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleOpenSubmittedFile = async () => {
     if (!initialSubmission?.fileKey) return;
     setIsDownloading(true);
@@ -215,7 +237,7 @@ export function StudentSubmissionForm({
       if (res.success && res.downloadUrl) {
         const opened = window.open(res.downloadUrl, "_blank", "noopener,noreferrer");
         if (!opened) {
-          window.location.href = `/api/files/${initialSubmission.fileKey}?download=1`;
+          triggerFileDownload(`/api/files/${initialSubmission.fileKey}?download=1`);
         }
       } else {
         throw new Error(res.error || "ไม่สามารถสร้างลิงก์สำหรับดูไฟล์ได้");
@@ -234,7 +256,7 @@ export function StudentSubmissionForm({
         color: "#3F342B",
       }).then((result) => {
         if (result.isConfirmed && initialSubmission?.fileKey) {
-          window.location.href = `/api/files/${initialSubmission.fileKey}?download=1`;
+          triggerFileDownload(`/api/files/${initialSubmission.fileKey}?download=1`);
         }
       });
     } finally {
@@ -334,11 +356,15 @@ export function StudentSubmissionForm({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isClosed) {
+    if (isSubmissionLocked) {
       Swal.fire({
         icon: "warning",
-        title: "ปิดรับงานแล้ว",
-        text: "การบ้านนี้ปิดรับการส่งงานแล้ว ไม่สามารถส่งงานได้",
+        title: "ไม่สามารถส่งงานได้",
+        text: isClosed
+          ? "การบ้านนี้ปิดรับการส่งงานแล้ว ไม่สามารถส่งงานได้"
+          : !allowLateSubmission
+          ? "การบ้านนี้เลยกำหนดส่งแล้ว และไม่อนุญาตให้ส่งงานล่าช้า"
+          : `การบ้านนี้หมดเขตส่งงานล่าช้าแล้ว (ปิดรับส่งเมื่อ ${formatThaiDateTime(lateDueDate!)})`,
         confirmButtonColor: "#B94E48",
         confirmButtonText: "รับทราบ",
         background: "#FFF9F0",
@@ -417,29 +443,28 @@ export function StudentSubmissionForm({
       }
     }
 
-    const now = new Date();
-    const isLate = now.getTime() > new Date(dueDate).getTime();
-
     const titleText = isReturned
       ? "🔄 ยืนยันการส่งงานใหม่?"
-      : isLate
+      : isPastDue
       ? "⚠️ ยืนยันการส่งงานล่าช้า?"
       : "ยืนยันการส่งงาน?";
 
     const bodyText = isReturned
       ? `คุณต้องการส่งงาน "${assignmentTitle}" ใหม่อีกครั้งใช่หรือไม่? คุณครูจะได้รับการแจ้งเตือนเพื่อตรวจงานรอบใหม่`
-      : isLate
-      ? "ขณะนี้เลยกำหนดส่งงานแล้ว การส่งงานครั้งนี้จะถูกบันทึกสถานะว่า 'ส่งช้ากว่ากำหนด (LATE)' คุณต้องการส่งงานหรือไม่?"
+      : isPastDue
+      ? `ขณะนี้เลยกำหนดส่งงานแล้ว การส่งงานครั้งนี้จะถูกบันทึกสถานะว่า 'ส่งช้ากว่ากำหนด (LATE)'${
+          lateDueDate ? ` (ส่งล่าช้าได้ถึง ${formatThaiDateTime(lateDueDate)})` : ""
+        } คุณต้องการส่งงานหรือไม่?`
       : `คุณต้องการส่งงาน "${assignmentTitle}" ใช่หรือไม่?`;
 
     Swal.fire({
-      icon: isReturned ? "question" : isLate ? "warning" : "question",
+      icon: isReturned ? "question" : isPastDue ? "warning" : "question",
       title: titleText,
       text: bodyText,
       showCancelButton: true,
-      confirmButtonColor: isReturned ? "#C96B4B" : isLate ? "#C96B4B" : "#D9A441",
+      confirmButtonColor: isReturned ? "#C96B4B" : isPastDue ? "#C96B4B" : "#D9A441",
       cancelButtonColor: "#A8988B",
-      confirmButtonText: isReturned ? "ยืนยันส่งงานใหม่" : isLate ? "ยืนยันส่งงานล่าช้า" : "ยืนยันส่งงาน",
+      confirmButtonText: isReturned ? "ยืนยันส่งงานใหม่" : isPastDue ? "ยืนยันส่งงานล่าช้า" : "ยืนยันส่งงาน",
       cancelButtonText: "ยกเลิก",
       background: "#FFF9F0",
       color: "#3F342B",
@@ -452,6 +477,22 @@ export function StudentSubmissionForm({
 
   const handleSaveDraft = (e: React.MouseEvent) => {
     e.preventDefault();
+    if (isSubmissionLocked) {
+      Swal.fire({
+        icon: "warning",
+        title: "ไม่สามารถบันทึกแบบร่างได้",
+        text: isClosed
+          ? "การบ้านนี้ปิดรับการส่งงานแล้ว"
+          : !allowLateSubmission
+          ? "การบ้านนี้เลยกำหนดส่งแล้ว และไม่อนุญาตให้ส่งงานล่าช้า"
+          : `การบ้านนี้หมดเขตส่งงานล่าช้าแล้ว (ปิดรับเมื่อ ${formatThaiDateTime(lateDueDate!)})`,
+        confirmButtonColor: "#B94E48",
+        confirmButtonText: "รับทราบ",
+        background: "#FFF9F0",
+        color: "#3F342B",
+      });
+      return;
+    }
     executeSubmission(true);
   };
 
@@ -513,10 +554,17 @@ export function StudentSubmissionForm({
           )}
 
           {!initialSubmission && (
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
-              <Clock className="w-3 h-3 text-amber-600" />
-              <span>ยังไม่ส่ง</span>
-            </span>
+            isPastDue ? (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-rose-100 text-rose-800 border border-rose-300">
+                <AlertCircle className="w-3 h-3 text-rose-600" />
+                <span>เลยกำหนด</span>
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+                <Clock className="w-3 h-3 text-amber-600" />
+                <span>ค้างส่ง</span>
+              </span>
+            )
           )}
         </div>
       </div>
@@ -533,6 +581,61 @@ export function StudentSubmissionForm({
             </h4>
             <p className="text-[11px] text-rose-800 leading-relaxed">
               ระบบปิดรับการส่งงานและแก้ไขผลงานแล้ว หากมีข้อสงสัยกรุณาติดต่อครูผู้สอน
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* LATE SUBMISSION LOCKED BANNER: Overdue & not allowed */}
+      {!isClosed && isPastDue && !allowLateSubmission && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex items-center gap-3 text-rose-950 shadow-2xs">
+          <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <h4 className="text-xs sm:text-sm font-bold text-rose-950">
+              เลยกำหนดส่งแล้วและไม่อนุญาตให้ส่งล่าช้า
+            </h4>
+            <p className="text-[11px] text-rose-800 leading-relaxed">
+              การบ้านนี้สิ้นสุดกำหนดส่งเมื่อ {formatThaiDateTime(dueDate)} และไม่อนุญาตให้ส่งงานล่าช้า
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* LATE SUBMISSION LOCKED BANNER: Past late cutoff */}
+      {!isClosed && isPastDue && allowLateSubmission && isPastLateDue && (
+        <div className="bg-rose-50 border border-rose-300 rounded-2xl p-4 flex items-center gap-3 text-rose-950 shadow-2xs">
+          <div className="w-8 h-8 rounded-xl bg-rose-500 text-white flex items-center justify-center shrink-0 shadow-2xs">
+            <AlertCircle className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <h4 className="text-xs sm:text-sm font-bold text-rose-950">
+              หมดเขตรับส่งงานล่าช้าแล้ว
+            </h4>
+            <p className="text-[11px] text-rose-800 leading-relaxed">
+              การบ้านนี้ปิดรับการส่งงานล่าช้าแล้วเมื่อ {formatThaiDateTime(lateDueDate!)}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* LATE SUBMISSION ALLOWED WARNING BANNER */}
+      {!isClosed && isPastDue && allowLateSubmission && !isPastLateDue && !hasOfficialSubmission && (
+        <div className="bg-amber-50 border border-amber-300 rounded-2xl p-3.5 flex items-start gap-3 text-amber-950 shadow-2xs">
+          <div className="w-7 h-7 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-2xs mt-0.5">
+            <Clock className="w-4 h-4" />
+          </div>
+          <div className="space-y-0.5 min-w-0">
+            <h4 className="text-xs font-bold text-amber-950">
+              ส่งงานล่าช้า (Late Submission)
+            </h4>
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              ขณะนี้เลยกำหนดส่งงานหลัก ({formatThaiDateTime(dueDate)}) แล้ว แต่ระบบยังอนุญาตให้ส่งงานได้
+              {lateDueDate
+                ? ` โดยสามารถส่งได้ถึงวันที่ ${formatThaiDateTime(lateDueDate)}`
+                : " จนกว่าครูจะปิดรับงาน"}
+              {" "}(สถานะงานจะถูกบันทึกเป็น &quot;ส่งช้า&quot;)
             </p>
           </div>
         </div>
@@ -578,7 +681,7 @@ export function StudentSubmissionForm({
                 </h4>
                 {initialSubmission?.returnedAt && (
                   <span className="text-[10px] text-orange-700/80 font-mono">
-                    {new Date(initialSubmission.returnedAt).toLocaleString("th-TH")}
+                    {formatThaiDateTime(initialSubmission.returnedAt)}
                   </span>
                 )}
               </div>
@@ -803,8 +906,8 @@ export function StudentSubmissionForm({
             </div>
           )}
 
-          {/* Re-submit Button (Only if not graded yet) */}
-          {!isGraded && (
+          {/* Re-submit Button (Only if not graded yet and not locked) */}
+          {!isGraded && !isSubmissionLocked && (
             <div className="pt-1">
               <button
                 type="button"
@@ -1025,19 +1128,27 @@ export function StudentSubmissionForm({
             {/* Primary Submit Button */}
             <button
               type="submit"
-              disabled={isClosed || isSubmitting || isSavingDraft}
+              disabled={isSubmissionLocked || isSubmitting || isSavingDraft}
               className={`w-full py-3 px-4 rounded-xl text-xs font-bold text-white active:scale-98 disabled:opacity-50 transition-all shadow-sm flex items-center justify-center gap-2 ${
-                isClosed
+                isSubmissionLocked
                   ? "bg-neutral-400 cursor-not-allowed"
                   : isReturned
                   ? "bg-[#B94E48] hover:bg-[#A33F39] cursor-pointer"
+                  : isPastDue
+                  ? "bg-amber-600 hover:bg-amber-700 cursor-pointer"
                   : "bg-[#D9A441] hover:bg-[#C28F30] cursor-pointer"
               }`}
             >
-              {isClosed ? (
+              {isSubmissionLocked ? (
                 <>
                   <AlertCircle className="w-4 h-4" />
-                  <span>ปิดรับการส่งงานแล้ว (Closed)</span>
+                  <span>
+                    {isClosed
+                      ? "ปิดรับการส่งงานแล้ว (Closed)"
+                      : !allowLateSubmission
+                      ? "เลยกำหนดส่งแล้ว (ไม่อนุญาตให้ส่งช้า)"
+                      : "หมดเขตรับส่งงานล่าช้าแล้ว"}
+                  </span>
                 </>
               ) : isSubmitting ? (
                 <>
@@ -1047,13 +1158,19 @@ export function StudentSubmissionForm({
               ) : (
                 <>
                   {isReturned ? <RotateCcw className="w-4 h-4" /> : <Send className="w-4 h-4" />}
-                  <span>{isReturned ? "ส่งงานใหม่อีกครั้ง (Resubmit)" : "ยืนยันส่งงาน (Turn In)"}</span>
+                  <span>
+                    {isReturned
+                      ? "ส่งงานใหม่อีกครั้ง (Resubmit)"
+                      : isPastDue
+                      ? "ยืนยันส่งงานล่าช้า (Turn In Late)"
+                      : "ยืนยันส่งงาน (Turn In)"}
+                  </span>
                 </>
               )}
             </button>
 
             {/* Secondary Save Draft Button */}
-            {!isClosed && (
+            {!isSubmissionLocked && (
               <div className="flex items-center gap-2">
                 <button
                   type="button"

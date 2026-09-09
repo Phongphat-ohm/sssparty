@@ -2,6 +2,7 @@
 
 import React from "react";
 import { StudentAttendanceRow } from "../AttendanceSheetClient";
+import { formatThaiDate } from "@/lib/utils/date-thai";
 
 interface AttendanceSessionReportViewProps {
   sessionTitle: string;
@@ -20,18 +21,9 @@ export function AttendanceSessionReportView({
   selectedClass = "ALL",
   records,
 }: AttendanceSessionReportViewProps) {
-  const printDateStr = new Date().toLocaleDateString("th-TH", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const printDateStr = formatThaiDate(new Date(), { variant: "long" });
 
-  const formattedSessionDate = new Date(sessionDate).toLocaleDateString("th-TH", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
+  const formattedSessionDate = formatThaiDate(sessionDate, { variant: "withWeekday" });
 
   const total = records.length;
   const present = records.filter((r) => r.status === "PRESENT").length;
