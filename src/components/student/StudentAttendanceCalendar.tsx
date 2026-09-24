@@ -20,7 +20,7 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { getThaiHolidaysMap, ThaiHolidayInfo } from "@/lib/utils/holidays";
-import { formatThaiDate, formatThaiTime, formatThaiDateTime } from "@/lib/utils/date-thai";
+import { formatThaiDate, formatThaiTime, formatThaiDateTime, getThaiDateParts } from "@/lib/utils/date-thai";
 
 export interface StudentAttendanceItem {
   sessionId: string;
@@ -61,24 +61,31 @@ export function StudentAttendanceCalendar({
   studentName,
   studentCode,
 }: StudentAttendanceCalendarProps) {
-  // Map records by YYYY-MM-DD
+  const toSessionDateKey = (raw: string | Date) => {
+    const p = getThaiDateParts(raw);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${p.year}-${pad(p.month + 1)}-${pad(p.day)}`;
+  };
+
+  // Map records by YYYY-MM-DD (Thai Timezone)
   const recordsByDate = new Map<string, StudentAttendanceItem>();
   records.forEach((r) => {
-    const dateKey = new Date(r.sessionDate).toISOString().split("T")[0];
+    const dateKey = toSessionDateKey(r.sessionDate);
     recordsByDate.set(dateKey, r);
   });
 
   // Current viewed month state
   const initialDate = records.length > 0 ? new Date(records[0].sessionDate) : new Date();
-  const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth()); // 0-11
+  const initialParts = getThaiDateParts(initialDate);
+  const [currentYear, setCurrentYear] = useState(initialParts.year);
+  const [currentMonth, setCurrentMonth] = useState(initialParts.month); // 0-11
 
   // Thai Holidays Map
   const holidaysMap = useMemo(() => getThaiHolidaysMap(currentYear), [currentYear]);
 
   // Selected date state
   const [selectedDateKey, setSelectedDateKey] = useState<string | null>(
-    records.length > 0 ? new Date(records[0].sessionDate).toISOString().split("T")[0] : null
+    records.length > 0 ? toSessionDateKey(records[0].sessionDate) : null
   );
 
   // View mode: 'calendar' or 'list'

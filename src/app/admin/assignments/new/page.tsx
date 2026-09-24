@@ -24,6 +24,7 @@ import {
 } from "@/components/admin/QuestionBuilder";
 import { createAssignmentAction } from "@/actions/assignment";
 import { ThaiDateTimePicker } from "@/components/ui/ThaiDateTimePicker";
+import { getThaiDateParts, parseThaiDateTime } from "@/lib/utils/date-thai";
 
 const DEFAULT_RUBRICS: RubricItem[] = [
   {
@@ -53,10 +54,15 @@ export default function NewAssignmentPage() {
   const [status, setStatus] = useState<"DRAFT" | "PUBLISHED">("PUBLISHED");
   const [submissionType, setSubmissionType] = useState<"FILE" | "LINK" | "QUESTIONS">("FILE");
 
-  // Default due date: 7 days from now formatted for datetime-local
-  const defaultDueDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-    .toISOString()
-    .slice(0, 16);
+  // Default due date: 7 วันข้างหน้า เวลา 23:59 น. ตามเวลาประเทศไทย
+  const defaultDueDate = (() => {
+    const now = new Date();
+    const futureDate = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    const { year, month, day } = getThaiDateParts(futureDate);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${year}-${pad(month + 1)}-${pad(day)}T23:59:00+07:00`;
+  })();
+
   const [dueDate, setDueDate] = useState(defaultDueDate);
   const [allowLateSubmission, setAllowLateSubmission] = useState(true);
   const [lateDueDate, setLateDueDate] = useState("");
@@ -74,7 +80,9 @@ export default function NewAssignmentPage() {
     setErrorMessage(null);
 
     if (allowLateSubmission && lateDueDate) {
-      if (new Date(lateDueDate).getTime() < new Date(dueDate).getTime()) {
+      const lateTime = parseThaiDateTime(lateDueDate)?.getTime() || 0;
+      const dueTime = parseThaiDateTime(dueDate)?.getTime() || 0;
+      if (lateTime < dueTime) {
         setErrorMessage("วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)");
         return;
       }

@@ -21,7 +21,7 @@ import Link from "next/link";
 import { TrendLineChart } from "@/components/charts/TrendLineChart";
 import { AssignmentCompletionBarChart } from "@/components/charts/AssignmentCompletionBarChart";
 import { ScoreDistributionChart } from "@/components/charts/ScoreDistributionChart";
-import { formatThaiDateTime } from "@/lib/utils/date-thai";
+import { formatThaiDateTime, getThaiDateParts } from "@/lib/utils/date-thai";
 
 export default async function AdminDashboardPage() {
   const session = await getAuthSession();
@@ -117,22 +117,26 @@ export default async function AdminDashboardPage() {
     }),
   ]);
 
-  // 1. คำนวณแนวโน้มการส่งงาน 7 วันล่าสุด (Submission Trend)
+  // 1. คำนวณแนวโน้มการส่งงาน 7 วันล่าสุด (Submission Trend) ในเขตเวลาประเทศไทย
   const last7Days: { label: string; dateStr: string; value: number }[] = [];
+  const now = new Date();
   for (let i = 6; i >= 0; i--) {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    const dateStr = d.toISOString().split("T")[0];
+    const targetDate = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+    const parts = getThaiDateParts(targetDate);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const dateStr = `${parts.year}-${pad(parts.month + 1)}-${pad(parts.day)}`;
     const label = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
       day: "numeric",
       month: "short",
       timeZone: "Asia/Bangkok",
-    }).format(d);
+    }).format(targetDate);
     last7Days.push({ label, dateStr, value: 0 });
   }
 
   recentSubmissions7Days.forEach((sub) => {
-    const subDate = new Date(sub.submittedAt).toISOString().split("T")[0];
+    const p = getThaiDateParts(sub.submittedAt);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const subDate = `${p.year}-${pad(p.month + 1)}-${pad(p.day)}`;
     const found = last7Days.find((day) => day.dateStr === subDate);
     if (found) {
       found.value++;

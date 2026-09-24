@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma/client";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
+import { parseThaiDateTime, getThaiTodayDateString } from "@/lib/utils/date-thai";
 
 export type AuditCategory =
   | "ALL"
@@ -136,12 +137,13 @@ function buildWhereClause(params: GetAuditLogsParams) {
   if (params.startDate || params.endDate) {
     whereClause.createdAt = {};
     if (params.startDate) {
-      whereClause.createdAt.gte = new Date(params.startDate);
+      const start = parseThaiDateTime(params.startDate);
+      if (start) whereClause.createdAt.gte = start;
     }
     if (params.endDate) {
-      const end = new Date(params.endDate);
-      end.setHours(23, 59, 59, 999);
-      whereClause.createdAt.lte = end;
+      const endStr = params.endDate.includes("T") ? params.endDate : `${params.endDate}T23:59:59.999`;
+      const end = parseThaiDateTime(endStr);
+      if (end) whereClause.createdAt.lte = end;
     }
   }
 
@@ -180,8 +182,8 @@ export async function getAuditLogsAction(
 
     const whereClause = buildWhereClause(params);
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
+    const todayStr = getThaiTodayDateString();
+    const todayStart = parseThaiDateTime(`${todayStr}T00:00:00`) || new Date();
 
     const [logs, totalCount, totalLogs, loginSuccessCount, loginFailedCount, actionsTodayCount] =
       await Promise.all([
@@ -315,7 +317,7 @@ export async function exportAuditLogsCsvAction(
 
     // เติม UTF-8 BOM (\uFEFF) เพื่อให้ Excel และซอฟต์แวร์ภาษาไทยแสดงผลถูกต้อง 100%
     const csvWithBom = "\uFEFF" + csvContent;
-    const dateStr = new Date().toISOString().split("T")[0];
+    const dateStr = getThaiTodayDateString();
     const filename = `audit-logs-${dateStr}.csv`;
 
     return {

@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Calendar, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { formatThaiDate } from "@/lib/utils/date-thai";
+import { formatThaiDate, getThaiDateParts } from "@/lib/utils/date-thai";
 
 const THAI_MONTHS = [
   "มกราคม",
@@ -49,17 +49,17 @@ export function ThaiDatePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse initial view year and month
+  // Parse initial view year and month strictly in Asia/Bangkok
   const parseInitialDate = () => {
     if (value && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
       const [y, m, d] = value.split("-").map(Number);
       return { year: y, month: m - 1, day: d };
     }
-    const today = new Date();
+    const todayParts = getThaiDateParts(new Date());
     return {
-      year: today.getFullYear(),
-      month: today.getMonth(),
-      day: today.getDate(),
+      year: todayParts.year,
+      month: todayParts.month,
+      day: todayParts.day,
     };
   };
 
@@ -120,17 +120,17 @@ export function ThaiDatePicker({
   };
 
   const handleSelectToday = () => {
-    const now = new Date();
+    const todayParts = getThaiDateParts(new Date());
     const pad = (n: number) => String(n).padStart(2, "0");
-    const todayStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const todayStr = `${todayParts.year}-${pad(todayParts.month + 1)}-${pad(todayParts.day)}`;
     onChange(todayStr);
-    setViewYear(now.getFullYear());
-    setViewMonth(now.getMonth());
+    setViewYear(todayParts.year);
+    setViewMonth(todayParts.month);
     setIsOpen(false);
   };
 
   // Generate Year Options: 5 years past to 5 years future in Buddhist Year (พ.ศ.)
-  const currentCEYear = new Date().getFullYear();
+  const currentCEYear = getThaiDateParts(new Date()).year;
   const yearOptions: number[] = [];
   for (let y = currentCEYear - 4; y <= currentCEYear + 6; y++) {
     yearOptions.push(y);
@@ -144,11 +144,11 @@ export function ThaiDatePicker({
   };
 
   const isToday = (d: number) => {
-    const now = new Date();
+    const todayParts = getThaiDateParts(new Date());
     return (
-      now.getFullYear() === viewYear &&
-      now.getMonth() === viewMonth &&
-      now.getDate() === d
+      todayParts.year === viewYear &&
+      todayParts.month === viewMonth &&
+      todayParts.day === d
     );
   };
 

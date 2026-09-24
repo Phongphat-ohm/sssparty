@@ -35,6 +35,7 @@ import { updateSystemSettingsAction } from "@/actions/settings";
 import { SystemSettingsMap } from "@/lib/settings/system-settings";
 import { ThaiTimeInput } from "@/components/ui/ThaiTimeInput";
 import { ThaiDateTimePicker } from "@/components/ui/ThaiDateTimePicker";
+import { parseThaiDateTime } from "@/lib/utils/date-thai";
 import { showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { MaintenanceCountdown } from "@/components/common/MaintenanceCountdown";
 
@@ -674,8 +675,8 @@ export function SystemSettingsForm({
                             setMaintenanceExpectedEnd("");
                             return;
                           }
-                          const d = new Date(val);
-                          if (!isNaN(d.getTime())) {
+                          const d = parseThaiDateTime(val);
+                          if (d) {
                             setMaintenanceExpectedEnd(d.toISOString());
                           }
                         }}

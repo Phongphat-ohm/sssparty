@@ -25,6 +25,7 @@ import {
 } from "@/components/admin/QuestionBuilder";
 import { updateAssignmentAction } from "@/actions/assignment";
 import { ThaiDateTimePicker } from "@/components/ui/ThaiDateTimePicker";
+import { formatThaiDateTimeLocalISO, parseThaiDateTime } from "@/lib/utils/date-thai";
 
 interface EditAssignmentFormProps {
   assignment: {
@@ -57,14 +58,16 @@ export function EditAssignmentForm({ assignment }: EditAssignmentFormProps) {
     assignment.submissionType || "FILE"
   );
 
-  // Formatted date for datetime-local
-  const initialDueDate = new Date(assignment.dueDate).toISOString().slice(0, 16);
+  // Formatted date strictly in Asia/Bangkok
+  const initialDueDate = assignment.dueDate
+    ? `${formatThaiDateTimeLocalISO(assignment.dueDate)}:00+07:00`
+    : "";
   const [dueDate, setDueDate] = useState(initialDueDate);
   const [allowLateSubmission, setAllowLateSubmission] = useState(
     assignment.allowLateSubmission ?? true
   );
   const initialLateDueDate = assignment.lateDueDate
-    ? new Date(assignment.lateDueDate).toISOString().slice(0, 16)
+    ? `${formatThaiDateTimeLocalISO(assignment.lateDueDate)}:00+07:00`
     : "";
   const [lateDueDate, setLateDueDate] = useState(initialLateDueDate);
 
@@ -85,7 +88,9 @@ export function EditAssignmentForm({ assignment }: EditAssignmentFormProps) {
     setErrorMessage(null);
 
     if (allowLateSubmission && lateDueDate) {
-      if (new Date(lateDueDate).getTime() < new Date(dueDate).getTime()) {
+      const lateTime = parseThaiDateTime(lateDueDate)?.getTime() || 0;
+      const dueTime = parseThaiDateTime(dueDate)?.getTime() || 0;
+      if (lateTime < dueTime) {
         setErrorMessage("วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)");
         return;
       }

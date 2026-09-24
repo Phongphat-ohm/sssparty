@@ -9,6 +9,7 @@ import {
 } from "@/actions/attendance";
 import { showCozySuccess, showCozyError } from "@/lib/ui/swal";
 import { ThaiDatePicker } from "@/components/ui/ThaiDatePicker";
+import { getThaiTodayDateString, getThaiDateParts } from "@/lib/utils/date-thai";
 
 import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
@@ -36,10 +37,17 @@ export function AttendanceSessionModal({
   const router = useRouter();
   const isEditing = !!sessionToEdit?.id;
 
-  const todayStr = new Date().toISOString().split("T")[0];
+  const todayStr = getThaiTodayDateString();
+  const getSessionDateStr = (rawDate: string | Date | undefined) => {
+    if (!rawDate) return todayStr;
+    const parts = getThaiDateParts(rawDate);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${parts.year}-${pad(parts.month + 1)}-${pad(parts.day)}`;
+  };
+
   const [title, setTitle] = useState(sessionToEdit?.title || "");
   const [date, setDate] = useState(
-    sessionToEdit?.date ? new Date(sessionToEdit.date).toISOString().split("T")[0] : todayStr
+    sessionToEdit?.date ? getSessionDateStr(sessionToEdit.date) : todayStr
   );
   const [academicTerm, setAcademicTerm] = useState(
     sessionToEdit?.academicTerm || defaultTerm || DEFAULT_ACADEMIC_TERM

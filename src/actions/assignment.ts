@@ -7,6 +7,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { requireAdminPermission } from "@/lib/auth/permissions-server";
 import { createAuditLog } from "@/lib/audit/logger";
 import { getAdminSelectedTerm, checkTermCanEdit } from "@/lib/terms/term-service";
+import { parseThaiDateTime } from "@/lib/utils/date-thai";
 
 const rubricItemSchema = z.object({
   id: z.string().optional(),
@@ -70,7 +71,7 @@ export async function createAssignmentAction(
     const status = (formData.get("status") as "DRAFT" | "PUBLISHED" | "CLOSED") || "DRAFT";
     const allowLateSubmission = formData.get("allowLateSubmission") !== "false";
     const lateDueDateStr = (formData.get("lateDueDate") as string)?.trim();
-    const lateDueDate = lateDueDateStr ? new Date(lateDueDateStr) : null;
+    const lateDueDate = lateDueDateStr ? parseThaiDateTime(lateDueDateStr) : null;
     const submissionType =
       (formData.get("submissionType") as "FILE" | "LINK" | "QUESTIONS") || "FILE";
     const rubricsJson = formData.get("rubricsJson") as string;
@@ -124,11 +125,16 @@ export async function createAssignmentAction(
       }
     }
 
+    const parsedDueDate = parseThaiDateTime(dueDateStr);
+    if (!parsedDueDate) {
+      return { success: false, message: "กรุณาระบุกำหนดส่งงานให้ถูกต้อง" };
+    }
+
     const parsed = assignmentSchema.safeParse({
       title,
       description,
       maxScore,
-      dueDate: new Date(dueDateStr),
+      dueDate: parsedDueDate,
       allowLateSubmission,
       lateDueDate,
       status,
@@ -259,7 +265,7 @@ export async function updateAssignmentAction(
         ? formData.get("allowLateSubmission") !== "false"
         : existing.allowLateSubmission;
     const lateDueDateStr = (formData.get("lateDueDate") as string)?.trim();
-    const lateDueDate = lateDueDateStr ? new Date(lateDueDateStr) : null;
+    const lateDueDate = lateDueDateStr ? parseThaiDateTime(lateDueDateStr) : null;
     const status = (formData.get("status") as "DRAFT" | "PUBLISHED" | "CLOSED") || existing.status;
     const termInput = (formData.get("academicTerm") as string)?.trim();
     const academicTerm = termInput || existing.academicTerm;
@@ -280,8 +286,13 @@ export async function updateAssignmentAction(
       return { success: false, message: "กรุณากรอกข้อมูลให้ครบถ้วน" };
     }
 
+    const parsedDueDate = parseThaiDateTime(dueDateStr);
+    if (!parsedDueDate) {
+      return { success: false, message: "กรุณาระบุกำหนดส่งงานให้ถูกต้อง" };
+    }
+
     if (allowLateSubmission && lateDueDate) {
-      if (lateDueDate.getTime() < new Date(dueDateStr).getTime()) {
+      if (lateDueDate.getTime() < parsedDueDate.getTime()) {
         return {
           success: false,
           message: "วันปิดรับส่งงานล่าช้าต้องไม่เกิดขึ้นก่อนกำหนดส่งงานหลัก (Due Date)",
@@ -309,7 +320,7 @@ export async function updateAssignmentAction(
           data: {
             title,
             description,
-            dueDate: new Date(dueDateStr),
+            dueDate: parsedDueDate,
             allowLateSubmission,
             lateDueDate: allowLateSubmission ? lateDueDate : null,
             status,
@@ -386,7 +397,7 @@ export async function updateAssignmentAction(
       title,
       description,
       maxScore,
-      dueDate: new Date(dueDateStr),
+      dueDate: parsedDueDate,
       allowLateSubmission,
       lateDueDate: allowLateSubmission ? lateDueDate : null,
       status,

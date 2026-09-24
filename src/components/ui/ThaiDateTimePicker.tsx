@@ -11,7 +11,12 @@ import {
   Check,
   X,
 } from "lucide-react";
-import { formatThaiDate, formatThaiDateTime } from "@/lib/utils/date-thai";
+import {
+  formatThaiDate,
+  formatThaiDateTime,
+  getThaiDateParts,
+  parseThaiDateTime,
+} from "@/lib/utils/date-thai";
 
 const THAI_MONTHS = [
   "มกราคม",
@@ -31,7 +36,7 @@ const THAI_MONTHS = [
 const WEEKDAY_NAMES = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
 
 export interface ThaiDateTimePickerProps {
-  value: string; // "YYYY-MM-DDTHH:mm" or ISO string
+  value: string; // "YYYY-MM-DDTHH:mm" or ISO string with timezone
   onChange: (value: string) => void;
   name?: string;
   id?: string;
@@ -56,52 +61,38 @@ export function ThaiDateTimePicker({
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parse incoming value into date parts and time parts
+  // Parse incoming value into date parts and time parts strictly in Asia/Bangkok
   const parseDateTime = (val: string) => {
+    const pad = (n: number) => String(n).padStart(2, "0");
+
     if (!val) {
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, "0");
+      const nowParts = getThaiDateParts(new Date());
       return {
-        year: now.getFullYear(),
-        month: now.getMonth(),
-        day: now.getDate(),
+        year: nowParts.year,
+        month: nowParts.month,
+        day: nowParts.day,
         hour: "23",
         minute: "59",
       };
     }
 
-    try {
-      const d = new Date(val);
-      if (!isNaN(d.getTime())) {
-        const pad = (n: number) => String(n).padStart(2, "0");
-        return {
-          year: d.getFullYear(),
-          month: d.getMonth(),
-          day: d.getDate(),
-          hour: pad(d.getHours()),
-          minute: pad(d.getMinutes()),
-        };
-      }
-    } catch {}
-
-    if (val.includes("T")) {
-      const [dPart, tPart] = val.split("T");
-      const [y, m, day] = dPart.split("-").map(Number);
-      const [h = "23", min = "59"] = (tPart || "").split(":");
+    const d = parseThaiDateTime(val);
+    if (d) {
+      const parts = getThaiDateParts(d);
       return {
-        year: y || new Date().getFullYear(),
-        month: (m || 1) - 1,
-        day: day || 1,
-        hour: h.padStart(2, "0"),
-        minute: min.slice(0, 2).padStart(2, "0"),
+        year: parts.year,
+        month: parts.month,
+        day: parts.day,
+        hour: pad(parts.hour),
+        minute: pad(parts.minute),
       };
     }
 
-    const today = new Date();
+    const todayParts = getThaiDateParts(new Date());
     return {
-      year: today.getFullYear(),
-      month: today.getMonth(),
-      day: today.getDate(),
+      year: todayParts.year,
+      month: todayParts.month,
+      day: todayParts.day,
       hour: "23",
       minute: "59",
     };
@@ -147,7 +138,7 @@ export function ThaiDateTimePicker({
 
   const emitValue = (y: number, m: number, d: number, h: string, min: string) => {
     const pad = (n: number) => String(n).padStart(2, "0");
-    const formatted = `${y}-${pad(m + 1)}-${pad(d)}T${h}:${min}`;
+    const formatted = `${y}-${pad(m + 1)}-${pad(d)}T${h}:${min}:00+07:00`;
     onChange(formatted);
   };
 
@@ -192,12 +183,10 @@ export function ThaiDateTimePicker({
   };
 
   const handleQuickPreset = (daysFromNow: number, targetTime = "23:59") => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysFromNow);
+    const now = new Date();
+    const targetDate = new Date(now.getTime() + daysFromNow * 24 * 60 * 60 * 1000);
+    const { year: y, month: m, day } = getThaiDateParts(targetDate);
     const [h, min] = targetTime.split(":");
-    const y = d.getFullYear();
-    const m = d.getMonth();
-    const day = d.getDate();
 
     setViewYear(y);
     setViewMonth(m);
@@ -211,7 +200,7 @@ export function ThaiDateTimePicker({
   };
 
   // Generate Year Options in Buddhist Year (พ.ศ.)
-  const currentCEYear = new Date().getFullYear();
+  const currentCEYear = getThaiDateParts(new Date()).year;
   const yearOptions: number[] = [];
   for (let y = currentCEYear - 4; y <= currentCEYear + 6; y++) {
     yearOptions.push(y);
@@ -231,11 +220,11 @@ export function ThaiDateTimePicker({
   };
 
   const isToday = (day: number) => {
-    const now = new Date();
+    const todayParts = getThaiDateParts(new Date());
     return (
-      now.getFullYear() === viewYear &&
-      now.getMonth() === viewMonth &&
-      now.getDate() === day
+      todayParts.year === viewYear &&
+      todayParts.month === viewMonth &&
+      todayParts.day === day
     );
   };
 

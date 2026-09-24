@@ -8,7 +8,7 @@ import { createAuditLog } from "@/lib/audit/logger";
 import { getSystemSetting } from "@/lib/settings/system-settings";
 import { attendanceEventBus } from "@/lib/attendance/attendance-events";
 import { checkTermCanEdit } from "@/lib/terms/term-service";
-import { formatThaiDate } from "@/lib/utils/date-thai";
+import { formatThaiDate, parseThaiDateTime } from "@/lib/utils/date-thai";
 import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
 
 export type AttendanceStatusType = "PRESENT" | "LATE" | "LEAVE" | "ABSENT";
@@ -63,9 +63,14 @@ export async function createAttendanceSessionAction(
       return { success: false, message: termCheck.reason };
     }
 
+    const parsedDate = parseThaiDateTime(dateStr);
+    if (!parsedDate) {
+      return { success: false, message: "วันที่ไม่ถูกต้อง" };
+    }
+
     const parsed = createSessionSchema.safeParse({
       title: rawTitle || undefined,
-      date: new Date(dateStr),
+      date: parsedDate,
       academicTerm,
       note,
       onTimeCutoffTime,
@@ -142,8 +147,8 @@ export async function createAttendanceSessionForDateAction(
     }
     const { user: currentUser } = authCheck;
 
-    const targetDate = new Date(dateStr);
-    if (isNaN(targetDate.getTime())) {
+    const targetDate = parseThaiDateTime(dateStr);
+    if (!targetDate) {
       return { success: false, message: "วันที่ไม่ถูกต้อง" };
     }
 
@@ -236,11 +241,16 @@ export async function updateAttendanceSessionInfoAction(
       }
     }
 
+    const parsedDate = parseThaiDateTime(dateStr);
+    if (!parsedDate) {
+      return { success: false, message: "วันที่ไม่ถูกต้อง" };
+    }
+
     await prisma.attendanceSession.update({
       where: { id: sessionId },
       data: {
         title,
-        date: new Date(dateStr),
+        date: parsedDate,
         academicTerm,
         note,
         onTimeCutoffTime,

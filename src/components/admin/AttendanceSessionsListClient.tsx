@@ -29,7 +29,7 @@ import {
 import { TablePagination } from "@/components/ui/TablePagination";
 import { SortableTableHeader, SortOrder } from "@/components/ui/SortableTableHeader";
 import { ActionDropdown } from "@/components/ui/ActionDropdown";
-import { formatThaiDate } from "@/lib/utils/date-thai";
+import { formatThaiDate, getThaiDateParts, getThaiTodayDateString } from "@/lib/utils/date-thai";
 import {
   createAttendanceSessionForDateAction,
   deleteAttendanceSessionAction,
@@ -88,25 +88,32 @@ export function AttendanceSessionsListClient({
   const router = useRouter();
   const [sessions, setSessions] = useState<SessionItem[]>(initialSessions);
 
-  // Map sessions by date: YYYY-MM-DD
+  const toSessionDateKey = (raw: string | Date) => {
+    const p = getThaiDateParts(raw);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${p.year}-${pad(p.month + 1)}-${pad(p.day)}`;
+  };
+
+  // Map sessions by date: YYYY-MM-DD (Thai Timezone)
   const sessionsByDate = new Map<string, SessionItem>();
   sessions.forEach((s) => {
-    const dateKey = new Date(s.date).toISOString().split("T")[0];
+    const dateKey = toSessionDateKey(s.date);
     sessionsByDate.set(dateKey, s);
   });
 
   // Calendar month state
   const initialDate = sessions.length > 0 ? new Date(sessions[0].date) : new Date();
-  const [currentYear, setCurrentYear] = useState(initialDate.getFullYear());
-  const [currentMonth, setCurrentMonth] = useState(initialDate.getMonth());
+  const initialParts = getThaiDateParts(initialDate);
+  const [currentYear, setCurrentYear] = useState(initialParts.year);
+  const [currentMonth, setCurrentMonth] = useState(initialParts.month);
 
   // Holidays Map from date-holidays library
   const holidaysMap = useMemo(() => getThaiHolidaysMap(currentYear), [currentYear]);
 
-  // Selected date state (defaults to first session or today)
-  const todayKey = new Date().toISOString().split("T")[0];
+  // Selected date state (defaults to first session or today in Thailand)
+  const todayKey = getThaiTodayDateString();
   const [selectedDateKey, setSelectedDateKey] = useState<string>(
-    sessions.length > 0 ? new Date(sessions[0].date).toISOString().split("T")[0] : todayKey
+    sessions.length > 0 ? toSessionDateKey(sessions[0].date) : todayKey
   );
 
   // View mode: 'calendar' (default) or 'list'

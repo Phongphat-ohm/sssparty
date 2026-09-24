@@ -27,14 +27,120 @@ export interface ThaiDateTimeOptions extends DateFormatOptions {
 }
 
 /**
- * แปลงค่า Input หลากหลายรูปแบบ (string, number, Date) เป็น Date Object อย่างปลอดภัย
+ * ดึงส่วนประกอบของวันและเวลา (ปี ค.ศ., เดือน 0-11, วันที่, ชั่วโมง, นาที, วินาที)
+ * ตามโซนเวลามาตรฐานประเทศไทย (Asia/Bangkok, UTC+7) เสมอ
  */
-export function toSafeDate(input: string | number | Date | null | undefined): Date | null {
+export function getThaiDateParts(input: string | number | Date | null | undefined): {
+  year: number;
+  month: number; // 0-indexed (0 = Jan, 11 = Dec)
+  day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  buddhistYear: number;
+} {
+  const d = toSafeDate(input) || new Date();
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    timeZone: THAI_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    hourCycle: "h23",
+  });
+  const parts = formatter.formatToParts(d);
+  const getPart = (type: string) => parseInt(parts.find((p) => p.type === type)?.value || "0", 10);
+
+  const year = getPart("year");
+  const month = getPart("month") - 1; // 1-12 -> 0-11
+  const day = getPart("day");
+  const hour = getPart("hour");
+  const minute = getPart("minute");
+  const second = getPart("second");
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    buddhistYear: year + 543,
+  };
+}
+
+/**
+ * หาวันที่ปัจจุบันในรูปแบบ "YYYY-MM-DD" ตามโซนเวลาประเทศไทย (Asia/Bangkok)
+ * ป้องกันปัญหา .toISOString().split("T")[0] ที่ได้วันของเมื่อวานในช่วง 00:00 - 06:59 น.
+ */
+export function getThaiTodayDateString(): string {
+  const { year, month, day } = getThaiDateParts(new Date());
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${year}-${pad(month + 1)}-${pad(day)}`;
+}
+
+/**
+ * แปลง Date หรือ ISO String ใดๆ ให้ออกมาเป็น "YYYY-MM-DDTHH:mm" ตามเวลาไทย (Asia/Bangkok)
+ * เหมาะสำหรับใช้เป็นค่าตั้งต้น (value) ให้กับ input datetime-local หรือ ThaiDateTimePicker
+ */
+export function formatThaiDateTimeLocalISO(input: string | number | Date | null | undefined): string {
+  if (!input) return "";
+  const d = toSafeDate(input);
+  if (!d) return "";
+  const { year, month, day, hour, minute } = getThaiDateParts(d);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${year}-${pad(month + 1)}-${pad(day)}T${pad(hour)}:${pad(minute)}`;
+}
+
+/**
+ * แปลง String หรือ Date ใดๆ ให้เป็น Date Object โดยตีความตามโซนเวลาประเทศไทย (Asia/Bangkok, UTC+7) เสมอ
+ * - หากรับ "YYYY-MM-DDTHH:mm" หรือ "YYYY-MM-DD HH:mm" ที่ไม่มี Offset จะต่อท้าย "+07:00" ทันที
+ * - หากรับ "YYYY-MM-DD" จะถือเป็น "YYYY-MM-DDT00:00:00+07:00"
+ * - หากรับ ISO String ที่มี Offset แล้ว (Z หรือ +07:00) จะ parse ได้เวลา UTC ตามจริง
+ */
+export function parseThaiDateTime(input: string | number | Date | null | undefined): Date | null {
   if (input === null || input === undefined || input === "") {
     return null;
   }
-  const date = input instanceof Date ? input : new Date(input);
-  return isNaN(date.getTime()) ? null : date;
+  if (input instanceof Date) {
+    return isNaN(input.getTime()) ? null : input;
+  }
+  if (typeof input === "number") {
+    const d = new Date(input);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  const str = String(input).trim();
+  if (!str) return null;
+
+  // Case 1: Date only "YYYY-MM-DD"
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+    const d = new Date(`${str}T00:00:00+07:00`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Case 2: DateTime without timezone offset "YYYY-MM-DDTHH:mm" or "YYYY-MM-DDTHH:mm:ss"
+  if (/^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(:\d{2})?$/.test(str)) {
+    const standardized = str.replace(" ", "T");
+    const withSeconds = standardized.split(":").length === 2 ? `${standardized}:00` : standardized;
+    const d = new Date(`${withSeconds}+07:00`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Case 3: DateTime already with timezone (Z, +XX:XX, -XX:XX) or standard format
+  const d = new Date(str);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
+ * แปลงค่า Input หลากหลายรูปแบบ (string, number, Date) เป็น Date Object อย่างปลอดภัย
+ * ตีความตามเขตเวลาประเทศไทย (Asia/Bangkok, UTC+7) เสมอ
+ */
+export function toSafeDate(input: string | number | Date | null | undefined): Date | null {
+  return parseThaiDateTime(input);
 }
 
 /**
