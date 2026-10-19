@@ -59,7 +59,7 @@ export function MarkdownViewer({ content, className = "" }: MarkdownViewerProps)
           ),
           li: ({ children }) => <li className="leading-relaxed">{children}</li>,
           blockquote: ({ children }) => (
-            <blockquote className="border-l-4 border-[#D9A441] bg-[#FFF9F0] p-3 rounded-r-2xl my-3 text-xs sm:text-sm text-[#6E5D4F] italic">
+            <blockquote className="border border-[#EADBCC] bg-[#FAF6F0] px-4 py-3 rounded-2xl my-3 text-xs sm:text-sm text-[#4A3E33] leading-relaxed">
               {children}
             </blockquote>
           ),

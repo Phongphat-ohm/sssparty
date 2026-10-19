@@ -61,10 +61,11 @@ export function StudentProgressChart({
           {collapsible && (
             <button
               type="button"
-              className="sm:hidden p-1.5 rounded-lg hover:bg-[#FAF0E1] text-[#7A6A5C]"
-              aria-label="Toggle Chart"
+              className="sm:hidden p-2 rounded-xl hover:bg-[#FAF0E1] text-[#7A6A5C] min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer"
+              aria-label={isExpanded ? "ย่อเก็บแผนภูมิ" : "ขยายดูแผนภูมิ"}
+              aria-expanded={isExpanded}
             >
-              {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+              {isExpanded ? <ChevronUp className="w-4 h-4" aria-hidden="true" /> : <ChevronDown className="w-4 h-4" aria-hidden="true" />}
             </button>
           )}
         </div>

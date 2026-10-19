@@ -46,39 +46,41 @@ export default function AdminLoginPage() {
 
         <form action={formAction} className="space-y-4 relative">
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
+            <label htmlFor="admin-username" className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
               ชื่อผู้ใช้งาน (Username)
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#A8988B]">
-                <User className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#7A6A5C]">
+                <User className="w-5 h-5" aria-hidden="true" />
               </span>
               <input
+                id="admin-username"
                 name="username"
                 type="text"
                 required
                 autoComplete="username"
                 placeholder="กรอกชื่อผู้ใช้งาน"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-sm text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
               />
             </div>
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
+            <label htmlFor="admin-password" className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
               รหัสผ่าน (Password)
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#A8988B]">
-                <Lock className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#7A6A5C]">
+                <Lock className="w-5 h-5" aria-hidden="true" />
               </span>
               <input
+                id="admin-password"
                 name="password"
                 type="password"
                 required
                 autoComplete="current-password"
                 placeholder="กรอกรหัสผ่าน"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-sm text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
               />
             </div>
           </div>
@@ -86,11 +88,11 @@ export default function AdminLoginPage() {
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3.5 px-4 rounded-xl font-semibold text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] transition-all shadow-md hover:shadow-lg disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 px-4 rounded-xl font-bold text-white bg-[#B94E48] hover:bg-[#A33F39] active:scale-[0.99] transition-all shadow-xs hover:shadow-md disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
           >
             {isPending ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-white" />
+                <Loader2 className="w-5 h-5 animate-spin text-white" aria-hidden="true" />
                 <span>กำลังตรวจสอบ...</span>
               </span>
             ) : (
@@ -107,7 +109,7 @@ export default function AdminLoginPage() {
             <ArrowLeft className="w-4 h-4" />
             เข้าสู่ระบบสำหรับนักเรียนส่งงาน
           </Link>
-          <p className="text-xs text-[#A8988B]">
+          <p className="text-xs text-[#7A6A5C]">
             ระบบห้องเรียนส่งงานและตรวจงานชุมนุมสื่อสร้างสรรค์
           </p>
         </div>

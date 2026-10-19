@@ -205,11 +205,14 @@ export default async function StudentDashboardPage() {
           <div className="bg-gradient-to-r from-amber-500 via-amber-600 to-orange-600 text-white rounded-3xl p-4 sm:p-5 shadow-lg flex flex-col sm:flex-row sm:items-center justify-between gap-3 animate-in slide-in-from-top-3">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xs flex items-center justify-center shrink-0">
-                <KeyRound className="w-6 h-6 text-amber-100 animate-bounce" />
+                <KeyRound className="w-6 h-6 text-amber-100" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="relative flex h-2.5 w-2.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75 motion-reduce:hidden" />
+                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+                  </span>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-amber-100">
                     กำลังเปิดรับเช็กชื่อ Real-Time!
                   </span>

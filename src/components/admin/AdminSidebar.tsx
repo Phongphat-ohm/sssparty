@@ -151,10 +151,11 @@ export function AdminSidebar({
         </div>
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 rounded-xl border border-[#EADBCC] text-[#3F342B] hover:bg-[#FAF6F0] transition-colors cursor-pointer"
-          aria-label="Toggle Menu"
+          className="p-2.5 rounded-xl border border-[#EADBCC] text-[#3F342B] hover:bg-[#FAF6F0] transition-colors cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label={isOpen ? "ปิดเมนูการนำทาง" : "เปิดเมนูการนำทาง"}
+          aria-expanded={isOpen}
         >
-          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          {isOpen ? <X className="w-5 h-5" aria-hidden="true" /> : <Menu className="w-5 h-5" aria-hidden="true" />}
         </button>
       </div>
 
@@ -251,7 +252,7 @@ export function AdminSidebar({
               <span>ออกจากระบบ</span>
             </button>
           </form>
-          <p className="text-[10px] text-center text-[#B5A597] mt-3">
+          <p className="text-[10px] text-center text-[#7A6A5C] mt-3 font-medium">
             ชุมนุมสื่อสร้างสรรค์ v1.0
           </p>
         </div>

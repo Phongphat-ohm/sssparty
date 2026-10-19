@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-19T17:02:00Z",
+  "title": "Design System: 3S Party",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Honey Amber",
+        "canonical": "#D9A441",
+        "tonalRamp": ["#422D07", "#734E0C", "#A87212", "#D9A441", "#E6BA6B", "#F0D295", "#FAEAC4", "#FCF5E3"]
+      },
+      "secondary": {
+        "role": "secondary",
+        "displayName": "Apricot Terracotta",
+        "canonical": "#C96B4B",
+        "tonalRamp": ["#3E1B10", "#6D2F1C", "#9D4429", "#C96B4B", "#D88B72", "#E6AC9B", "#F3CDC5", "#FAE6E2"]
+      },
+      "destructive": {
+        "role": "destructive",
+        "displayName": "Crimson Glaze",
+        "canonical": "#B94E48",
+        "tonalRamp": ["#391311", "#63201D", "#8F302B", "#B94E48", "#CD7570", "#DE9D99", "#EFC4C2", "#F7E1E0"]
+      },
+      "neutral-bg": {
+        "role": "neutral",
+        "displayName": "Warm Milk",
+        "canonical": "#FFF9F0",
+        "tonalRamp": ["#363028", "#5A5145", "#827666", "#ABA08E", "#D5CCBF", "#EBE4DA", "#F5F0E8", "#FFF9F0"]
+      },
+      "neutral-surface": {
+        "role": "neutral",
+        "displayName": "Whipped White",
+        "canonical": "#FFFFFF",
+        "tonalRamp": ["#202020", "#404040", "#686868", "#949494", "#C2C2C2", "#E4E4E4", "#F4F4F4", "#FFFFFF"]
+      },
+      "neutral-surface-subtle": {
+        "role": "neutral",
+        "displayName": "Biscuit Tint",
+        "canonical": "#FAF6F0",
+        "tonalRamp": ["#322E28", "#544E45", "#797166", "#A0988D", "#C8C1B7", "#E3DDD5", "#F2EEE8", "#FAF6F0"]
+      },
+      "neutral-border": {
+        "role": "neutral",
+        "displayName": "Waffle Sand",
+        "canonical": "#EADBCC",
+        "tonalRamp": ["#2D261E", "#504337", "#786756", "#A38E7A", "#CBB8A4", "#EADBCC", "#F4EDE5", "#FAF6F2"]
+      },
+      "neutral-border-focus": {
+        "role": "neutral",
+        "displayName": "Toasted Almond",
+        "canonical": "#D9CABB",
+        "tonalRamp": ["#27211A", "#483E32", "#6F604F", "#998671", "#C2B09A", "#D9CABB", "#ECE2D7", "#F6F1EC"]
+      },
+      "text-primary": {
+        "role": "neutral",
+        "displayName": "Deep Cocoa",
+        "canonical": "#3F342B",
+        "tonalRamp": ["#14100D", "#261F1A", "#3F342B", "#5C4E42", "#7E6D5E", "#A49281", "#CBBFA5", "#EBE5D8"]
+      },
+      "text-secondary": {
+        "role": "neutral",
+        "displayName": "Warm Espresso Muted",
+        "canonical": "#7A6A5C",
+        "tonalRamp": ["#1A1512", "#312923", "#50443A", "#7A6A5C", "#9E8E80", "#C1B4A8", "#E0D7CF", "#F2ECE7"]
+      },
+      "text-accent": {
+        "role": "primary",
+        "displayName": "Roasted Ochre",
+        "canonical": "#8C5D23",
+        "tonalRamp": ["#241505", "#442A0B", "#664115", "#8C5D23", "#B17E3F", "#CF9F64", "#E7C598", "#F6E4CD"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines and main stats." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles and major module headings." },
+      "title": { "displayName": "Title", "purpose": "Card titles and modal headings." },
+      "body": { "displayName": "Body", "purpose": "Standard reading text and assignment descriptions." },
+      "label": { "displayName": "Label", "purpose": "Badges, table headers, and button text." }
+    },
+    "shadows": [
+      {
+        "name": "subtle-surface",
+        "value": "0 1px 2px 0 rgba(63, 52, 43, 0.04)",
+        "purpose": "Soft separation for white cards over cream canvas without harsh drop-shadows."
+      },
+      {
+        "name": "lifted-focus",
+        "value": "0 4px 12px -2px rgba(217, 164, 65, 0.2)",
+        "purpose": "Golden halo elevation for focused inputs and hovered primary buttons."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.2, 0, 0, 1)",
+        "purpose": "Smooth deceleration curve for all state transitions."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Main call-to-action button in Honey Amber with Deep Cocoa text.",
+      "html": "<button class=\"ds-btn-primary\">เข้าสู่ระบบกิจกรรม</button>",
+      "css": ".ds-btn-primary { background: #D9A441; color: #3F342B; font-family: 'Kanit', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 12px; border: none; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; } .ds-btn-primary:hover { background: #C89535; transform: translateY(-1px); box-shadow: 0 4px 12px -2px rgba(217, 164, 65, 0.25); } .ds-btn-primary:focus-visible { outline: 2px solid #8C5D23; outline-offset: 2px; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Tactile secondary button with soft biscuit background and toasted almond border.",
+      "html": "<button class=\"ds-btn-secondary\">ยกเลิก</button>",
+      "css": ".ds-btn-secondary { background: #FAF6F0; color: #3F342B; font-family: 'Kanit', sans-serif; font-size: 14px; font-weight: 600; padding: 10px 20px; border-radius: 12px; border: 1px solid #D9CABB; cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; } .ds-btn-secondary:hover { background: #F3ECE2; border-color: #CBB9A7; } .ds-btn-secondary:focus-visible { outline: 2px solid #D9A441; outline-offset: 2px; }"
+    },
+    {
+      "name": "Content Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Whipped white content card with waffle sand border on warm cream canvas.",
+      "html": "<div class=\"ds-card\"><h3 class=\"ds-card-title\">ภารกิจสื่อสร้างสรรค์</h3><p class=\"ds-card-body\">ออกแบบอินโฟกราฟิกนำเสนอเรื่องราวของโรงเรียน</p></div>",
+      "css": ".ds-card { background: #FFFFFF; border: 1px solid #EADBCC; border-radius: 20px; padding: 24px; box-shadow: 0 1px 2px 0 rgba(63, 52, 43, 0.04); font-family: 'Kanit', sans-serif; } .ds-card-title { font-size: 18px; font-weight: 700; color: #3F342B; margin: 0 0 8px 0; } .ds-card-body { font-size: 14px; color: #7A6A5C; line-height: 1.5; margin: 0; }"
+    },
+    {
+      "name": "Text Input Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Warm biscuit input field with golden focus ring and accessible label.",
+      "html": "<div class=\"ds-input-group\"><label class=\"ds-label\" for=\"demo-input\">ชื่อผู้ใช้งาน / รหัสนักเรียน</label><input class=\"ds-input\" id=\"demo-input\" type=\"text\" placeholder=\"เช่น 45120\" /></div>",
+      "css": ".ds-input-group { display: flex; flex-direction: column; gap: 6px; font-family: 'Kanit', sans-serif; } .ds-label { font-size: 12px; font-weight: 600; color: #3F342B; } .ds-input { background: #FAF6F0; border: 1px solid #D9CABB; border-radius: 12px; padding: 10px 16px; font-size: 14px; color: #3F342B; font-family: inherit; min-height: 44px; transition: border-color 0.15s ease, box-shadow 0.15s ease; outline: none; } .ds-input::placeholder { color: #7A6A5C; opacity: 0.8; } .ds-input:focus { border-color: #D9A441; box-shadow: 0 0 0 3px rgba(217, 164, 65, 0.25); }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "High-contrast accessible status pill badge.",
+      "html": "<span class=\"ds-badge-submitted\">ส่งแล้ว</span>",
+      "css": ".ds-badge-submitted { display: inline-flex; align-items: center; padding: 4px 10px; border-radius: 9999px; background: rgba(217, 164, 65, 0.15); color: #8C5D23; font-family: 'Kanit', sans-serif; font-size: 12px; font-weight: 700; border: 1px solid rgba(217, 164, 65, 0.3); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Playful Maker Space",
+    "overview": "3S Party คือพื้นที่ปฏิบัติการและแพลตฟอร์มการเรียนรู้ร่วมกันของชุมนุมสื่อสร้างสรรค์ บรรยากาศทางสายตาถ่ายทอดพลังแห่งความกระตือรือร้น มีชีวิตชีวา และสนุกสนาน (Energetic & Playful) ผสานความอบอุ่น ละมุนตา สไตล์ 'Warm Confection' ที่ให้ความรู้สึกปลอดภัยในการทดลองลงมือทำ เสมือนสตูดิโอคราฟต์ที่เปิดต้อนรับนักเรียนทุกคนให้เข้ามาร่วมสนุกและแบ่งปันผลงานสร้างสรรค์",
+    "keyCharacteristics": [
+      "Warm & Welcoming: โทนสีครีมอบอุ่นสบายตา (Warm Milk #FFF9F0) พร้อมตัวหนังสือสีช็อกโกแลตเข้ม (Deep Cocoa #3F342B)",
+      "Tactile & Inviting: องค์ประกอบมีขอบโค้งมนนุ่มนวล (12px–24px) เหมือนงานคราฟต์ที่จับต้องได้",
+      "Flat & Clean Layering: ความลึกเกิดจากการซ้อนเลเยอร์ของเฉดสีและเส้นแบ่งที่บางเบา ไม่พึ่งพาเงาหนาทึบ",
+      "Accessible & High Contrast: ตัวอักษรและข้อมูลสำคัญมีความคมชัดสูง อ่านได้ชัดเจนในทุกสภาพแสง"
+    ],
+    "rules": [
+      {
+        "name": "The High-Contrast Readability Rule",
+        "body": "สีเหลือง Honey Amber (#D9A441) อนุญาตให้ใช้เฉพาะกับไอคอนตกแต่ง ป้ายขนาดใหญ่ หรือปุ่มที่มีพื้นหลังทึบเท่านั้น ห้ามใช้ #D9A441 เป็นสีตัวหนังสือบนพื้นขาวหรือพื้นครีมโดยเด็ดขาด หากต้องการข้อความเน้นโทนสีทอง ให้ใช้ Roasted Ochre (#8C5D23) หรือ Deep Cocoa (#3F342B) เสมอ",
+        "section": "colors"
+      },
+      {
+        "name": "The Warm Baseline Rule",
+        "body": "ห้ามใช้สีขาวบริสุทธิ์ (#FFFFFF) เป็นสีพื้นหลังหน้าจอ พื้นหลังของแอปพลิเคชันต้องเริ่มต้นด้วย Warm Milk (#FFF9F0) เสมอ",
+        "section": "colors"
+      },
+      {
+        "name": "The Triple-Weight Rule",
+        "body": "ในการโหลดฟอนต์เว็บ ให้จำกัดการดึงน้ำหนักของ Kanit ไว้เพียง 3 น้ำหนักหลักเท่านั้น คือ 400, 600, และ 700/800",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat-By-Default Rule",
+        "body": "การ์ด แผงควบคุม และกล่องข้อมูลต้องมีสถานะแบนราบเป็นค่าเริ่มต้น การสร้างมิติให้ใช้เส้นขอบ Waffle Sand (#EADBCC) หนา 1px ผสานความต่างระหว่างสีพื้นหลัง Whipped White (#FFFFFF) กับ Biscuit Tint (#FAF6F0) เท่านั้น",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do ใช้สีพื้นหลัง Warm Milk (#FFF9F0) และสีตัวหนังสือ Deep Cocoa (#3F342B) เป็นมาตรฐานหลักของทุกหน้า",
+      "Do ใช้ Roasted Ochre (#8C5D23) เสมอเมื่อต้องการเน้นสีทองบนข้อความ เพื่อให้ได้ Contrast Ratio ไม่ต่ำกว่า 4.5:1",
+      "Do ใส่ aria-label หรือชื่อกำกับในปุ่มไอคอนทุกตัวที่ไม่มีข้อความกำกับ",
+      "Do รองรับ prefers-reduced-motion ในแอนิเมชันทุกจุดเพื่อผู้ใช้งานที่ไวต่อการเคลื่อนไหว",
+      "Do กำหนดพื้นที่สัมผัส (Touch Target) ของปุ่มและฟิลด์กรอกข้อมูลให้มีขนาดอย่างน้อย 44x44px บนหน้าจอมือถือ"
+    ],
+    "donts": [
+      "Don't ใช้สีเหลือง #D9A441 เป็นสีตัวอักษรปกติบนพื้นหลังสีสว่างโดยเด็ดขาด",
+      "Don't ใช้แอนิเมชันเด้งกระดอนแบบ animate-bounce ที่ทำให้สายตาล้า",
+      "Don't ใช้เส้นขอบหนาด้านเดียวข้างการ์ด (Side-tab border-l-4) ซึ่งเป็นรูปแบบ UI เจนเนอเรตซ้ำซาก",
+      "Don't ใช้สีดำทึบสนิท (#000000) หรือสีขาวบริสุทธิ์แบบแข็งกร้าว (#FFFFFF) บนพื้นหลังหน้าหลัก",
+      "Don't ฮาร์ดโค้ดรหัสสี Hex แปลกแยกนอกเหนือจาก Palette หลักของ Warm Confection"
+    ]
+  }
+}

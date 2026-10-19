@@ -113,56 +113,59 @@ export function StudentLoginForm({
             <input type="hidden" name="redirect" value={redirectUrl} />
           )}
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
+            <label htmlFor="student-code" className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
               รหัสนักเรียน (Student Code)
             </label>
             <div className="relative">
-              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#A8988B]">
-                <Hash className="w-5 h-5" />
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#7A6A5C]">
+                <Hash className="w-5 h-5" aria-hidden="true" />
               </span>
               <input
+                id="student-code"
                 name="studentCode"
                 type="text"
                 required
                 autoComplete="off"
                 placeholder="กรอกรหัสประจำตัวนักเรียน"
-                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-sm text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
+              <label htmlFor="student-class" className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
                 ชั้นเรียน (Class)
               </label>
               <div className="relative">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#A8988B]">
-                  <School className="w-5 h-5" />
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-[#7A6A5C]">
+                  <School className="w-5 h-5" aria-hidden="true" />
                 </span>
                 <input
+                  id="student-class"
                   name="className"
                   type="text"
                   required
                   autoComplete="off"
                   placeholder="เช่น 4/1"
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-sm text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
+              <label htmlFor="student-no" className="text-xs font-semibold uppercase tracking-wider text-[#5A4D41]">
                 เลขที่ (No.)
               </label>
               <input
+                id="student-no"
                 name="studentNumber"
                 type="number"
                 min="1"
                 required
                 autoComplete="off"
                 placeholder="เช่น 1"
-                className="w-full px-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-[#3F342B] placeholder-[#B5A597] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
+                className="w-full px-4 py-3 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-sm text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] focus:border-transparent transition-all"
               />
             </div>
           </div>
@@ -170,11 +173,11 @@ export function StudentLoginForm({
           <button
             type="submit"
             disabled={isPending}
-            className="w-full py-3.5 px-4 rounded-xl font-semibold text-white bg-[#D9A441] hover:bg-[#C28F30] active:scale-[0.99] transition-all shadow-md hover:shadow-lg disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 px-4 rounded-xl font-bold text-[#3F342B] bg-[#D9A441] hover:bg-[#C89535] active:scale-[0.99] transition-all shadow-xs hover:shadow-md disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer min-h-[44px]"
           >
             {isPending ? (
               <span className="inline-flex items-center gap-2">
-                <Loader2 className="w-5 h-5 animate-spin text-white" />
+                <Loader2 className="w-5 h-5 animate-spin text-[#3F342B]" aria-hidden="true" />
                 <span>กำลังตรวจสอบ...</span>
               </span>
             ) : (
@@ -191,7 +194,7 @@ export function StudentLoginForm({
             สำหรับคุณครูผู้สอน เข้าสู่ระบบที่นี่
             <ArrowRight className="w-4 h-4" />
           </Link>
-          <p className="text-xs text-[#A8988B]">
+          <p className="text-xs text-[#7A6A5C]">
             ชุมนุมสื่อสร้างสรรค์ — อบอุ่น ปลอดภัย ส่งงานง่าย
           </p>
         </div>

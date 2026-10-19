@@ -18,6 +18,7 @@ import {
   Laptop,
   RefreshCw,
   Download,
+  Loader2,
   Copy,
   Check,
   Zap,
@@ -247,7 +248,11 @@ export function AuditLogsClient({ initialData }: AuditLogsClientProps) {
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#5A4D41] bg-white border border-[#D9CABB] hover:bg-[#FAF6F0] active:scale-95 transition-all shadow-2xs cursor-pointer disabled:opacity-50"
             title="ส่งออกประวัติการใช้งานตามเงื่อนไขที่เลือกเป็นไฟล์ CSV (UTF-8 BOM สำหรับ Excel)"
           >
-            <Download className={`w-3.5 h-3.5 ${isExporting ? "animate-bounce text-[#B94E48]" : ""}`} />
+            {isExporting ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-[#B94E48]" />
+            ) : (
+              <Download className="w-3.5 h-3.5" />
+            )}
             <span>{isExporting ? "กำลังส่งออก..." : "ดาวน์โหลด CSV"}</span>
           </button>
 

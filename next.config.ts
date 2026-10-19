@@ -4,6 +4,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   serverExternalPackages: ["@react-pdf/renderer"],
   experimental: {
+    optimizePackageImports: ["lucide-react"],
     serverActions: {
       bodySizeLimit: "50mb",
     },

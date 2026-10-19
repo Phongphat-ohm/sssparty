@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkles, GraduationCap, ShieldCheck, ArrowRight, FolderKanban, CheckCircle2 } from "lucide-react";
 import { getAuthSession } from "@/lib/auth/session";
+import { Badge } from "@/components/ui/Badge";
 
 export default async function HomePage() {
   const session = await getAuthSession();
@@ -50,10 +51,10 @@ export default async function HomePage() {
 
       {/* Hero Section */}
       <main className="max-w-4xl mx-auto px-4 py-16 text-center space-y-8 my-auto">
-        <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#FAF0E1] border border-[#EADBCC] text-xs font-semibold text-[#8C5D23]">
-          <Sparkles className="w-4 h-4 text-[#D9A441]" />
-          ระบบส่งงานและประเมินผลชุมนุมสื่อสร้างสรรค์
-        </div>
+        <Badge variant="gold" className="px-3.5 py-1.5 text-xs">
+          <Sparkles className="w-3.5 h-3.5 text-[#D9A441]" aria-hidden="true" />
+          <span>ระบบส่งงานและประเมินผลชุมนุมสื่อสร้างสรรค์</span>
+        </Badge>
 
         <div className="space-y-4 max-w-2xl mx-auto">
           <h1 className="text-4xl sm:text-5xl font-extrabold text-[#3F342B] tracking-tight leading-tight">
@@ -78,15 +79,15 @@ export default async function HomePage() {
                 <GraduationCap className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-xl font-bold text-[#3F342B] group-hover:text-[#D9A441] transition-colors">
+                <h3 className="text-xl font-bold text-[#3F342B] group-hover:text-[#8C5D23] transition-colors">
                   สำหรับนักเรียน
                 </h3>
                 <p className="text-xs text-[#7A6A5C] mt-1">
                   เข้าดูการบ้าน ตรวจสอบเกณฑ์ Rubric และอัปโหลดไฟล์ส่งงานได้สะดวกบนมือถือ
                 </p>
               </div>
-              <div className="inline-flex items-center gap-1 text-xs font-semibold text-[#D9A441]">
-                เข้าสู่ห้องเรียน <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+              <div className="inline-flex items-center gap-1 text-xs font-bold text-[#8C5D23]">
+                เข้าสู่ห้องเรียน <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" aria-hidden="true" />
               </div>
             </div>
           </Link>

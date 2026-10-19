@@ -137,7 +137,7 @@ export function MaintenanceCountdown({
     return (
       <div className={`p-4 sm:p-5 rounded-2xl bg-amber-50/80 border border-amber-300 text-center space-y-3 shadow-xs ${className}`}>
         <div className="flex items-center justify-center gap-2 text-amber-800 font-bold text-sm">
-          <Sparkles className="w-4 h-4 text-amber-600 animate-bounce" />
+          <Sparkles className="w-4 h-4 text-amber-600" />
           <span>ถึงกำหนดเวลาเปิดให้บริการแล้ว</span>
         </div>
         <p className="text-xs text-amber-700 leading-relaxed">

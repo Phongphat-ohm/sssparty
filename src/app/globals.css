@@ -3,6 +3,18 @@
 @theme {
   --font-sans: var(--font-kanit), 'Kanit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-kanit: var(--font-kanit), 'Kanit', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+
+  --color-warm-primary: #D9A441;
+  --color-warm-secondary: #C96B4B;
+  --color-warm-destructive: #B94E48;
+  --color-warm-bg: #FFF9F0;
+  --color-warm-surface: #FFFFFF;
+  --color-warm-surface-subtle: #FAF6F0;
+  --color-warm-border: #EADBCC;
+  --color-warm-border-subtle: #D9CABB;
+  --color-warm-text: #3F342B;
+  --color-warm-muted: #7A6A5C;
+  --color-warm-accent: #8C5D23;
 }
 
 @layer utilities {
@@ -50,4 +62,30 @@ body {
   background-color: var(--background);
   color: var(--foreground);
   min-height: 100vh;
+}
+
+::selection {
+  background-color: #F0D295;
+  color: #3F342B;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.001s !important;
+    animation-iteration-count: 1 !important;
+  }
+  .animate-spin,
+  .animate-bounce,
+  .animate-pulse {
+    animation: none !important;
+  }
+  .transition,
+  .transition-all,
+  .transition-colors,
+  .transition-opacity,
+  .transition-transform {
+    transition-duration: 0.05s !important;
+  }
 }

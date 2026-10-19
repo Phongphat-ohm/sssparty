@@ -3,14 +3,14 @@ import { Kanit, Sarabun } from "next/font/google";
 import "./globals.css";
 
 const kanit = Kanit({
-  weight: ["200", "300", "400", "500", "600", "700", "800", "900"],
+  weight: ["400", "500", "600", "700"],
   subsets: ["thai", "latin"],
   variable: "--font-kanit",
   display: "swap",
 });
 
 const sarabun = Sarabun({
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "700"],
   subsets: ["thai", "latin"],
   variable: "--font-sarabun",
   display: "swap",

@@ -1094,12 +1094,14 @@ export function StudentSubmissionForm({
 
                     <div className="ml-7">
                       <textarea
+                        id={`question-input-${q.id}`}
                         rows={2}
                         required={q.isRequired}
                         value={answersMap[q.id] || ""}
                         onChange={(e) => handleAnswerChange(q.id, e.target.value)}
                         placeholder="พิมพ์คำตอบของคุณ..."
-                        className="w-full px-3 py-2 rounded-xl border border-[#D9CABB] bg-white text-xs text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
+                        aria-label={`คำตอบสำหรับข้อที่ ${idx + 1}: ${q.questionText}`}
+                        className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CABB] bg-white text-base sm:text-xs text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all"
                       />
                     </div>
                   </div>
@@ -1110,16 +1112,17 @@ export function StudentSubmissionForm({
 
           {/* Optional Comment */}
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-[#5A4D41] flex items-center gap-1">
-              <MessageSquare className="w-3 h-3 text-[#A8988B]" />
+            <label htmlFor="student-submission-comment" className="text-[11px] font-semibold text-[#5A4D41] flex items-center gap-1">
+              <MessageSquare className="w-3 h-3 text-[#7A6A5C]" aria-hidden="true" />
               <span>หมายเหตุถึงครูผู้สอน (ถ้ามี)</span>
             </label>
             <textarea
+              id="student-submission-comment"
               rows={2}
               value={comment}
               onChange={(e) => setComment(e.target.value)}
               placeholder="พิมพ์ข้อความบันทึกเพิ่มเติม..."
-              className="w-full px-3 py-2 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-xs text-[#3F342B] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all leading-relaxed"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-[#D9CABB] bg-[#FAF6F0] text-base sm:text-xs text-[#3F342B] placeholder-[#7A6A5C] focus:outline-none focus:ring-2 focus:ring-[#D9A441] transition-all leading-relaxed"
             />
           </div>
 

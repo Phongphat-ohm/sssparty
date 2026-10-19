@@ -406,7 +406,7 @@ export function StudentAttendanceMap({
         {/* No Location Notice overlay if no coords */}
         {recordsWithCoords.length === 0 && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-stone-900/40 backdrop-blur-2xs text-white p-4 text-center">
-            <MapPin className="w-10 h-10 text-amber-400 mb-2 animate-bounce" />
+            <MapPin className="w-10 h-10 text-amber-400 mb-2 drop-shadow-sm" />
             <p className="font-bold text-sm">ยังไม่มีข้อมูลพิกัดของนักเรียนในรอบนี้</p>
             <p className="text-xs text-stone-300 mt-1 max-w-sm">
               เมื่อนักเรียนกดเช็กชื่อและเปิดแชร์ตำแหน่ง หมุดสีเขียว/แดงของนักเรียนจะปรากฏบนแผนที่นี้โดยอัตโนมัติ

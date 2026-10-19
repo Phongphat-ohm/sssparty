@@ -910,9 +910,10 @@ export function AcademicTermsClient({
                 type="button"
                 onClick={() => !isDeleting && setDeletingTerm(null)}
                 disabled={isDeleting}
-                className="text-[#7A6A5C] hover:text-[#3F342B] p-1 rounded-lg hover:bg-rose-50 cursor-pointer disabled:opacity-50"
+                aria-label="ปิดหน้าต่างลบภาคเรียน"
+                className="text-[#7A6A5C] hover:text-[#3F342B] p-2 rounded-xl hover:bg-rose-50 cursor-pointer disabled:opacity-50 min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5" aria-hidden="true" />
               </button>
             </div>
 
@@ -980,10 +981,14 @@ export function AcademicTermsClient({
                   <button
                     type="button"
                     onClick={() => setShowDeletePassword(!showDeletePassword)}
-                    tabIndex={-1}
-                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#7A6A5C] hover:text-[#3F342B] p-1 cursor-pointer"
+                    aria-label={showDeletePassword ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-[#7A6A5C] hover:text-[#3F342B] p-2 rounded-lg cursor-pointer flex items-center justify-center"
                   >
-                    {showDeletePassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showDeletePassword ? (
+                      <EyeOff className="w-4 h-4" aria-hidden="true" />
+                    ) : (
+                      <Eye className="w-4 h-4" aria-hidden="true" />
+                    )}
                   </button>
                 </div>
               </div>

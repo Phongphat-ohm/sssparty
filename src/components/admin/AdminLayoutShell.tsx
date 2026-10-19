@@ -71,7 +71,7 @@ export function AdminLayoutShell({
         {maintenanceMode && (
           <div className="bg-amber-500 text-white px-4 py-2 text-xs font-medium flex items-center justify-between shadow-xs z-10 shrink-0">
             <div className="flex items-center gap-2">
-              <Wrench className="w-4 h-4 animate-bounce" />
+              <Wrench className="w-4 h-4" />
               <span>
                 <strong>โหมดปรับปรุงระบบกำลังเปิดใช้งาน:</strong> นักเรียนจะไม่สามารถเข้าใช้งานหรือส่งงานได้
               </span>

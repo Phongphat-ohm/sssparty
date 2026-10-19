@@ -563,10 +563,11 @@ export function DynamicKeyProjectorModal({
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition-colors ml-1 cursor-pointer"
+            className="p-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white transition-colors ml-1 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+            aria-label="ปิดหน้าต่างฉายจอ"
             title="ปิดหน้าต่างฉายจอ"
           >
-            <X className="w-5 h-5" />
+            <X className="w-5 h-5" aria-hidden="true" />
           </button>
         </div>
       </div>
