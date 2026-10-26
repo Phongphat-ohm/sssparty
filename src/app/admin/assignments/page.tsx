@@ -50,6 +50,7 @@ export default async function AdminAssignmentsPage() {
       <AdminAssignmentsClient
         initialAssignments={assignmentItems}
         totalStudents={totalStudents}
+        selectedTerm={selectedTerm}
       />
     </div>
   );

@@ -29,6 +29,7 @@ import {
 import { registerThaiFonts } from "./fonts";
 import { getAppBaseUrl } from "@/lib/utils/url";
 import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 
 // ตรวจสอบและลงทะเบียนฟอนต์ไทยทันที
 registerThaiFonts();
@@ -107,7 +108,7 @@ export async function generateAssignmentReportPdf(params: {
     orderBy: [{ className: "asc" }, { studentNumber: "asc" }],
   });
 
-  const academicTerm = (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
+  const academicTerm = assignment.academicTerm || (await getAdminSelectedTerm()) || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
   const clubName =
     (await getSystemSetting("site_name")) ||
     "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
@@ -334,7 +335,7 @@ export async function generateAttendanceSessionReportPdf(params: {
     orderBy: [{ className: "asc" }, { studentNumber: "asc" }],
   });
 
-  const academicTerm = session.academicTerm || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
+  const academicTerm = session.academicTerm || (await getAdminSelectedTerm()) || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
   const clubName =
     (await getSystemSetting("site_name")) ||
     "ชุมนุมสื่อสร้างสรรค์ (3S Party – Creative Media Club)";
@@ -515,14 +516,15 @@ export async function generateAttendanceSessionReportPdf(params: {
  * 3. สร้างเอกสารรายงานประเมินผลการเรียนรู้รวม (Comprehensive Evaluation Report)
  */
 export async function generateEvaluationReportPdf(params: {
+  term?: string;
   filterClass?: string;
   isOfficial?: boolean;
   user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
-  const { filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
+  const { filterClass = "ALL", isOfficial = false, user, baseUrl, term } = params;
 
-  const result = await getComprehensiveEvaluationReportDataAction(filterClass);
+  const result = await getComprehensiveEvaluationReportDataAction(filterClass, term);
   if (!result.success || !result.data) {
     throw new Error(result.message || "ไม่สามารถดึงข้อมูลรายงานประเมินผลรวมได้");
   }
@@ -637,14 +639,15 @@ export async function generateEvaluationReportPdf(params: {
  * 4. สร้างเอกสารรายงานสรุปเวลาเรียนรวมทุกคาบตลอดภาคเรียน (Cumulative Attendance Summary Report)
  */
 export async function generateAttendanceSummaryReportPdf(params: {
+  term?: string;
   filterClass?: string;
   isOfficial?: boolean;
   user?: { id: string; username: string; name?: string | null };
   baseUrl?: string;
 }): Promise<ReportResult> {
-  const { filterClass = "ALL", isOfficial = false, user, baseUrl } = params;
+  const { filterClass = "ALL", isOfficial = false, user, baseUrl, term } = params;
 
-  const result = await getAttendanceSummaryReportDataAction(filterClass);
+  const result = await getAttendanceSummaryReportDataAction(filterClass, term);
   if (!result.success || !result.data) {
     throw new Error(result.message || "ไม่สามารถดึงข้อมูลรายงานสรุปเวลาเรียนรวมได้");
   }

@@ -49,8 +49,10 @@ export async function GET(req: NextRequest) {
     const filterClass = searchParams.get("className") || "ALL";
     const mode = searchParams.get("mode") || "preview";
     const isOfficial = mode === "official";
+    const term = searchParams.get("term") || undefined;
 
     const { pdfBuffer, fileName } = await generateEvaluationReportPdf({
+      term,
       filterClass,
       isOfficial,
       user: { id: user.id, username: user.username },

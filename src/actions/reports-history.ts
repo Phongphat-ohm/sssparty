@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { S3Client, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSystemSetting } from "@/lib/settings/system-settings";
 import { createAuditLog } from "@/lib/audit/logger";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 
 export interface GeneratedReportItem {
   id: string;
@@ -29,6 +30,7 @@ export interface GetGeneratedReportsParams {
   search?: string;
   targetClass?: string;
   reportType?: string;
+  academicTerm?: string;
 }
 
 export async function getGeneratedReportsAction(params: GetGeneratedReportsParams = {}) {
@@ -43,6 +45,16 @@ export async function getGeneratedReportsAction(params: GetGeneratedReportsParam
     const skip = (page - 1) * pageSize;
 
     const where: any = {};
+
+    // กรองภาคเรียน (Academic Term): หากไม่ได้ระบุให้ใช้เทอมที่แอดมินเลือกอยู่ปัจจุบันเป็นค่าเริ่มต้น
+    const targetTerm =
+      params.academicTerm !== undefined
+        ? params.academicTerm
+        : await getAdminSelectedTerm();
+
+    if (targetTerm && targetTerm !== "ALL") {
+      where.academicTerm = targetTerm;
+    }
 
     if (params.search && params.search.trim()) {
       const q = params.search.trim();
@@ -184,7 +196,7 @@ import { DEFAULT_ACADEMIC_TERM } from "@/lib/constants/defaults";
  */
 export async function getNextReportCode(academicTerm?: string): Promise<string> {
   try {
-    const term = academicTerm || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
+    const term = academicTerm || (await getAdminSelectedTerm()) || (await getSystemSetting("academic_term")) || DEFAULT_ACADEMIC_TERM;
     const yearMatch = term.match(/\d{4}/);
     const termYear = yearMatch ? yearMatch[0] : String(new Date().getFullYear() + 543);
     const prefix = `DOC-3S-${termYear}-`;

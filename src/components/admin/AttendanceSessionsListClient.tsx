@@ -421,7 +421,7 @@ export function AttendanceSessionsListClient({
                     label: "ส่งออกสรุปเวลาเรียน (.csv)",
                     subLabel: "ดาวน์โหลดไฟล์ Excel/CSV สรุปเวลาเรียนทั้งหมด",
                     icon: FileSpreadsheet,
-                    href: "/api/export/attendance",
+                    href: currentTerm ? `/api/export/attendance?term=${encodeURIComponent(currentTerm)}` : "/api/export/attendance",
                     download: true,
                   },
                 ],
@@ -1022,7 +1022,8 @@ export function AttendanceSessionsListClient({
         title="แบบรายงานสรุปเวลาเรียนกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
         filename="แบบรายงานสรุปเวลาเรียนสะสม_กิจกรรมชุมนุม"
         orientation="portrait"
-        pdfApiUrl="/api/export/attendance/render?type=summary&className=ALL&mode=preview"
+        pdfApiUrl={`/api/export/attendance/render?type=summary&className=ALL&mode=preview${currentTerm ? `&term=${encodeURIComponent(currentTerm)}` : ""}`}
+        term={currentTerm}
         reportType="ATTENDANCE_SUMMARY"
         filterClass="ALL"
       />
@@ -1041,6 +1042,7 @@ export function AttendanceSessionsListClient({
           pdfApiUrl={`/api/export/attendance/render?sessionId=${selectedSessionForPdf.id}&className=ALL&mode=preview`}
           reportType="ATTENDANCE"
           sessionId={selectedSessionForPdf.id}
+          term={selectedSessionForPdf.academicTerm}
           filterClass="ALL"
         />
       )}

@@ -5,6 +5,7 @@ import { hasAdminPermission } from "@/lib/auth/permissions";
 import { generateCsvString, createCsvResponse } from "@/lib/export/csv-helper";
 import { createAuditLog } from "@/lib/audit/logger";
 import { formatThaiDate, formatThaiTime } from "@/lib/utils/date-thai";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 
 export const dynamic = "force-dynamic";
 
@@ -132,7 +133,9 @@ export async function GET(req: NextRequest) {
     }
 
     // กรณีที่ 2: ส่งออกสรุปเวลาเรียนรวมทั้งภาคเรียน (Overall Attendance Summary)
+    const academicTerm = searchParams.get("term") || (await getAdminSelectedTerm());
     const sessions = await prisma.attendanceSession.findMany({
+      where: { academicTerm },
       orderBy: { date: "asc" },
       include: {
         records: true,
@@ -212,14 +215,15 @@ export async function GET(req: NextRequest) {
 
     const csvContent = generateCsvString(rows);
     const classSuffix = filterClass !== "ALL" ? `_ห้อง_${filterClass}` : "_ทุกห้อง";
-    const filename = `สรุปเวลาเรียนกิจกรรมชุมนุม${classSuffix}.csv`;
+    const cleanTerm = academicTerm.replace(/[/\\?%*:|"<>]/g, "-");
+    const filename = `สรุปเวลาเรียนกิจกรรมชุมนุม_ภาคเรียน_${cleanTerm}${classSuffix}.csv`;
 
     await createAuditLog({
       username: session.username,
       role: "ADMIN",
       action: "SETTINGS_UPDATE",
       targetType: "ATTENDANCE",
-      details: `ส่งออกสรุปเวลาเรียนรวมทุกคาบเป็น CSV (${students.length} คน, ${totalSessions} คาบ)`,
+      details: `ส่งออกสรุปเวลาเรียนรวมภาคเรียน ${academicTerm} เป็น CSV (${students.length} คน, ${totalSessions} คาบ)`,
     });
 
     return createCsvResponse(csvContent, filename);

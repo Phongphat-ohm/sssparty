@@ -40,9 +40,15 @@ interface ReportHistoryClientProps {
     };
     message?: string;
   };
+  currentSelectedTerm?: string;
+  availableTerms?: string[];
 }
 
-export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
+export function ReportHistoryClient({
+  initialData,
+  currentSelectedTerm = "",
+  availableTerms = [],
+}: ReportHistoryClientProps) {
   const [data, setData] = useState(
     initialData.data || {
       items: [],
@@ -57,18 +63,26 @@ export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
   // Filters
   const [search, setSearch] = useState("");
   const [targetClass, setTargetClass] = useState("ALL");
+  const [selectedTerm, setSelectedTerm] = useState<string>(currentSelectedTerm || "ALL");
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
 
   // Modal preview state
   const [previewReport, setPreviewReport] = useState<GeneratedReportItem | null>(null);
 
-  const fetchReports = (targetPage = data.page, targetPageSize = data.pageSize) => {
+  const fetchReports = (
+    targetPage = data.page,
+    targetPageSize = data.pageSize,
+    searchQuery = search,
+    filterClass = targetClass,
+    termQuery = selectedTerm
+  ) => {
     startTransition(async () => {
       const res = await getGeneratedReportsAction({
         page: targetPage,
         pageSize: targetPageSize,
-        search,
-        targetClass,
+        search: searchQuery,
+        targetClass: filterClass,
+        academicTerm: termQuery,
       });
       if (res.success && res.data) {
         setData(res.data);
@@ -178,20 +192,34 @@ export function ReportHistoryClient({ initialData }: ReportHistoryClientProps) {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* Term Filter */}
+            <select
+              value={selectedTerm}
+              onChange={(e) => {
+                const newTerm = e.target.value;
+                setSelectedTerm(newTerm);
+                fetchReports(1, data.pageSize, search, targetClass, newTerm);
+              }}
+              className="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-semibold bg-[#FAF6F0] border border-[#EADBCC] text-[#3F342B] focus:outline-hidden focus:ring-2 focus:ring-[#D9A441]/20 focus:border-[#D9A441] cursor-pointer"
+            >
+              {availableTerms && availableTerms.length > 0 ? (
+                availableTerms.map((t) => (
+                  <option key={t} value={t}>
+                    ภาคเรียน {t} {t === currentSelectedTerm ? "(ปัจจุบัน)" : ""}
+                  </option>
+                ))
+              ) : currentSelectedTerm ? (
+                <option value={currentSelectedTerm}>ภาคเรียน {currentSelectedTerm}</option>
+              ) : null}
+              <option value="ALL">ทุกภาคเรียน (All Terms)</option>
+            </select>
+
             <select
               value={targetClass}
               onChange={(e) => {
                 setTargetClass(e.target.value);
                 // Trigger auto-fetch on class change
-                startTransition(async () => {
-                  const res = await getGeneratedReportsAction({
-                    page: 1,
-                    pageSize: data.pageSize,
-                    search,
-                    targetClass: e.target.value,
-                  });
-                  if (res.success && res.data) setData(res.data);
-                });
+                fetchReports(1, data.pageSize, search, e.target.value, selectedTerm);
               }}
               className="flex-1 sm:flex-initial px-3 py-2 rounded-xl text-xs font-semibold bg-[#FAF6F0] border border-[#EADBCC] text-[#3F342B] focus:outline-hidden focus:ring-2 focus:ring-[#D9A441]/20 focus:border-[#D9A441] cursor-pointer"
             >

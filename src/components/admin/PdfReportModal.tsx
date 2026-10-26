@@ -36,6 +36,7 @@ export interface PdfReportModalProps {
   assignmentId?: string;
   sessionId?: string;
   filterClass?: string;
+  term?: string;
   isAlreadyOfficial?: boolean;
   onSavedOfficial?: (reportCode: string, fileUrl?: string | null) => void;
 }
@@ -52,6 +53,7 @@ export function PdfReportModal({
   assignmentId,
   sessionId,
   filterClass = "ALL",
+  term,
   isAlreadyOfficial = false,
   onSavedOfficial,
 }: PdfReportModalProps) {
@@ -175,6 +177,7 @@ export function PdfReportModal({
       } else if (reportType === "ATTENDANCE") {
         if (!sessionId) {
           res = await saveOfficialAttendanceSummaryReportAction({
+          term,
             filterClass,
           });
         } else {
@@ -185,10 +188,12 @@ export function PdfReportModal({
         }
       } else if (reportType === "ATTENDANCE_SUMMARY") {
         res = await saveOfficialAttendanceSummaryReportAction({
+          term,
           filterClass,
         });
       } else if (reportType === "EVALUATION") {
         res = await saveOfficialEvaluationReportAction({
+          term,
           filterClass,
         });
       } else {

@@ -57,11 +57,13 @@ export interface AssignmentItem {
 interface AdminAssignmentsClientProps {
   initialAssignments: AssignmentItem[];
   totalStudents: number;
+  selectedTerm?: string;
 }
 
 export function AdminAssignmentsClient({
   initialAssignments,
   totalStudents,
+  selectedTerm = "",
 }: AdminAssignmentsClientProps) {
   const [assignments, setAssignments] = useState<AssignmentItem[]>(initialAssignments);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
@@ -207,7 +209,7 @@ export function AdminAssignmentsClient({
                     label: "ส่งออกสมุดคะแนน (.csv)",
                     subLabel: "ดาวน์โหลดคะแนนรวมทุกการบ้านเป็น Excel/CSV",
                     icon: FileSpreadsheet,
-                    href: "/api/export/gradebook",
+                    href: selectedTerm ? `/api/export/gradebook?term=${encodeURIComponent(selectedTerm)}` : "/api/export/gradebook",
                     download: true,
                   },
                 ],
@@ -542,7 +544,8 @@ export function AdminAssignmentsClient({
           title="แบบรายงานสรุปผลการเรียนรู้และการเข้าร่วมกิจกรรมพัฒนาผู้เรียน (กิจกรรมชุมนุม)"
           orientation="landscape"
           filename={`รายงานผลการเรียนรู้_${evaluationReportData.clubName.replace(/\s+/g, "_")}_${evaluationReportData.academicTerm.replace(/[\/\\]/g, "-")}`}
-          pdfApiUrl="/api/export/evaluation/render?className=ALL&mode=preview"
+          pdfApiUrl={`/api/export/evaluation/render?className=ALL&mode=preview${selectedTerm ? `&term=${encodeURIComponent(selectedTerm)}` : ""}`}
+          term={selectedTerm}
           reportType="EVALUATION"
           filterClass="ALL"
           htmlContent={generateComprehensiveEvaluationReportHtml(evaluationReportData)}

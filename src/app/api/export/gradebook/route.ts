@@ -4,6 +4,7 @@ import { getAuthSession } from "@/lib/auth/session";
 import { hasAdminPermission } from "@/lib/auth/permissions";
 import { generateCsvString, createCsvResponse } from "@/lib/export/csv-helper";
 import { createAuditLog } from "@/lib/audit/logger";
+import { getAdminSelectedTerm } from "@/lib/terms/term-service";
 
 export const dynamic = "force-dynamic";
 
@@ -39,10 +40,11 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const filterClass = searchParams.get("className") || "ALL";
+    const academicTerm = searchParams.get("term") || (await getAdminSelectedTerm());
 
     // ดึงการบ้านที่เผยแพร่ทั้งหมด
     const assignments = await prisma.assignment.findMany({
-      where: { status: "PUBLISHED" },
+      where: { status: "PUBLISHED", academicTerm },
       orderBy: { createdAt: "asc" },
       include: {
         submissions: {
@@ -142,14 +144,15 @@ export async function GET(req: NextRequest) {
 
     const csvContent = generateCsvString(rows);
     const classSuffix = filterClass !== "ALL" ? `_ห้อง_${filterClass}` : "_ทุกห้อง";
-    const filename = `สมุดคะแนนรวม${classSuffix}.csv`;
+    const cleanTerm = academicTerm.replace(/[/\\?%*:|"<>]/g, "-");
+    const filename = `สมุดคะแนนรวม_ภาคเรียน_${cleanTerm}${classSuffix}.csv`;
 
     await createAuditLog({
       username: session.username,
       role: "ADMIN",
       action: "SETTINGS_UPDATE",
       targetType: "ASSIGNMENT",
-      details: `ส่งออกสมุดคะแนนรวมทุกการบ้านเป็น CSV (${students.length} คน, ${assignments.length} ชิ้นงาน)`,
+      details: `ส่งออกสมุดคะแนนรวมภาคเรียน ${academicTerm} เป็น CSV (${students.length} คน, ${assignments.length} ชิ้นงาน)`,
     });
 
     return createCsvResponse(csvContent, filename);

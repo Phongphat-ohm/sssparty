@@ -113,6 +113,7 @@ export async function saveOfficialAttendanceReportAction(params: {
  * ครูยืนยันบันทึกรายงานประเมินผลรวมฉบับสมบูรณ์ (Official) ลง S3 และออกรหัสรายงานพร้อม QR Code
  */
 export async function saveOfficialEvaluationReportAction(params: {
+  term?: string;
   filterClass?: string;
 }) {
   try {
@@ -124,6 +125,7 @@ export async function saveOfficialEvaluationReportAction(params: {
     const baseUrl = await getRequestBaseUrl();
 
     const result = await generateEvaluationReportPdf({
+      term: params.term,
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
       user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },
@@ -152,6 +154,7 @@ export async function saveOfficialEvaluationReportAction(params: {
  * ครูยืนยันบันทึกรายงานสรุปเวลาเรียนสะสมรวมทุกคาบฉบับสมบูรณ์ (Official) ลง S3 และออกรหัสรายงานพร้อม QR Code
  */
 export async function saveOfficialAttendanceSummaryReportAction(params: {
+  term?: string;
   filterClass?: string;
 }) {
   try {
@@ -163,6 +166,7 @@ export async function saveOfficialAttendanceSummaryReportAction(params: {
     const baseUrl = await getRequestBaseUrl();
 
     const result = await generateAttendanceSummaryReportPdf({
+      term: params.term,
       filterClass: params.filterClass || "ALL",
       isOfficial: true,
       user: { id: currentUser.id, username: currentUser.username, name: currentUser.name },

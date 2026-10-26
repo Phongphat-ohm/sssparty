@@ -46,6 +46,7 @@ export async function GET(req: NextRequest) {
     const isOfficial = mode === "official";
     const sessionId = searchParams.get("sessionId");
     const reportType = searchParams.get("type"); // "summary" หรือ "session"
+    const term = searchParams.get("term") || undefined;
 
     // กรณีที่ 1: รายงานเช็กชื่อประจำวัน/ประจำรอบ (เมื่อระบุ sessionId และไม่ได้ระบุ type=summary)
     if (sessionId && reportType !== "summary") {
@@ -70,6 +71,7 @@ export async function GET(req: NextRequest) {
     // กรณีที่ 2: รายงานสรุปเวลาเรียนสะสมรวมทุกวันตลอดภาคเรียน (เมื่อไม่มี sessionId หรือระบุ type=summary)
     const { pdfBuffer, fileName } =
       await generateAttendanceSummaryReportPdf({
+        term,
         filterClass,
         isOfficial,
         user: { id: user.id, username: user.username },
